@@ -1,4 +1,8 @@
-import json
+# The MIT License (MIT)
+# Copyright © 2023 Yuma Rao
+# TODO(developer): Taoshi
+# Copyright © 2023 TARVIS Labs, LLC
+
 import os
 
 
