@@ -4,6 +4,8 @@
 # Copyright © 2023 TARVIS Labs, LLC
 
 from datetime import datetime
+from typing import List
+
 import requests
 from requests import Response
 import time
@@ -49,7 +51,7 @@ class BinanceData:
                 raise ConnectionError("max number of retries exceeded trying to get binance data")
 
     @staticmethod
-    def convert_output_to_data_points(data_structure: list[list], days_data: list[list]):
+    def convert_output_to_data_points(data_structure: List[List], days_data: List[List]):
         """
         return open, high, low, vol
         close ind 4
@@ -64,7 +66,7 @@ class BinanceData:
             data_structure[3].append(float(tf_row[5]))
 
     @staticmethod
-    def get_data_and_structure_data_points(data_structure: list[list], ts_range: list[int]):
+    def get_data_and_structure_data_points(data_structure: List[List], ts_range: List[int]):
         bd = BinanceData().get_historical_data(start=ts_range[0],
                                                end=ts_range[1]).json()
         if "msg" in bd:

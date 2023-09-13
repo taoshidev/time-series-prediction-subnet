@@ -15,6 +15,30 @@ class BaseDataClass:
     def __post_init__(self):
         self.schema_integrity_check()
 
+    def equal_base_class_check(self, other):
+        if not isinstance(other, BaseDataClass):
+            return False
+        fields_list = fields(self)
+        # Compare all fields for equality
+        for field in fields_list:
+            field_name = field.name
+            field_value_self = getattr(self, field_name)
+            field_value_other = getattr(other, field_name)
+
+            if isinstance(field_value_self, np.ndarray):
+                # Compare NumPy arrays using np.array_equal()
+                if not np.array_equal(field_value_self, field_value_other):
+                    return False
+                # for elem1, elem2 in zip(field_value_self, field_value_other):
+                #     if isinstance(elem1, np.ndarray) and isinstance(elem2, np.ndarray):
+                #         if not np.array_equal(elem1, elem2):
+                #             return False
+                #     elif elem1 != elem2:
+                #         return False
+            elif field_value_self != field_value_other:
+                return False
+        return True
+
     def schema_integrity_check(self):
         def t_list_check(f, f_t):
             if f_t == int or f_t == float:
@@ -28,6 +52,9 @@ class BaseDataClass:
                     or field.type == list[int]:
                 if getattr(self, field.name) is not None:
                     t_list_check(field, type(getattr(self, field.name)[0]))
+            elif field.type == list[list[float]]:
+                if getattr(self, field.name) is not None:
+                    t_list_check(field, type(getattr(self, field.name)[0][0]))
             elif field.type == dict[str, list[float]] \
                     or field.type == dict[str, list[int]]:
                 if getattr(self, field.name) is not None:

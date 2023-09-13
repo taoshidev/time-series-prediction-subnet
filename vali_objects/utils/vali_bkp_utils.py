@@ -9,73 +9,59 @@ import pickle
 from datetime import datetime
 
 from vali_config import ValiConfig
+from vali_objects.dataclasses.prediction_output import PredictionOutput
 
 
 class ValiBkpUtils:
 
     @staticmethod
-    def get_vali_bkp_dir():
+    def get_vali_bkp_dir() -> str:
         return ValiConfig.BASE_DIR + '/validation/backups/'
 
     @staticmethod
-    def get_vali_data_file():
+    def get_vali_data_file() -> str:
         return 'valirecords.json'
 
     @staticmethod
-    def get_vali_responses_dir():
+    def get_vali_predictions_dir() -> str:
         return ValiConfig.BASE_DIR + '/validation/predictions/'
 
     @staticmethod
-    def get_response_filename(request_uuid: str):
+    def get_response_filename(request_uuid: str) -> str:
         return str(request_uuid) + ".pickle"
 
     @staticmethod
-    def make_dir(vali_dir: str):
+    def make_dir(vali_dir: str) -> None:
         if not os.path.exists(vali_dir):
             os.makedirs(vali_dir)
 
     @staticmethod
-    def get_write_type(is_pickle: bool):
-        if is_pickle:
-            write_type = 'wb'
-        else:
-            write_type = 'w'
-        return write_type
+    def get_write_type(is_pickle: bool) -> str:
+        return 'wb' if is_pickle else 'w'
 
     @staticmethod
-    def get_read_type(is_pickle: bool):
-        if is_pickle:
-            write_type = 'rb'
-        else:
-            write_type = 'r'
-        return write_type
+    def get_read_type(is_pickle: bool) -> str:
+        return 'rb' if is_pickle else 'r'
 
     @staticmethod
-    def write_to_vali_dir(vali_file: str, vali_data: dict | object, is_pickle: bool = False):
+    def write_to_vali_dir(vali_file: str, vali_data: dict | object, is_pickle: bool = False) -> None:
         with open(vali_file, ValiBkpUtils.get_write_type(is_pickle)) as f:
-            if is_pickle:
-                pickle.dump(vali_data, f)
-            else:
-                print(vali_data)
-                f.write(json.dumps(vali_data))
+            pickle.dump(vali_data, f) if is_pickle else f.write(json.dumps(vali_data))
         f.close()
 
     @staticmethod
-    def write_vali_file(vali_dir: str, file_name: str, vali_data: dict | object, is_pickle: bool = False):
+    def write_vali_file(vali_dir: str, file_name: str, vali_data: dict | object, is_pickle: bool = False) -> None:
         # will concat dir and file name
         ValiBkpUtils.make_dir(vali_dir)
         ValiBkpUtils.write_to_vali_dir(vali_dir + file_name, vali_data, is_pickle)
 
     @staticmethod
-    def get_vali_file(vali_file, is_pickle: bool = False):
+    def get_vali_file(vali_file, is_pickle: bool = False) -> str | PredictionOutput:
         with open(vali_file, ValiBkpUtils.get_read_type(is_pickle)) as f:
-            if is_pickle:
-                return pickle.load(f)
-            else:
-                return f.read()
+            return pickle.load(f) if is_pickle else f.read()
 
     @staticmethod
-    def get_all_files_in_dir(vali_dir: str):
+    def get_all_files_in_dir(vali_dir: str) -> list[str]:
         all_files = []
         for filename in os.listdir(vali_dir):
             if os.path.isfile(os.path.join(vali_dir, filename)):
@@ -83,7 +69,7 @@ class ValiBkpUtils:
         return all_files
 
     @staticmethod
-    def delete_stale_files(vali_dir: str):
+    def delete_stale_files(vali_dir: str) -> None:
         current_date = datetime.now()
         for filename in os.listdir(vali_dir):
             file_path = os.path.join(vali_dir, filename)

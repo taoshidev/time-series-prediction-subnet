@@ -193,117 +193,6 @@ def main(config):
             exit()
 
 
-def get_vali_records() -> dict:
-    # first ensure memory and bkp align
-    try:
-        ValiUtils.check_memory_matches_bkp()
-    except ValiMemoryMissingException:
-        bt_logger.info("memory data is missing, attempting to load from bkp!")
-        ValiUtils.set_memory_with_bkp()
-        get_vali_records()
-    except ValiKeyMisalignmentException:
-        bt_logger.info("bkp and memory don't match in existing data. Reloading memory from bkp!")
-        ValiUtils.set_memory_with_bkp()
-        get_vali_records()
-    except ValiMemoryCorruptDataException:
-        bt_logger.error("bkp data in unexpected format. Please download bkp from available source of truth vali.")
-        raise ValiMemoryCorruptDataException
-    except Exception as e:
-        bt.logging.error(e)
-        traceback.print_exc()
-    else:
-        return ValiUtils.get_vali_memory_json()
-
-
-def calculate_weighted_rmse(predictions: np, actual: np) -> float:
-    predictions = np.array(predictions)
-    actual = np.array(actual)
-
-    k = 0.01
-
-    weights = np.exp(-k * np.arange(len(predictions)))
-
-    weighted_squared_errors = weights * (predictions - actual) ** 2
-    weighted_rmse = np.sqrt(np.sum(weighted_squared_errors) / np.sum(weights))
-
-    return weighted_rmse
-
-
-def calculate_directional_accuracy(predictions: np, actual: np) -> float:
-    pred_len = len(predictions)
-
-    pred_dir = np.sign([predictions[i] - predictions[i - 1] for i in range(1, pred_len)])
-    actual_dir = np.sign([actual[i] - actual[i - 1] for i in range(1, pred_len)])
-
-    correct_directions = 0
-
-    for i in range(0, pred_len):
-        correct_directions += actual_dir[i] == pred_dir[i]
-
-    return correct_directions / pred_len
-
-
-def score_response(predictions: np, actual: np) -> float:
-    if len(predictions) != len(actual):
-        return 0
-
-    rmse = calculate_weighted_rmse(predictions, actual)
-    da = calculate_directional_accuracy(predictions, actual)
-
-    # geometric mean
-    return np.sqrt(rmse * da)
-
-
-def count_decimal_places(number):
-    number_str = str(number)
-
-    if '.' in number_str:
-        integer_part, fractional_part = number_str.split('.')
-        return len(fractional_part)
-    else:
-        # If there's no decimal point, return 0
-        return 0
-
-
-def scale_values(v: np) -> (float, np):
-    avg = np.mean(v)
-    k = ValiConfig.SCALE_FACTOR
-    return float(avg), np.array([np.tanh(k * (x - avg)) for x in v])
-
-
-def scale_data_structure(ds: list[list]) -> (list[float], list[int], np):
-    scaled_data_structure = []
-    averages = []
-    dp_decimal_places = []
-
-    for dp in ds:
-        avg, scaled_data_point = scale_values(dp)
-        averages.append(avg)
-        dp_decimal_places.append(count_decimal_places(dp[0]))
-        scaled_data_structure.append(scaled_data_point)
-    return averages, dp_decimal_places, np.array(scaled_data_structure)
-
-
-def unscale_values(avg: float, decimal_places: int, v: np) -> np:
-    k = ValiConfig.SCALE_FACTOR
-    return np.array([np.round(avg + (1 / k) * np.arctanh(x), decimals=decimal_places) for x in v])
-
-
-def unscale_data_structure(avgs: list[float], dp_decimal_places: list[int], sds: np) -> np:
-    usds = []
-    for i, dp in enumerate(sds):
-        usds.append(unscale_values(avgs[i], dp_decimal_places[i], dp))
-    return usds
-
-
-# def scale_scores(scores: dict[str, float]) -> dict[str, float]:
-#     avg_score = sum([score for miner_uid, score in scores.items()]) / len(scores)
-#     scaled_scores_map = {}
-#     for miner_uid, score in scores.items():
-#         scaled_scores_map[miner_uid] = 1 - math.e ** (-1 / (score / avg_score))
-#     return scaled_scores_map
-
-
 def main2(config):
     # Set up logging with the provided configuration and directory.
     bt_logger.info(
@@ -344,6 +233,8 @@ def main2(config):
     bt_logger.info("Building validation weights.")
     scores = torch.ones_like(metagraph.S, dtype=torch.float32)
     bt_logger.info(f"Weights: {scores}")
+
+    #
 
     days = ValiConfig.HISTORICAL_DATA_LOOKBACK_DAYS
 

@@ -5,7 +5,7 @@
 
 import typing
 import bittensor as bt
-from pydantic import Field, BaseModel
+from pydantic import Field
 
 from typing import List
 

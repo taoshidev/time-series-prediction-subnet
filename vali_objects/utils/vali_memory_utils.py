@@ -9,9 +9,9 @@ import os
 class ValiMemoryUtils:
 
     @staticmethod
-    def get_vali_memory():
+    def get_vali_memory() -> str:
         return os.getenv("vm")
 
     @staticmethod
-    def set_vali_memory(vm):
+    def set_vali_memory(vm) -> None:
         os.environ["vm"] = vm

@@ -2,6 +2,7 @@
 # Copyright © 2023 Yuma Rao
 # TODO(developer): Taoshi
 # Copyright © 2023 TARVIS Labs, LLC
+from typing import List
 
 import numpy as np
 
@@ -28,7 +29,7 @@ class Scaling:
         return float(avg), np.array([np.tanh(k * (x - avg)) for x in v])
 
     @staticmethod
-    def scale_data_structure(ds: list[list]) -> (list[float], list[int], np):
+    def scale_data_structure(ds: List[List]) -> (List[float], List[int], np):
         scaled_data_structure = []
         averages = []
         dp_decimal_places = []
@@ -46,7 +47,7 @@ class Scaling:
         return np.array([np.round(avg + (1 / k) * np.arctanh(x), decimals=decimal_places) for x in v])
 
     @staticmethod
-    def unscale_data_structure(avgs: list[float], dp_decimal_places: list[int], sds: np) -> np:
+    def unscale_data_structure(avgs: List[float], dp_decimal_places: List[int], sds: np) -> np:
         usds = []
         for i, dp in enumerate(sds):
             usds.append(Scaling.unscale_values(avgs[i], dp_decimal_places[i], dp))
