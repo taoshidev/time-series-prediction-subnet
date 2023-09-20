@@ -3,12 +3,12 @@ from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
 
 class CMWStreamType:
     def __init__(self):
-        self.stream_type = None
+        self.stream_id = None
         self.topic_id = None
         self.miners = []
 
-    def set_stream_type(self, stream_type):
-        self.stream_type = stream_type
+    def set_stream_id(self, stream_id):
+        self.stream_id = stream_id
         return self
 
     def set_topic_id(self, topic_id):

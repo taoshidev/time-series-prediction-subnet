@@ -9,7 +9,7 @@ import pickle
 from datetime import datetime
 
 from vali_config import ValiConfig
-from vali_objects.dataclasses.prediction_output import PredictionOutput
+from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 
 
 class ValiBkpUtils:
@@ -56,7 +56,7 @@ class ValiBkpUtils:
         ValiBkpUtils.write_to_vali_dir(vali_dir + file_name, vali_data, is_pickle)
 
     @staticmethod
-    def get_vali_file(vali_file, is_pickle: bool = False) -> str | PredictionOutput:
+    def get_vali_file(vali_file, is_pickle: bool = False) -> str | PredictionDataFile:
         with open(vali_file, ValiBkpUtils.get_read_type(is_pickle)) as f:
             return pickle.load(f) if is_pickle else f.read()
 

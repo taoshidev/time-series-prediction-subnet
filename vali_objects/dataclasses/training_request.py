@@ -5,7 +5,7 @@ from vali_objects.dataclasses.base_objects.new_request_dataclass import NewReque
 
 
 @dataclass
-class ClientRequest(NewRequestDataClass):
+class TrainingRequest(NewRequestDataClass):
     pass
 
     def __eq__(self, other):

@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# TODO(developer): Taoshi
-# Copyright © 2023 TARVIS Labs, LLC
+# developer: Taoshi
+# Copyright © 2023 Taoshi, LLC
 
 from dataclasses import dataclass, fields
 from typing import Optional
@@ -40,21 +40,22 @@ class BaseDataClass:
         return True
 
     def schema_integrity_check(self):
-        def t_list_check(f, f_t):
-            if f_t == int or f_t == float:
+        def t_list_check(f, fv):
+            ft = type(fv)
+            if ft == int or ft == float or isinstance(fv, np.floating):
                 pass
             else:
-                raise TypeError(f"The field `{f.name}` was assigned by `{f_t}` instead of int or float")
+                raise TypeError(f"The field `{f.name}` was assigned by `{ft}` instead of int or float")
 
         for field in fields(type(self)):
             if field.type == Optional[list[float]] \
                     or field.type == list[float] \
                     or field.type == list[int]:
                 if getattr(self, field.name) is not None:
-                    t_list_check(field, type(getattr(self, field.name)[0]))
+                    t_list_check(field, getattr(self, field.name)[0])
             elif field.type == list[list[float]]:
                 if getattr(self, field.name) is not None:
-                    t_list_check(field, type(getattr(self, field.name)[0][0]))
+                    t_list_check(field, getattr(self, field.name)[0][0])
             elif field.type == dict[str, list[float]] \
                     or field.type == dict[str, list[int]]:
                 if getattr(self, field.name) is not None:
@@ -62,7 +63,7 @@ class BaseDataClass:
                         raise TypeError(f"The field `{field.name}` was "
                                         f"assigned by `{type(getattr(self, field.name))}` instead of dict")
                     else:
-                        f_type = type([value[0] for key, value in getattr(self, field.name).items()][0])
+                        f_type = [value[0] for key, value in getattr(self, field.name).items()][0]
                         k_type = type([key for key, value in getattr(self, field.name).items()][0])
                         t_list_check(field, f_type)
                         if k_type != str:

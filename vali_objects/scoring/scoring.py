@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# TODO(developer): Taoshi
-# Copyright © 2023 TARVIS Labs, LLC
+# developer: Taoshi
+# Copyright © 2023 Taoshi, LLC
 
 import math
 from typing import List, Tuple, Dict

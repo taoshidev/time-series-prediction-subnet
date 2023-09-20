@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# TODO(developer): Taoshi
-# Copyright © 2023 TARVIS Labs, LLC
+# developer: Taoshi
+# Copyright © 2023 Taoshi, LLC
 
 from datetime import datetime, timedelta
 from typing import List, Tuple
@@ -38,7 +38,7 @@ class TimeUtil:
 
     @staticmethod
     def timestamp_to_millis(dt) -> int:
-        return int(dt.timestamp() * 1000)
+        return int(dt.timestamp() * 1000) + 0
 
     @staticmethod
     def minute_in_millis(minutes: int) -> int:

@@ -1,29 +1,18 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# TODO(developer): Taoshi
-# Copyright © 2023 TARVIS Labs, LLC
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-# the Software.
-
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-# THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
+# developer: Taoshi
+# Copyright © 2023 Taoshi, LLC
 
 # Bittensor Validator Template:
 # TODO(developer): Rewrite based on protocol defintion.
 
 # Step 1: Import necessary libraries and modules
 import os
+import random
 import time
 import uuid
+from datetime import datetime
+from typing import List
 
 import numpy as np
 import torch
@@ -38,12 +27,20 @@ import template
 # Step 2: Set up the configuration parser
 # This function is responsible for setting up and parsing command-line arguments.
 from data_generator.binance_data import BinanceData
-from vali_objects.exceptions import ValiMemoryCorruptDataException
-from vali_objects.exceptions import ValiKeyMisalignmentException
-from vali_objects.exceptions import ValiMemoryMissingException
-from request_objects import PredictTrainingRequest, PredictLiveRequest
-from template.protocol import Forward
+from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
+from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
+from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
+from vali_objects.cmw.cmw_util import CMWUtil
+from vali_objects.dataclasses.base_objects.base_request_dataclass import BaseRequestDataClass
+from template.protocol import Forward, Backward
 from time_util.time_util import TimeUtil
+from vali_objects.dataclasses.client_request import ClientRequest
+from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
+from vali_objects.dataclasses.prediction_request import PredictionRequest
+from vali_objects.dataclasses.training_request import TrainingRequest
+from vali_objects.scaling.scaling import Scaling
+from vali_objects.scoring.scoring import Scoring
+from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
 from vali_config import ValiConfig
 
@@ -82,118 +79,11 @@ def get_config():
     return config
 
 
-def main(config):
-    # Set up logging with the provided configuration and directory.
-    bt.logging(config=config, logging_dir=config.full_path)
-    bt.logging.info(
-        f"Running validator for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:")
-    # Log the configuration for reference.
-    bt.logging.info(config)
+def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
-    # Step 4: Build Bittensor validator objects
-    # These are core Bittensor classes to interact with the network.
-    bt.logging.info("Setting up bittensor objects.")
-
-    # The wallet holds the cryptographic key pairs for the validator.
-    wallet = bt.wallet(config=config)
-    bt.logging.info(f"Wallet: {wallet}")
-
-    # The subtensor is our connection to the Bittensor blockchain.
-    subtensor = bt.subtensor(config=config)
-    bt.logging.info(f"Subtensor: {subtensor}")
-
-    # Dendrite is the RPC client; it lets us send messages to other nodes (axons) in the network.
-    dendrite = bt.dendrite(wallet=wallet)
-    bt.logging.info(f"Dendrite: {dendrite}")
-
-    # The metagraph holds the state of the network, letting us know about other miners.
-    metagraph = subtensor.metagraph(config.netuid)
-    bt.logging.info(f"Metagraph: {metagraph}")
-
-    # Step 5: Connect the validator to the network
-    if wallet.hotkey.ss58_address not in metagraph.hotkeys:
-        bt.logging.error(
-            f"\nYour validator: {wallet} if not registered to chain connection: {subtensor} \nRun btcli register and try again.")
-        exit()
-    else:
-        # Each miner gets a unique identity (UID) in the network for differentiation.
-        my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
-        bt.logging.info(f"Running validator on uid: {my_subnet_uid}")
-
-    # Step 6: Set up initial scoring weights for validation
-    bt.logging.info("Building validation weights.")
-    alpha = 0.9
-    scores = torch.ones_like(metagraph.S, dtype=torch.float32)
-    bt.logging.info(f"Weights: {scores}")
-
-    # Step 7: The Main Validation Loop
-    bt.logging.info("Starting validator loop.")
-    step = 0
-    while True:
-        try:
-            # TODO(developer): Define how the validator selects a miner to query, how often, etc.
-            # Broadcast a query to all miners on the network.
-            responses = dendrite.query(
-                # Send the query to all axons in the network.
-                metagraph.axons,
-                # Construct a dummy query.
-                template.protocol.Dummy(dummy_input=step),  # Construct a dummy query.
-                # All responses have the deserialize function called on them before returning.
-                deserialize=True,
-            )
-
-            # Log the results for monitoring purposes.
-            bt.logging.info(f"Received dummy responses: {responses}")
-
-            # TODO(developer): Define how the validator scores responses.
-            # Adjust the scores based on responses from miners.
-            for i, resp_i in enumerate(responses):
-                # Initialize the score for the current miner's response.
-                score = 0
-
-                # Check if the miner has provided the correct response by doubling the dummy input.
-                # If correct, set their score for this round to 1.
-                if resp_i == step * 2:
-                    score = 1
-
-                # Update the global score of the miner.
-                # This score contributes to the miner's weight in the network.
-                # A higher weight means that the miner has been consistently responding correctly.
-                scores[i] = alpha * scores[i] + (1 - alpha) * 0
-
-            # Periodically update the weights on the Bittensor blockchain.
-            if (step + 1) % 100 == 0:
-                # TODO(developer): Define how the validator normalizes scores before setting weights.
-                weights = torch.nn.functional.normalize(scores, p=1.0, dim=0)
-                bt.logging.info(f"Setting weights: {weights}")
-                # This is a crucial step that updates the incentive mechanism on the Bittensor blockchain.
-                # Miners with higher scores (or weights) receive a larger share of TAO rewards on this subnet.
-                subtensor.set_weights(
-                    netuid=config.netuid,  # Subnet to set weights on.
-                    wallet=wallet,  # Wallet to sign set weights using hotkey.
-                    uids=metagraph.uids,  # Uids of the miners to set weights for.
-                    weights=weights  # Weights to set for the miners.
-                )
-
-            # End the current step and prepare for the next iteration.
-            step += 1
-            # Resync our local state with the latest state from the blockchain.
-            metagraph = subtensor.metagraph(config.netuid)
-            # Sleep for a duration equivalent to the block time (i.e., time between successive blocks).
-            time.sleep(bt.__blocktime__)
-
-        # If we encounter an unexpected error, log it for debugging.
-        except RuntimeError as e:
-            bt.logging.error(e)
-            traceback.print_exc()
-
-        # If the user interrupts the program, gracefully exit.
-        except KeyboardInterrupt:
-            bt.logging.success("Keyboard interrupt detected. Exiting validator.")
-            exit()
-
-
-def main2(config):
+    # base setup for valis
+    config = get_config()
+    bt_logger = bt.logging(config=config, logging_dir=config.full_path)
     # Set up logging with the provided configuration and directory.
     bt_logger.info(
         f"Running validator for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:")
@@ -222,7 +112,8 @@ def main2(config):
     # Connect the validator to the network
     if wallet.hotkey.ss58_address not in metagraph.hotkeys:
         bt_logger.error(
-            f"\nYour validator: {wallet} if not registered to chain connection: {subtensor} \nRun btcli register and try again.")
+            f"\nYour validator: {wallet} if not registered to chain connection: "
+            f"{subtensor} \nRun btcli register and try again.")
         exit()
     else:
         # Each miner gets a unique identity (UID) in the network for differentiation.
@@ -230,191 +121,257 @@ def main2(config):
         bt_logger.info(f"Running validator on uid: {my_subnet_uid}")
 
     # Set up initial scoring weights for validation
-    bt_logger.info("Building validation weights.")
-    scores = torch.ones_like(metagraph.S, dtype=torch.float32)
-    bt_logger.info(f"Weights: {scores}")
+    # bt_logger.info("Building validation weights.")
+    # scores = torch.ones_like(metagraph.S, dtype=torch.float32)
+    # bt_logger.info(f"Weights: {scores}")
 
-    #
+    for vali_request in vali_requests:
+        # standardized request identifier for miners to tie together forward/backprop
+        request_uuid = str(uuid.uuid4())
 
-    days = ValiConfig.HISTORICAL_DATA_LOOKBACK_DAYS
+        if isinstance(vali_request, TrainingRequest):
+            stream_id = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
 
-    ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
-        TimeUtil.generate_range_timestamps(
-            TimeUtil.generate_start_timestamp(days), days))
+            start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
+            bt_logger.info(f"sending training data on stream type [{stream_id}] "
+                           f"with params start date [{start_dt}] & [{end_dt}] ")
 
-    high, low, close, volume = [], [], [], []
-    data_structure = [high, low, close, volume]
+            ds = ValiUtils.get_standardized_ds()
+            for ts_range in ts_ranges:
+                BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
+                                                               ds,
+                                                               ts_range)
+            vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
+            samples = bt.tensor(sds)
 
-    for ts_range in ts_ranges:
-        BinanceData.convert_output_to_data_points(data_structure,
-                                                  BinanceData().get_historical_data(start=ts_range[0],
-                                                                                    end=ts_range[1]).json())
+            training_proto = Forward(
+                request_uuid=request_uuid,
+                stream_id=stream_id,
+                samples=samples,
+                topic_id=vali_request.topic_id,
+                feature_ids=vali_request.feature_ids,
+                schema_id=vali_request.schema_id,
+                prediction_size=vali_request.prediction_size
+            )
 
-    print(data_structure)
-
-    weighted_rmse()
-
-    if len(requests) > 0:
-        for request in requests:
-            request_obj = verify_and_return_request_object(request)
-            client_stream_hash = get_client_stream_hash(request_obj.client_id,
-                                                        request_obj.stream_type)
-
-            if isinstance(request_obj, PredictTrainingRequest):
-                bt.logging.info("Predicting training request.")
-
-                req_uuid = uuid.uuid4()
-
-                # TODO - convert samples to tensor
-                predict_training_proto = Forward(
-                    request_uuid=req_uuid,
-                    stream_type=client_stream_hash,
-                    samples=request_obj.samples,
-                    prediction_size=request_obj.prediction_size
+            try:
+                responses = dendrite.query(
+                    metagraph.axons,
+                    training_proto,
+                    deserialize=True
                 )
 
-                try:
-                    # step 1: send response to network and get responses
-                    # Broadcast a query to all miners on the network.
-                    responses = dendrite.query(
-                        metagraph.axons,
-                        predict_training_proto,  # Construct a dummy query.
-                        # All responses have the deserialize function called on them before returning.
-                        deserialize=True,
-                    )
+                # check to see # of responses
+                bt_logger.info(f"number of responses to training data: [{len(responses)}]")
 
-                    # TODO - validation that the predictions are in the same type dtype as the samples?
+                training_results_start = TimeUtil.timestamp_to_millis(end_dt)
+                training_results_end = TimeUtil.timestamp_to_millis(end_dt) + \
+                      TimeUtil.minute_in_millis(vali_request.prediction_size * ValiConfig.STANDARD_TF)
 
-                    # step 2: don't score, just return
-                    predictions_response = format_training_predictions_response(metagraph, responses)
+                results_ds = ValiUtils.get_standardized_ds()
 
-                    # formatting response object
-                    response_body = {
-                        "request_uuid": req_uuid,
-                        "predictions": predictions_response
-                    }
+                BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
+                                                               results_ds,
+                                                               (training_results_start, training_results_end))
 
-                # If we encounter an unexpected error, log it for debugging.
-                except RuntimeError as e:
-                    bt.logging.error(e)
-                    traceback.print_exc()
+                results_vmin, results_vmax, results_scaled = Scaling.scale_values(results_ds[0],
+                                                                                      vmin=vmins[0],
+                                                                                      vmax=vmaxs[0])
+                results = bt.tensor(results_scaled)
 
-            if isinstance(request_obj, PredictLiveRequest):
-                bt.logging.info("Processing training predictions.")
-
-                # step 1: score returning results against outcome
-                predictions = request_obj.predictions
-                prediction_results = request_obj.prediction_results
-
-                miner_scores = {}
-
-                for miner_uid, miner_preds in predictions.items():
-                    miner_scores[miner_uid] = score_response(miner_preds, prediction_results)
-
-                scaled_miner_scores = scale_scores(miner_scores)
-
-                # step 2: check and update vali records
-
-                # step 1: get predictions on samples
-                predict_live_proto = Forward(
-                    request_uuid=request_obj.request_uuid,
-                    stream_type=request_obj.stream_type,
-                    samples=request_obj.samples,
-                    prediction_size=request_obj.prediction_size
+                training_backprop_proto = Backward(
+                    request_uuid=request_uuid,
+                    stream_id=stream_id,
+                    samples=results,
+                    topic_id=vali_request.topic_id
                 )
 
-                try:
-                    # step 2: send response to network and get responses
-                    # Broadcast a query to all miners on the network.
-                    responses = dendrite.query(
-                        metagraph.axons,
-                        predict_training_proto,  # Construct a dummy query.
-                        # All responses have the deserialize function called on them before returning.
-                        deserialize=True,
-                    )
+                dendrite.query(
+                    metagraph.axons,
+                    training_backprop_proto,
+                    deserialize=True
+                )
 
-                    # step 3: score responses
-                    for i, resp_i in enumerate(responses):
-                        if isinstance(resp_i, Forward):
-                            rmse_scores[i] = score_response(used_t_s_testing_results, resp_i.predictions.tolist())
+            # If we encounter an unexpected error, log it for debugging.
+            except RuntimeError as e:
+                bt.logging.error(e)
+                traceback.print_exc()
 
-                    # step 4: scale rmse scores
-                    scale_rmse_scores(rmse_scores)
+        elif isinstance(vali_request, ClientRequest):
+            stream_id = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
 
-                # If we encounter an unexpected error, log it for debugging.
-                except RuntimeError as e:
-                    bt.logging.error(e)
-                    traceback.print_exc()
+            start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
+            bt_logger.info(f"sending requested data on stream type [{stream_id}] "
+                           f"with params start date [{start_dt}] & [{end_dt}] ")
 
-                try:
-                    # Broadcast a query to all miners on the network.
-                    responses = dendrite.query(
-                        # Send the query to all axons in the network.
-                        metagraph.axons,
-                        # Construct a dummy query.
-                        template.protocol.Dummy(dummy_input=step),  # Construct a dummy query.
-                        # All responses have the deserialize function called on them before returning.
-                        deserialize=True,
-                    )
+            ds = ValiUtils.get_standardized_ds()
+            for ts_range in ts_ranges:
+                BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
+                                                               ds,
+                                                               ts_range)
+            vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
+            samples = bt.tensor(sds)
 
-                    # Log the results for monitoring purposes.
-                    bt.logging.info(f"Received dummy responses: {responses}")
+            # forgot adding client request info to the cmw
 
-                    # TODO(developer): Define how the validator scores responses.
-                    # Adjust the scores based on responses from miners.
-                    for i, resp_i in enumerate(responses):
-                        # Initialize the score for the current miner's response.
-                        score = 0
+            live_proto = Forward(
+                request_uuid=request_uuid,
+                stream_id=stream_id,
+                samples=samples,
+                topic_id=vali_request.topic_id,
+                feature_ids=vali_request.feature_ids,
+                schema_id=vali_request.schema_id,
+                prediction_size=vali_request.prediction_size
+            )
 
-                        # Check if the miner has provided the correct response by doubling the dummy input.
-                        # If correct, set their score for this round to 1.
-                        if resp_i == step * 2:
-                            score = 1
+            try:
+                vm = ValiUtils.get_vali_records()
+                client = vm.get_client(vali_request.client_uuid)
+                if client is None:
+                    cmw_client = CMWClient().set_client_uuid(vali_request.client_uuid)
+                    cmw_client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(vali_request.topic_id))
+                    vm.add_client(cmw_client)
+                else:
+                    client_stream_type = client.stream_exists(stream_id)
+                    if client_stream_type is None:
+                        client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(vali_request.topic_id))
+                ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
+            except Exception as e:
+                # if fail to store cmw for some reason print & continue
+                bt.logging.error(e)
+                traceback.print_exc()
 
-                        # Update the global score of the miner.
-                        # This score contributes to the miner's weight in the network.
-                        # A higher weight means that the miner has been consistently responding correctly.
-                        scores[i] = alpha * scores[i] + (1 - alpha) * 0
+            try:
+                responses = dendrite.query(
+                    metagraph.axons,
+                    live_proto,
+                    deserialize=True
+                )
 
-                    # Periodically update the weights on the Bittensor blockchain.
-                    if (step + 1) % 100 == 0:
-                        # TODO(developer): Define how the validator normalizes scores before setting weights.
-                        weights = torch.nn.functional.normalize(scores, p=1.0, dim=0)
-                        bt.logging.info(f"Setting weights: {weights}")
-                        # This is a crucial step that updates the incentive mechanism on the Bittensor blockchain.
-                        # Miners with higher scores (or weights) receive a larger share of TAO rewards on this subnet.
-                        subtensor.set_weights(
-                            netuid=config.netuid,  # Subnet to set weights on.
-                            wallet=wallet,  # Wallet to sign set weights using hotkey.
-                            uids=metagraph.uids,  # Uids of the miners to set weights for.
-                            weights=weights  # Weights to set for the miners.
+                # check to see # of responses
+                bt_logger.info(f"number of responses to requested data: [{len(responses)}]")
+
+                # for file name
+                output_uuid = str(uuid.uuid4())
+
+                for i, resp_i in enumerate(responses):
+                    if resp_i.predictions is not None \
+                            and len(resp_i.predictions.numpy()) == vali_request.prediction_size:
+                        # has the right number of predictions made
+                        pdf = PredictionDataFile(
+                            client_uuid=vali_request.client_uuid,
+                            stream_type=vali_request.stream_type,
+                            stream_id=stream_id,
+                            topic_id=vali_request.topic_id,
+                            request_uuid=request_uuid,
+                            miner_uid=metagraph.uids[metagraph.hotkeys.index(metagraph.axons[i].hotkey)],
+                            start=TimeUtil.timestamp_to_millis(end_dt),
+                            end=TimeUtil.timestamp_to_millis(end_dt) + \
+                                TimeUtil.minute_in_millis(vali_request.prediction_size * ValiConfig.STANDARD_TF),
+                            vmins=vmins,
+                            vmaxs=vmaxs,
+                            decimal_places=dps,
+                            predictions=resp_i.predictions.numpy()
                         )
+                        ValiUtils.save_predictions_request(output_uuid, pdf)
+            # If we encounter an unexpected error, log it for debugging.
+            except RuntimeError as e:
+                bt.logging.error(e)
+                traceback.print_exc()
 
-                    # End the current step and prepare for the next iteration.
-                    step += 1
-                    # Resync our local state with the latest state from the blockchain.
-                    metagraph = subtensor.metagraph(config.netuid)
-                    # Sleep for a duration equivalent to the block time (i.e., time between successive blocks).
-                    time.sleep(bt.__blocktime__)
+        elif isinstance(vali_request, PredictionRequest):
+            # handle results ready to score and weigh
+            request_df = vali_request.df
+            stream_id = hash(str(request_df.stream_type) + wallet.hotkey.ss58_address)
+            try:
+                updated_vm = ValiUtils.get_vali_records()
 
-                # If we encounter an unexpected error, log it for debugging.
-                except RuntimeError as e:
+                data_structure = ValiUtils.get_standardized_ds()
+
+                BinanceData.get_data_and_structure_data_points(request_df.stream_type,
+                                                               data_structure,
+                                                               (request_df.start, request_df.end))
+                results_vmin, results_vmax, results_scaled = Scaling.scale_values(data_structure[0],
+                                                                                      vmin=request_df.vmins[0],
+                                                                                      vmax=request_df.vmaxs[0])
+                # send back the results for backprop so miners can learn
+                results = bt.tensor(results_scaled)
+
+                results_backprop_proto = Backward(
+                    request_uuid=request_uuid,
+                    stream_id=stream_id,
+                    samples=results,
+                    topic_id=request_df.topic_id
+                )
+
+                dendrite.query(
+                    metagraph.axons,
+                    results_backprop_proto,
+                    deserialize=True
+                )
+
+                scores = {}
+                for miner_uid, miner_preds in vali_request.predictions.items():
+                    scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[0])
+
+                scaled_scores = Scoring.scale_scores(scores)
+                stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+
+                try:
+                    # add results to cmw
+                    for miner_uid, scaled_score in scaled_scores.items():
+                        stream_miner = stream_id.get_miner(miner_uid)
+                        if stream_miner is None:
+                            stream_miner = CMWMiner(miner_uid, 0, 0, [])
+                            stream_id.add_miner(stream_miner)
+                        stream_miner.add_score(scaled_score)
+                except Exception as e:
+                    # if fail to store cmw for some reason print & continue
                     bt.logging.error(e)
                     traceback.print_exc()
 
-                # If the user interrupts the program, gracefully exit.
-                except KeyboardInterrupt:
-                    bt.logging.success("Keyboard interrupt detected. Exiting validator.")
-                    exit()
-            elif type(request_obj) == Backward_Request:
-                pass
-    else:
-        responses = [resp.is_success for resp in bt.dendrite()(metagraph.axons, Ping())]
+                # store weights for results
+                sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+                weighed_scores = Scoring.weigh_miner_scores(sorted_scores)
+
+                print("winning distribution", weighed_scores)
+
+                miner_uids = [item[0] for item in weighed_scores]
+                weights = [item[1] for item in weighed_scores]
+
+                subtensor.set_weights(
+                    netuid=config.netuid,  # Subnet to set weights on.
+                    wallet=wallet,  # Wallet to sign set weights using hotkey.
+                    uids=miner_uids,  # Uids of the miners to set weights for.
+                    weights=weights  # Weights to set for the miners.
+                )
+            # If we encounter an unexpected error, log it for debugging.
+            except RuntimeError as e:
+                bt.logging.error(e)
+                traceback.print_exc()
+            else:
+                # remove files that have been properly processed & weighed
+                for file in vali_request.files:
+                    os.remove(file)
 
 
 # The main function parses the configuration and runs the validator.
 if __name__ == "__main__":
-    config = get_config()
-    bt_logger = bt.logging(config=config, logging_dir=config.full_path)
-    # Run the main function.
-    main(config)
+    while True:
+        current_time = datetime.now().time()
+        if current_time.minute % 5 == 0:
+            requests = []
+            # see if any files exist, if not then generate a client request (a live prediction)
+            all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
+            if len(all_files) == 0:
+                requests.append(ValiUtils.generate_standard_request(ClientRequest))
+
+            # add any predictions that are ready to be scored
+            requests.extend(ValiUtils.get_predictions_to_complete())
+
+            # if no requests to fill, randomly send in a training request to help them train
+            # randomize to not have all validators sending in training data requests simultaneously to assist with load
+            if len(requests) == 0 and random.randint(0, 10) == 1:
+                requests.append(ValiUtils.generate_standard_request(ClientRequest))
+
+            run_time_series_validation(requests)

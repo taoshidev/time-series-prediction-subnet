@@ -4,9 +4,9 @@ from vali_objects.dataclasses.base_objects.base_dataclass import BaseDataClass
 
 
 @dataclass
-class PredictionOutput(BaseDataClass):
+class ClientOutput(BaseDataClass):
     client_uuid: str
-    stream_type: int
+    stream_type: str
     topic_id: int
     request_uuid: str
     predictions: list[list[float]]

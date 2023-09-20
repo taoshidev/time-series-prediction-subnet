@@ -4,18 +4,20 @@
 # Copyright © 2023 TARVIS Labs, LLC
 
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 
 import requests
 from requests import Response
 import time
+
+from vali_config import ValiConfig
 
 
 class BinanceData:
 
     @staticmethod
     def get_historical_data(symbol='BTCUSDT',
-                            interval='5m',
+                            interval=ValiConfig.STANDARD_TF_BINANCE,
                             start=None,
                             end=None,
                             limit=1000,
@@ -66,8 +68,9 @@ class BinanceData:
             data_structure[3].append(float(tf_row[5]))
 
     @staticmethod
-    def get_data_and_structure_data_points(data_structure: List[List], ts_range: List[int]):
-        bd = BinanceData().get_historical_data(start=ts_range[0],
+    def get_data_and_structure_data_points(symbol: str, data_structure: List[List], ts_range: Tuple[int, int]):
+        bd = BinanceData().get_historical_data(symbol=symbol,
+                                               start=ts_range[0],
                                                end=ts_range[1]).json()
         if "msg" in bd:
             raise Exception("error occurred getting Binance data, please review", bd["msg"])

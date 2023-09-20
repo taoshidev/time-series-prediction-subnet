@@ -4,6 +4,7 @@ from datetime import datetime
 
 from tests.vali_tests.samples.testing_data import TestingData
 from time_util.time_util import TimeUtil
+from vali_config import ValiConfig
 
 
 class TestTimeUtil(unittest.TestCase):
@@ -25,6 +26,14 @@ class TestTimeUtil(unittest.TestCase):
         start = TestingData.test_start_time
         generated_timestamps = TimeUtil.generate_range_timestamps(start, 5)
         self.assertEqual(TestingData.test_generated_timestamps, generated_timestamps)
+
+    def test_generating_start_end_results(self):
+        dt = datetime(2023, 9, 19, 12, 0, 0)
+        training_results_start = int(TimeUtil.timestamp_to_millis(dt))
+        training_results_end = TimeUtil.timestamp_to_millis(dt) + \
+                               TimeUtil.minute_in_millis(25 * ValiConfig.STANDARD_TF)
+        print((training_results_start, training_results_end))
+        self.assertEqual((training_results_start, training_results_end), (1695150000000, 1695157500000))
 
     def setUp(self) -> None:
         self._t = datetime.now()

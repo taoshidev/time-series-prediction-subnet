@@ -22,7 +22,7 @@ class CMWUtil:
             for client in vr["clients"]:
                 cmw_client = CMWClient().set_client_uuid(client["client_uuid"])
                 for stream in client["streams"]:
-                    cmw_stream = CMWStreamType().set_stream_type(stream["stream_type"]).set_topic_id(stream["topic_id"])
+                    cmw_stream = CMWStreamType().set_stream_id(stream["stream_id"]).set_topic_id(stream["topic_id"])
                     for miner in stream["miners"]:
                         cmw_stream.add_miner(CMWMiner(miner["miner_id"], miner["wins"], miner["o_wins"], miner["scores"]))
                     cmw_client.add_stream(cmw_stream)

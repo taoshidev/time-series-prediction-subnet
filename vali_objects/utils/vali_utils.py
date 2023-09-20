@@ -4,16 +4,24 @@
 # Copyright © 2023 TARVIS Labs, LLC
 
 import json
+import random
 from pickle import UnpicklingError
-from typing import Dict
+from typing import Dict, List, Type, Tuple
 
+from time_util.time_util import TimeUtil
+from vali_config import ValiConfig
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_util import CMWUtil
+from vali_objects.dataclasses.base_objects.new_request_dataclass import NewRequestDataClass
+from vali_objects.dataclasses.client_request import ClientRequest
+from vali_objects.dataclasses.prediction_request import PredictionRequest
+from vali_objects.dataclasses.training_request import TrainingRequest
 from vali_objects.exceptions.corrupt_data_exception import ValiBkpCorruptDataException
 from vali_objects.exceptions.vali_bkp_file_missing_exception import ValiFileMissingException
 from vali_objects.exceptions.vali_records_misalignment_exception import ValiRecordsMisalignmentException
 from vali_objects.exceptions.vali_memory_missing_exception import ValiMemoryMissingException
-from vali_objects.dataclasses.prediction_output import PredictionOutput
+from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
+from vali_objects.scaling.scaling import Scaling
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_memory_utils import ValiMemoryUtils
 
@@ -66,7 +74,7 @@ class ValiUtils:
         ValiMemoryUtils.set_vali_memory(json.dumps(ValiUtils.get_vali_bkp_json()))
 
     @staticmethod
-    def get_vali_predictions(file) -> PredictionOutput:
+    def get_vali_predictions(file) -> PredictionDataFile:
         # wrapping here to allow simpler error handling & original for other error handling
         try:
             return ValiBkpUtils.get_vali_file(file, True)
@@ -92,3 +100,77 @@ class ValiUtils:
                                      ValiBkpUtils.get_vali_data_file(),
                                      vali_records)
 
+    @staticmethod
+    def get_predictions_to_complete() -> List[PredictionRequest]:
+        all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
+        request_to_complete = {}
+        for file in all_files:
+            unpickled_df = ValiUtils.get_vali_predictions(file)
+            if TimeUtil.now_in_millis() > unpickled_df.end:
+                unpickled_unscaled_data_structure = Scaling.unscale_values(unpickled_df.vmins[0],
+                                                                           unpickled_df.vmaxs[0],
+                                                                           unpickled_df.decimal_places[0],
+                                                                           unpickled_df.predictions)
+                if unpickled_df.request_uuid not in request_to_complete:
+                    # keeping as a dict to easily add new files to ref
+                    request_to_complete[unpickled_df.request_uuid] = PredictionRequest(
+                        request_uuid=unpickled_df.request_uuid,
+                        df=unpickled_df,
+                        files=[],
+                        predictions={}
+                    )
+                request_to_complete[
+                    unpickled_df.request_uuid].predictions[unpickled_df.miner_uid] = unpickled_unscaled_data_structure
+                request_to_complete[
+                    unpickled_df.request_uuid].files.append(file)
+        return [pred_request for pred_request in request_to_complete.values()]
+
+    @staticmethod
+    def generate_standard_request(request: Type[NewRequestDataClass]):
+        # templated for now as we trade only btc
+        stream_type = "BTCUSDT"
+        topic_id = 1
+        schema_id = 1
+        feature_ids = [0.001, 0.002, 0.003, 0.004]
+        prediction_size = int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX))
+
+        if isinstance(request, TrainingRequest):
+            return TrainingRequest(
+                stream_type=stream_type,
+                topic_id=topic_id,
+                schema_id=schema_id,
+                feature_ids=feature_ids,
+                prediction_size=prediction_size
+            )
+        elif isinstance(request, ClientRequest):
+            return ClientRequest(
+                stream_type=stream_type,
+                topic_id=topic_id,
+                schema_id=schema_id,
+                feature_ids=feature_ids,
+                prediction_size=prediction_size
+            )
+        else:
+            raise Exception("not a recognizable client request")
+
+    @staticmethod
+    def randomize_days(historical_lookback: bool) -> (int, int, List[Tuple[int, int]]):
+        days = int(random.uniform(ValiConfig.HISTORICAL_DATA_LOOKBACK_DAYS_MIN,
+                                  ValiConfig.HISTORICAL_DATA_LOOKBACK_DAYS_MAX))
+        # if 1 then historical lookback, otherwise live
+        if historical_lookback:
+            print("generating historical")
+            start = int(random.uniform(30,1460))
+        else:
+            print("generating live")
+            start = days
+        TimeUtil.generate_start_timestamp(start)
+        return TimeUtil.generate_start_timestamp(start), \
+               TimeUtil.generate_start_timestamp(start-days), \
+               TimeUtil.convert_range_timestamps_to_millis(
+            TimeUtil.generate_range_timestamps(
+                TimeUtil.generate_start_timestamp(start), days))
+
+    @staticmethod
+    def get_standardized_ds() -> List[List]:
+        return [[], [], [], []]
