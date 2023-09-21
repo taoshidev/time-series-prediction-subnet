@@ -115,8 +115,6 @@ class TestScaling(unittest.TestCase):
         self.assertEqual(second_vmin, vmin)
         self.assertEqual(second_vmax, vmax)
 
-        print(second_scaled_values.tolist())
-
         self.assertTrue(np.array_equal(np.array([0.5050200400801603, 0.5050400801603206, 0.505060120240481,
                                                  0.5050801603206413, 0.5051002004008016, 0.5051202404809619,
                                                  0.5051402805611223, 0.5051603206412826, 0.5051803607214429,

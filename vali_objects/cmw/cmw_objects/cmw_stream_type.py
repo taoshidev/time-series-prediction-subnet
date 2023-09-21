@@ -23,9 +23,3 @@ class CMWStreamType:
             if miner.miner_id == miner_id:
                 return miner
         return None
-
-    # def setup_cmw_stream_type(self, cmw_stream_type):
-    #     for miner_uid, miner_values in cmw_stream_type["miners"].items():
-    #         self.miners[miner_uid] = CMWMiner(miner_values["wins"], miner_values["o_wins"])
-    #     return self
-

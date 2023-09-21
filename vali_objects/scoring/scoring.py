@@ -66,16 +66,19 @@ class Scoring:
 
     @staticmethod
     def weigh_miner_scores(scores: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
-        # Step 1: Find the minimum and maximum scores
         min_score = min(score for _, score in scores)
         max_score = max(score for _, score in scores)
 
-        # Step 2: Normalize the scores
         normalized_scores = [(name, (score - min_score) / (max_score - min_score)) for name, score in scores]
-
-        # Total the normalized scores
         total_normalized_score = sum(score for _, score in normalized_scores)
 
         normalized_scores = [(name, round(score / total_normalized_score, 2)) for name, score in normalized_scores]
         return normalized_scores
 
+    @staticmethod
+    def simple_scale_scores(scores: Dict[str, float]) -> Dict[str, float]:
+        score_values = [score for miner_uid, score in scores.items()]
+        min_score = min(score_values)
+        max_score = max(score_values)
+
+        return {miner_uid:  1 - ((score - min_score) / (max_score - min_score)) for miner_uid, score in scores.items()}

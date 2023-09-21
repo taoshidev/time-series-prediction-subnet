@@ -66,6 +66,7 @@ class TestBaseDataClass(unittest.TestCase):
             self.assertTrue(e, TypeError)
 
         test = PredictionRequest(
+                request_uuid="test",
                 df="test",
                 files="test",
                 predictions="test"

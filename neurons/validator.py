@@ -3,26 +3,15 @@
 # developer: Taoshi
 # Copyright © 2023 Taoshi, LLC
 
-# Bittensor Validator Template:
-# TODO(developer): Rewrite based on protocol defintion.
-
-# Step 1: Import necessary libraries and modules
 import os
 import random
-import time
 import uuid
 from datetime import datetime
 from typing import List
 
-import numpy as np
-import torch
-
 import argparse
 import traceback
 import bittensor as bt
-
-# import this repo
-import template
 
 # Step 2: Set up the configuration parser
 # This function is responsible for setting up and parsing command-line arguments.
@@ -32,7 +21,7 @@ from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
 from vali_objects.cmw.cmw_util import CMWUtil
 from vali_objects.dataclasses.base_objects.base_request_dataclass import BaseRequestDataClass
-from template.protocol import Forward, Backward
+from template.protocol import TrainingForward, TrainingBackward, LiveForward, LiveBackward
 from time_util.time_util import TimeUtil
 from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
@@ -144,7 +133,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
             vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
             samples = bt.tensor(sds)
 
-            training_proto = Forward(
+            training_proto = TrainingForward(
                 request_uuid=request_uuid,
                 stream_id=stream_id,
                 samples=samples,
@@ -169,17 +158,20 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                       TimeUtil.minute_in_millis(vali_request.prediction_size * ValiConfig.STANDARD_TF)
 
                 results_ds = ValiUtils.get_standardized_ds()
+                bt_logger.info("getting training results to send back to miners")
 
                 BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
                                                                results_ds,
                                                                (training_results_start, training_results_end))
+
+                bt_logger.info("results gathered, sending back to miners")
 
                 results_vmin, results_vmax, results_scaled = Scaling.scale_values(results_ds[0],
                                                                                       vmin=vmins[0],
                                                                                       vmax=vmaxs[0])
                 results = bt.tensor(results_scaled)
 
-                training_backprop_proto = Backward(
+                training_backprop_proto = TrainingBackward(
                     request_uuid=request_uuid,
                     stream_id=stream_id,
                     samples=results,
@@ -191,6 +183,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                     training_backprop_proto,
                     deserialize=True
                 )
+                bt_logger.info("results sent back to miners")
 
             # If we encounter an unexpected error, log it for debugging.
             except RuntimeError as e:
@@ -199,6 +192,9 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
         elif isinstance(vali_request, ClientRequest):
             stream_id = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
+
+            if vali_request.client_uuid is None:
+                vali_request.client_uuid = wallet.hotkey.ss58_address
 
             start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
             bt_logger.info(f"sending requested data on stream type [{stream_id}] "
@@ -214,7 +210,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
             # forgot adding client request info to the cmw
 
-            live_proto = Forward(
+            live_proto = LiveForward(
                 request_uuid=request_uuid,
                 stream_id=stream_id,
                 samples=samples,
@@ -274,12 +270,15 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                             predictions=resp_i.predictions.numpy()
                         )
                         ValiUtils.save_predictions_request(output_uuid, pdf)
+                bt_logger.info("completed storing all predictions")
+
             # If we encounter an unexpected error, log it for debugging.
             except RuntimeError as e:
                 bt.logging.error(e)
                 traceback.print_exc()
 
         elif isinstance(vali_request, PredictionRequest):
+            bt_logger.info("processing predictions ready to be weighed")
             # handle results ready to score and weigh
             request_df = vali_request.df
             stream_id = hash(str(request_df.stream_type) + wallet.hotkey.ss58_address)
@@ -288,16 +287,21 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
                 data_structure = ValiUtils.get_standardized_ds()
 
+                bt_logger.info("getting results from live predictions")
+
                 BinanceData.get_data_and_structure_data_points(request_df.stream_type,
                                                                data_structure,
                                                                (request_df.start, request_df.end))
+
+                bt_logger.info("results gathered sending back to miners via backprop and weighing")
+
                 results_vmin, results_vmax, results_scaled = Scaling.scale_values(data_structure[0],
                                                                                       vmin=request_df.vmins[0],
                                                                                       vmax=request_df.vmaxs[0])
                 # send back the results for backprop so miners can learn
                 results = bt.tensor(results_scaled)
 
-                results_backprop_proto = Backward(
+                results_backprop_proto = LiveBackward(
                     request_uuid=request_uuid,
                     stream_id=stream_id,
                     samples=results,
@@ -310,12 +314,25 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                     deserialize=True
                 )
 
+                bt_logger.info("live results sent back to miners")
+
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():
                     scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[0])
 
-                scaled_scores = Scoring.scale_scores(scores)
+                scaled_scores = Scoring.simple_scale_scores(scores)
                 stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+
+                # store weights for results
+                sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+                winning_scores = sorted_scores[:10]
+
+                # choose top 10
+                weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+                weighed_winning_scores = weighed_scores[:10]
+                weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+
+                bt_logger.info("scores weighed, adding to cmw")
 
                 try:
                     # add results to cmw
@@ -325,19 +342,18 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                             stream_miner = CMWMiner(miner_uid, 0, 0, [])
                             stream_id.add_miner(stream_miner)
                         stream_miner.add_score(scaled_score)
+                        if weighed_winning_scores_dict[miner_uid] != 0:
+                            stream_miner.add_win_value(weighed_winning_scores_dict[miner_uid])
+                            stream_miner.add_win()
                 except Exception as e:
                     # if fail to store cmw for some reason print & continue
                     bt.logging.error(e)
                     traceback.print_exc()
 
-                # store weights for results
-                sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-                weighed_scores = Scoring.weigh_miner_scores(sorted_scores)
+                bt_logger.info("scores stored in cmw, setting weights")
 
-                print("winning distribution", weighed_scores)
-
-                miner_uids = [item[0] for item in weighed_scores]
-                weights = [item[1] for item in weighed_scores]
+                miner_uids = [item[0] for item in weighed_winning_scores]
+                weights = [item[1] for item in weighed_winning_scores]
 
                 subtensor.set_weights(
                     netuid=config.netuid,  # Subnet to set weights on.
@@ -345,11 +361,13 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                     uids=miner_uids,  # Uids of the miners to set weights for.
                     weights=weights  # Weights to set for the miners.
                 )
+                bt_logger.info("weights set and stored")
             # If we encounter an unexpected error, log it for debugging.
             except RuntimeError as e:
                 bt.logging.error(e)
                 traceback.print_exc()
             else:
+                bt_logger.info("removing processed files")
                 # remove files that have been properly processed & weighed
                 for file in vali_request.files:
                     os.remove(file)
@@ -372,6 +390,6 @@ if __name__ == "__main__":
             # if no requests to fill, randomly send in a training request to help them train
             # randomize to not have all validators sending in training data requests simultaneously to assist with load
             if len(requests) == 0 and random.randint(0, 10) == 1:
-                requests.append(ValiUtils.generate_standard_request(ClientRequest))
+                requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
             run_time_series_validation(requests)

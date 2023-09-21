@@ -84,19 +84,19 @@ class TestValiUtils(TestBase):
         os.remove(ValiBkpUtils.get_vali_predictions_dir() + test_pred_filename + ".pickle")
 
     # RUN ONLY IF YOU DONT HAVE VALI RECORDS SET AS IT WILL OVERRIDE
-    def test_set_vali_memory_and_bkp(self):
-        init_cmw = CMWUtil.load_cmw(CMWUtil.initialize_cmw())
-        init_cmw.add_client(CMWClient())
-
-        ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(init_cmw))
-
-        vm = CMWUtil.dump_cmw(ValiUtils.get_vali_memory_json())
-        vbkp = ValiUtils.get_vali_bkp_json()
-
-        unload_init_cw = CMWUtil.dump_cmw(init_cmw)
-
-        self.assertEqual(vm, unload_init_cw)
-        self.assertEqual(vbkp, unload_init_cw)
+    # def test_set_vali_memory_and_bkp(self):
+    #     init_cmw = CMWUtil.load_cmw(CMWUtil.initialize_cmw())
+    #     init_cmw.add_client(CMWClient())
+    #
+    #     ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(init_cmw))
+    #
+    #     vm = CMWUtil.dump_cmw(ValiUtils.get_vali_memory_json())
+    #     vbkp = ValiUtils.get_vali_bkp_json()
+    #
+    #     unload_init_cw = CMWUtil.dump_cmw(init_cmw)
+    #
+    #     self.assertEqual(vm, unload_init_cw)
+    #     self.assertEqual(vbkp, unload_init_cw)
 
 
 if __name__ == '__main__':

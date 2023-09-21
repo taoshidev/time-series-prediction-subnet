@@ -24,7 +24,8 @@ class CMWUtil:
                 for stream in client["streams"]:
                     cmw_stream = CMWStreamType().set_stream_id(stream["stream_id"]).set_topic_id(stream["topic_id"])
                     for miner in stream["miners"]:
-                        cmw_stream.add_miner(CMWMiner(miner["miner_id"], miner["wins"], miner["o_wins"], miner["scores"]))
+                        cmw_stream.add_miner(CMWMiner(miner["miner_id"], miner["wins"],
+                                                      miner["win_value"], miner["scores"]))
                     cmw_client.add_stream(cmw_stream)
                 cmw.add_client(cmw_client)
             return cmw

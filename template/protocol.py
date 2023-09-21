@@ -24,5 +24,17 @@ class Forward(BaseProtocol):
     predictions: bt.Tensor = None
 
 
-class Backward(BaseProtocol):
+class TrainingForward(Forward):
+    pass
+
+
+class LiveForward(Forward):
+    pass
+
+
+class TrainingBackward(BaseProtocol):
+    pass
+
+
+class LiveBackward(BaseProtocol):
     pass

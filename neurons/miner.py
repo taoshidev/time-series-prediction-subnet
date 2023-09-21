@@ -1,28 +1,17 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# TODO(developer): Set your name
-# Copyright © 2023 <your name>
+# developer: Taoshi
+# Copyright © 2023 Taoshi, LLC
 
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-# documentation files (the “Software”), to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-# the Software.
-
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-# THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
-# Bittensor Miner Template:
-# TODO(developer): Rewrite based on protocol and validator defintion.
 
 # Step 1: Import necessary libraries and modules
 import os
+import random
 import time
+from typing import Type
+
+import numpy as np
+
 import template
 import argparse
 import traceback
@@ -31,12 +20,12 @@ import bittensor as bt
 # import this repo
 import template
 
+
 def get_config():
     # Step 2: Set up the configuration parser
     # This function initializes the necessary command-line arguments.
     # Using command-line arguments allows users to customize various miner settings.
     parser = argparse.ArgumentParser()
-    # TODO(developer): Adds your custom miner arguments to the parser.
     parser.add_argument('--custom', default='my_custom_value', help='Adds a custom value to the parser.')
     # Adds override arguments for network and netuid.
     parser.add_argument( '--netuid', type = int, default = 1, help = "The chain subnet uid." )
@@ -105,8 +94,7 @@ def main( config ):
     # Step 4: Set up miner functionalities
     # The following functions control the miner's response to incoming requests.
     # The blacklist function decides if a request should be ignored.
-    def blacklist_fn( synapse: template.protocol.Dummy ) -> bool:
-        # TODO(developer): Define how miners should blacklist requests. This Function 
+    def blacklist_fn( synapse: Type[template.protocol.BaseProtocol] ) -> bool:
         # Runs before the synapse data has been deserialized (i.e. before synapse.data is available).
         # The synapse is instead contructed via the headers of the request. It is important to blacklist
         # requests before they are deserialized to avoid wasting resources on requests that will be ignored.
@@ -115,7 +103,6 @@ def main( config ):
             # Ignore requests from unrecognized entities.
             bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')
             return True
-        # TODO(developer): In practice it would be wise to blacklist requests from entities that 
         # are not validators, or do not have enough stake. This can be checked via metagraph.S
         # and metagraph.validator_permit. You can always attain the uid of the sender via a
         # metagraph.hotkeys.index( synapse.dendrite.hotkey ) call.
@@ -125,8 +112,7 @@ def main( config ):
 
     # The priority function determines the order in which requests are handled.
     # More valuable or higher-priority requests are processed before others.
-    def priority_fn( synapse: template.protocol.Dummy ) -> float:
-        # TODO(developer): Define how miners should prioritize requests.
+    def priority_fn( synapse: Type[template.protocol.BaseProtocol] ) -> float:
         # Miners may recieve messages from multiple entities at once. This function
         # determines which request should be processed first. Higher values indicate
         # that the request should be processed first. Lower values indicate that the
@@ -138,14 +124,24 @@ def main( config ):
         return prirority
 
     # This is the core miner function, which decides the miner's response to a valid, high-priority request.
-    def dummy( synapse: template.protocol.Dummy ) -> template.protocol.Dummy:
-        # TODO(developer): Define how miners should process requests.
-        # This function runs after the synapse has been deserialized (i.e. after synapse.data is available).
-        # This function runs after the blacklist and priority functions have been called.
-        # Below: simple template logic: return the input value multiplied by 2.
-        # If you change this, your miner will lose emission in the network incentive landscape.
-        synapse.dummy_output = synapse.dummy_input * 2
+    def training_f( synapse: template.protocol.TrainingForward ) -> template.protocol.Forward:
+        predictions = np.array([random.uniform(0.499, 0.501) for i in range(0, synapse.prediction_size)])
+        synapse.predictions = bt.tensor(predictions)
         return synapse
+
+    # This is the core miner function, which decides the miner's response to a valid, high-priority request.
+    def training_b( synapse: template.protocol.TrainingBackward ) -> template.protocol.Forward:
+        pass
+
+    # This is the core miner function, which decides the miner's response to a valid, high-priority request.
+    def live_f(synapse: template.protocol.LiveForward) -> template.protocol.Forward:
+        predictions = np.array([random.uniform(0.499, 0.501) for i in range(0, synapse.prediction_size)])
+        synapse.predictions = bt.tensor(predictions)
+        return synapse
+
+    # This is the core miner function, which decides the miner's response to a valid, high-priority request.
+    def live_b(synapse: template.protocol.LiveBackward) -> template.protocol.Forward:
+        pass
 
     # Step 5: Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
@@ -155,14 +151,30 @@ def main( config ):
     # Attach determiners which functions are called when servicing a request.
     bt.logging.info(f"Attaching forward function to axon.")
     axon.attach(
-        forward_fn = dummy,
+        forward_fn = training_f,
+        blacklist_fn = blacklist_fn,
+        priority_fn = priority_fn,
+    )
+    axon.attach(
+        forward_fn = training_b,
+        blacklist_fn = blacklist_fn,
+        priority_fn = priority_fn,
+    )
+    axon.attach(
+        forward_fn = live_f,
+        blacklist_fn = blacklist_fn,
+        priority_fn = priority_fn,
+    )
+    axon.attach(
+        forward_fn = live_b,
         blacklist_fn = blacklist_fn,
         priority_fn = priority_fn,
     )
 
     # Serve passes the axon information to the network + netuid we are hosting on.
     # This will auto-update if the axon port of external ip have changed.
-    bt.logging.info(f"Serving axon {dummy} on network: {config.subtensor.chain_endpoint} with netuid: {config.netuid}")
+    bt.logging.info(f"Serving attached axons on network:"
+                    f" {config.subtensor.chain_endpoint} with netuid: {config.netuid}")
     axon.serve( netuid = config.netuid, subtensor = subtensor )
 
     # Start  starts the miner's axon, making it active on the network.

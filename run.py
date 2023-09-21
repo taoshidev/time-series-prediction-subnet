@@ -51,6 +51,7 @@ if __name__ == "__main__":
         BinanceData.get_data_and_structure_data_points(client_request.stream_type, data_structure, ts_range)
 
     vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_data_structure(data_structure)
+    print(scaled_data_structure)
 
     request_uuid = str(uuid.uuid4())
     test_vali_hotkey = str(uuid.uuid4())
@@ -167,14 +168,29 @@ if __name__ == "__main__":
         scores["test"] = Scoring.score_response([row*0.999 for row in data_structure[0]], data_structure[0])
         scores["test1"] = Scoring.score_response([row*0.9975 for row in data_structure[0]], data_structure[0])
         scores["test2"] = Scoring.score_response([row*0.995 for row in data_structure[0]], data_structure[0])
-        scores["test3"] = Scoring.score_response([row*0.9925 for row in data_structure[0]], data_structure[0])
-        scores["test4"] = Scoring.score_response([row * 0.99 for row in data_structure[0]], data_structure[0])
+        scores["test3"] = Scoring.score_response([row*0.995 for row in data_structure[0]], data_structure[0])
+        scores["test4"] = Scoring.score_response([row * 0.995 for row in data_structure[0]], data_structure[0])
+        scores["test5"] = Scoring.score_response([row * 0.9925 for row in data_structure[0]], data_structure[0])
+        scores["test6"] = Scoring.score_response([row * 0.99 for row in data_structure[0]], data_structure[0])
+        scores["test7"] = Scoring.score_response([row * 0.99 for row in data_structure[0]], data_structure[0])
+        scores["test8"] = Scoring.score_response([row * 0.9875 for row in data_structure[0]], data_structure[0])
+        scores["test9"] = Scoring.score_response([row * 0.9875 for row in data_structure[0]], data_structure[0])
+        scores["test10"] = Scoring.score_response([row * 0.985 for row in data_structure[0]], data_structure[0])
+        scores["test11"] = Scoring.score_response([row * 0.985 for row in data_structure[0]], data_structure[0])
+        scores["test12"] = Scoring.score_response([row * 0.98 for row in data_structure[0]], data_structure[0])
 
-        scaled_scores = Scoring.scale_scores(scores)
-        print("client_uuid", request_df.client_uuid)
-        print("stream type", request_df.stream_id)
-        print("request_uuid", request_details.request_uuid)
+        scaled_scores = Scoring.simple_scale_scores(scores)
         stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+
+        sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+        winning_scores = sorted_scores[:10]
+
+        weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+        weighed_winning_scores = weighed_scores[:10]
+        weighed_winning_scores_dict = {score[0]:score[1] for score in weighed_winning_scores}
+
+        print("winning distribution", weighed_winning_scores)
+        print("weighed_scores_dict", weighed_winning_scores_dict)
 
         # add scaled scores
         for miner_uid, scaled_score in scaled_scores.items():
@@ -183,15 +199,9 @@ if __name__ == "__main__":
                 stream_miner = CMWMiner(miner_uid, 0, 0, [])
                 stream_id.add_miner(stream_miner)
             stream_miner.add_score(scaled_score)
-
-        sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-        top_winners = sorted_scores[:10]
-        top_winner_miner_uids = [item[0] for item in top_winners]
-
-        weighed_scores = Scoring.weigh_miner_scores(top_winners)
-
-        print("winning scores", top_winners)
-        print("winning distribution", weighed_scores)
+            if miner_uid in weighed_winning_scores_dict:
+                stream_miner.add_win_value(weighed_winning_scores_dict[miner_uid])
+                stream_miner.add_win()
 
         for file in request_details.files:
             os.remove(file)
