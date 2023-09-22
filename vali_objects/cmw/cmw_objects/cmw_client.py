@@ -13,9 +13,9 @@ class CMWClient:
     def add_stream(self, cmw_stream_type: CMWStreamType):
         self.streams.append(cmw_stream_type)
 
-    def get_stream(self, stream_type: str):
+    def get_stream(self, stream_id: str):
         for stream in self.streams:
-            if stream.stream_id == stream_type:
+            if stream.stream_id == stream_id:
                 return stream
         return None
 

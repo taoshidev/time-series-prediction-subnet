@@ -7,6 +7,7 @@ from tests.vali_tests.base_objects.test_base import TestBase
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_util import CMWUtil
+from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.exceptions.corrupt_data_exception import ValiBkpCorruptDataException
 from vali_objects.exceptions.vali_bkp_file_missing_exception import ValiFileMissingException
 from vali_objects.exceptions.vali_memory_missing_exception import ValiMemoryMissingException
@@ -82,6 +83,10 @@ class TestValiUtils(TestBase):
                                                               + test_pred_filename + ".pickle")
         self.assertTrue(testing_preds_output == TestingData.po)
         os.remove(ValiBkpUtils.get_vali_predictions_dir() + test_pred_filename + ".pickle")
+
+    def test_generate_standard_request(self):
+        std_request = ValiUtils.generate_standard_request(ClientRequest)
+        self.assertTrue(std_request.stream_type == "BTCUSDT")
 
     # RUN ONLY IF YOU DONT HAVE VALI RECORDS SET AS IT WILL OVERRIDE
     # def test_set_vali_memory_and_bkp(self):

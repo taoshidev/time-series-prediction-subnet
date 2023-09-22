@@ -8,7 +8,7 @@
 import os
 import random
 import time
-from typing import Type
+from typing import Type, Tuple
 
 import numpy as np
 
@@ -91,57 +91,92 @@ def main( config ):
         my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
         bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
-    # Step 4: Set up miner functionalities
-    # The following functions control the miner's response to incoming requests.
-    # The blacklist function decides if a request should be ignored.
-    def blacklist_fn( synapse: Type[template.protocol.BaseProtocol] ) -> bool:
-        # Runs before the synapse data has been deserialized (i.e. before synapse.data is available).
-        # The synapse is instead contructed via the headers of the request. It is important to blacklist
-        # requests before they are deserialized to avoid wasting resources on requests that will be ignored.
-        # Below: Check that the hotkey is a registered entity in the metagraph.
+    def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> Tuple[bool, str]:
+        bt.logging.info("got to blacklisting tf")
         if synapse.dendrite.hotkey not in metagraph.hotkeys:
             # Ignore requests from unrecognized entities.
             bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')
-            return True
-        # are not validators, or do not have enough stake. This can be checked via metagraph.S
-        # and metagraph.validator_permit. You can always attain the uid of the sender via a
-        # metagraph.hotkeys.index( synapse.dendrite.hotkey ) call.
-        # Otherwise, allow the request to be processed further.
+            return True, synapse.dendrite.hotkey
         bt.logging.trace(f'Not Blacklisting recognized hotkey {synapse.dendrite.hotkey}')
-        return False
+        return False, synapse.dendrite.hotkey
 
-    # The priority function determines the order in which requests are handled.
-    # More valuable or higher-priority requests are processed before others.
-    def priority_fn( synapse: Type[template.protocol.BaseProtocol] ) -> float:
-        # Miners may recieve messages from multiple entities at once. This function
-        # determines which request should be processed first. Higher values indicate
-        # that the request should be processed first. Lower values indicate that the
-        # request should be processed later.
-        # Below: simple logic, prioritize requests from entities with more stake.
+    def tf_priority_fn(synapse: template.protocol.TrainingForward) -> float:
         caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
         prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
         bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
         return prirority
 
     # This is the core miner function, which decides the miner's response to a valid, high-priority request.
-    def training_f( synapse: template.protocol.TrainingForward ) -> template.protocol.Forward:
+    def training_f( synapse: template.protocol.TrainingForward ) -> template.protocol.TrainingForward:
+        bt.logging.debug(f'received tf')
         predictions = np.array([random.uniform(0.499, 0.501) for i in range(0, synapse.prediction_size)])
         synapse.predictions = bt.tensor(predictions)
+        bt.logging.debug(f'sending tf with length {len(predictions)}')
         return synapse
 
-    # This is the core miner function, which decides the miner's response to a valid, high-priority request.
-    def training_b( synapse: template.protocol.TrainingBackward ) -> template.protocol.Forward:
-        pass
+    def tb_blacklist_fn( synapse: template.protocol.TrainingBackward ) -> Tuple[bool, str]:
+        if synapse.dendrite.hotkey not in metagraph.hotkeys:
+            # Ignore requests from unrecognized entities.
+            bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')
+            return True, synapse.dendrite.hotkey
+        bt.logging.trace(f'Not Blacklisting recognized hotkey {synapse.dendrite.hotkey}')
+        return False, synapse.dendrite.hotkey
+
+    def tb_priority_fn( synapse: template.protocol.TrainingBackward ) -> float:
+        caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
+        prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
+        bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
+        return prirority
 
     # This is the core miner function, which decides the miner's response to a valid, high-priority request.
-    def live_f(synapse: template.protocol.LiveForward) -> template.protocol.Forward:
+    def training_b( synapse: template.protocol.TrainingBackward ) -> template.protocol.TrainingBackward:
+        bt.logging.debug(f'received lb with length {len(synapse.samples.numpy())}')
+        synapse.received = True
+        return synapse
+
+    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
+        bt.logging.info("got to blacklisting lf")
+        if synapse.dendrite.hotkey not in metagraph.hotkeys:
+            # Ignore requests from unrecognized entities.
+            bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')
+            return True, synapse.dendrite.hotkey
+        bt.logging.trace(f'Not Blacklisting recognized hotkey {synapse.dendrite.hotkey}')
+        return False, synapse.dendrite.hotkey
+
+    def lf_priority_fn(synapse: template.protocol.LiveForward) -> float:
+        caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
+        prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
+        bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
+        return prirority
+
+    # This is the core miner function, which decides the miner's response to a valid, high-priority request.
+    def live_f(synapse: template.protocol.LiveForward) -> template.protocol.LiveForward:
+        bt.logging.debug(f'received tf')
         predictions = np.array([random.uniform(0.499, 0.501) for i in range(0, synapse.prediction_size)])
         synapse.predictions = bt.tensor(predictions)
+        # synapse.dummy_output = synapse.dummy_input * 2
+        bt.logging.debug(f'sending tf with length {len(predictions)}')
         return synapse
 
+    def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
+        if synapse.dendrite.hotkey not in metagraph.hotkeys:
+            # Ignore requests from unrecognized entities.
+            bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')
+            return True, synapse.dendrite.hotkey
+        bt.logging.trace(f'Not Blacklisting recognized hotkey {synapse.dendrite.hotkey}')
+        return False, synapse.dendrite.hotkey
+
+    def lb_priority_fn(synapse: template.protocol.LiveBackward) -> float:
+        caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
+        prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
+        bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
+        return prirority
+
     # This is the core miner function, which decides the miner's response to a valid, high-priority request.
-    def live_b(synapse: template.protocol.LiveBackward) -> template.protocol.Forward:
-        pass
+    def live_b(synapse: template.protocol.LiveBackward) -> template.protocol.LiveBackward:
+        bt.logging.debug(f'received lb with length {len(synapse.samples.numpy())}')
+        synapse.received = True
+        return synapse
 
     # Step 5: Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
@@ -152,23 +187,23 @@ def main( config ):
     bt.logging.info(f"Attaching forward function to axon.")
     axon.attach(
         forward_fn = training_f,
-        blacklist_fn = blacklist_fn,
-        priority_fn = priority_fn,
+        blacklist_fn = tf_blacklist_fn,
+        priority_fn = tf_priority_fn,
     )
     axon.attach(
         forward_fn = training_b,
-        blacklist_fn = blacklist_fn,
-        priority_fn = priority_fn,
+        blacklist_fn = tb_blacklist_fn,
+        priority_fn = tb_priority_fn,
     )
     axon.attach(
         forward_fn = live_f,
-        blacklist_fn = blacklist_fn,
-        priority_fn = priority_fn,
+        blacklist_fn = lf_blacklist_fn,
+        priority_fn = lf_priority_fn,
     )
     axon.attach(
         forward_fn = live_b,
-        blacklist_fn = blacklist_fn,
-        priority_fn = priority_fn,
+        blacklist_fn = lb_blacklist_fn,
+        priority_fn = lb_priority_fn,
     )
 
     # Serve passes the axon information to the network + netuid we are hosting on.

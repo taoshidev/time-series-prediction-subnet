@@ -5,6 +5,7 @@
 
 import json
 import random
+from inspect import isclass
 from pickle import UnpicklingError
 from typing import Dict, List, Type, Tuple
 
@@ -134,7 +135,7 @@ class ValiUtils:
         feature_ids = [0.001, 0.002, 0.003, 0.004]
         prediction_size = int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX))
 
-        if isinstance(request, TrainingRequest):
+        if request == TrainingRequest:
             return TrainingRequest(
                 stream_type=stream_type,
                 topic_id=topic_id,
@@ -142,7 +143,7 @@ class ValiUtils:
                 feature_ids=feature_ids,
                 prediction_size=prediction_size
             )
-        elif isinstance(request, ClientRequest):
+        elif request == ClientRequest:
             return ClientRequest(
                 stream_type=stream_type,
                 topic_id=topic_id,

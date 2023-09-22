@@ -2,7 +2,7 @@ import unittest
 
 from tests.vali_tests.samples.testing_data import TestingData
 from tests.vali_tests.base_objects.test_base import TestBase
-from vali_objects.exceptions.IncorrectPredictionSizeError import IncorrectPredictionSizeError
+from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
 from vali_objects.scoring.scoring import Scoring
 
 
@@ -22,6 +22,12 @@ class TestScoring(TestBase):
     def test_scale_scores(self):
         scaled_scores = Scoring.scale_scores(TestingData.SCORES)
         self.assertEqual(scaled_scores, TestingData.SCALED_SCORES)
+
+    def test_simple_scale_scores(self):
+        sample_scores = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 34.54618500386289}
+        scaled_scores = Scoring.simple_scale_scores(sample_scores)
+        expected_score = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 1}
+        self.assertEqual(expected_score, scaled_scores)
 
     def test_calculate_directional_accuracy(self):
         predictions = [1, 2, 1, 3, 4, 5, 6, 7, 6, 7, 8]

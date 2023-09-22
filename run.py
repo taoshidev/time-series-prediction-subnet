@@ -78,7 +78,7 @@ if __name__ == "__main__":
         cmw_client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(client_request.topic_id))
         vm.add_client(cmw_client)
     else:
-        client_stream_type = client.stream_exists(stream_id)
+        client_stream_type = client.get_stream(stream_id)
         if client_stream_type is None:
             client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(client_request.topic_id))
     print(CMWUtil.dump_cmw(vm))
