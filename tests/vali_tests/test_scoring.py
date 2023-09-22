@@ -1,3 +1,6 @@
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
+
 import unittest
 
 from tests.vali_tests.samples.testing_data import TestingData

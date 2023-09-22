@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# developer: Taoshi
+# developer: Taoshidev
 # Copyright © 2023 Taoshi, LLC
 
 import os
@@ -386,7 +386,8 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
                 weights = [item[1] for item in weighed_winning_scores]
 
-                converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])] for miner_hotkey in weighed_winning_scores]
+                converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])]
+                                  for miner_hotkey in weighed_winning_scores]
 
                 bt.logging.debug(f"converted uids [{converted_uids}]")
                 bt.logging.debug(f"set weights [{weights}]")

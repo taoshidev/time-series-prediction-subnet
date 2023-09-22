@@ -1,4 +1,5 @@
-
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
 
 class CMWMiner:
     def __init__(self, miner_id, wins, win_value, scores):

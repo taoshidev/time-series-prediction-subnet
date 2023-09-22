@@ -1,6 +1,7 @@
-from dataclasses import dataclass
-from typing import Optional
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
 
+from dataclasses import dataclass
 from vali_objects.dataclasses.base_objects.new_request_dataclass import NewRequestDataClass
 
 

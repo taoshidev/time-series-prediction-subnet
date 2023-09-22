@@ -1,3 +1,6 @@
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
+
 from dataclasses import dataclass
 from typing import Optional
 

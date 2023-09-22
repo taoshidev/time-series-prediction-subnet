@@ -1,3 +1,6 @@
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
+
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
 
 

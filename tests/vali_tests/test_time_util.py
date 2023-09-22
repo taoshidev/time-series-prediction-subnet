@@ -1,3 +1,6 @@
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
+
 import time
 import unittest
 from datetime import datetime

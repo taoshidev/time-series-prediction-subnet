@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# developer: Taoshi
+# developer: Taoshidev
 # Copyright © 2023 Taoshi, LLC
 
 

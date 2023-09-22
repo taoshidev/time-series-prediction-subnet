@@ -1,3 +1,6 @@
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
+
 import datetime
 
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
