@@ -180,7 +180,9 @@ def main( config ):
 
     # Step 5: Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
-    axon = bt.axon( wallet = wallet )
+    bt.logging.info(f"setting port [{config.axon.port}]")
+    bt.logging.info(f"setting external port [{config.axon.external_port}]")
+    axon = bt.axon( wallet = wallet, port=config.axon.port, external_port=config.axon.external_port)
     bt.logging.info(f"Axon {axon}")
 
     # Attach determiners which functions are called when servicing a request.
@@ -210,7 +212,7 @@ def main( config ):
     # This will auto-update if the axon port of external ip have changed.
     bt.logging.info(f"Serving attached axons on network:"
                     f" {config.subtensor.chain_endpoint} with netuid: {config.netuid}")
-    axon.serve( netuid = config.netuid, subtensor = subtensor )
+    axon.serve(netuid = config.netuid, subtensor = subtensor )
 
     # Start  starts the miner's axon, making it active on the network.
     bt.logging.info(f"Starting axon server on port: {config.axon.port}")

@@ -8,6 +8,7 @@ import numpy as np
 
 from vali_config import ValiConfig
 from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
+from vali_objects.exceptions.min_responses_exception import MinResponsesException
 
 
 class Scoring:
@@ -65,7 +66,7 @@ class Scoring:
     @staticmethod
     def weigh_miner_scores(scores: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
         if len(scores) == 1:
-            return [(scores[0][0], 1)]
+            return [(scores[0][0], 1.0)]
 
         min_score = min(score for _, score in scores)
         max_score = max(score for _, score in scores)
@@ -78,8 +79,8 @@ class Scoring:
 
     @staticmethod
     def simple_scale_scores(scores: Dict[str, float]) -> Dict[str, float]:
-        if len(scores) == 1:
-            return {miner_uid: 1 for miner_uid, score in scores.items()}
+        if len(scores) <= 1:
+            raise MinResponsesException("not enough responses")
         score_values = [score for miner_uid, score in scores.items()]
         min_score = min(score_values)
         max_score = max(score_values)

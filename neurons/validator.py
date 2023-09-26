@@ -2,7 +2,7 @@
 # Copyright © 2023 Yuma Rao
 # developer: Taoshidev
 # Copyright © 2023 Taoshi, LLC
-
+import hashlib
 import os
 import random
 import uuid
@@ -15,8 +15,11 @@ import bittensor as bt
 
 # Step 2: Set up the configuration parser
 # This function is responsible for setting up and parsing command-line arguments.
-import template
-from data_generator.binance_data import BinanceData
+import numpy as np
+import torch
+
+from data_generator.data_generator_handler import DataGeneratorHandler
+from data_generator.financial_markets_generator.binance_data import BinanceData
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
@@ -28,6 +31,8 @@ from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.dataclasses.prediction_request import PredictionRequest
 from vali_objects.dataclasses.training_request import TrainingRequest
+from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
+from vali_objects.exceptions.min_responses_exception import MinResponsesException
 from vali_objects.scaling.scaling import Scaling
 from vali_objects.scoring.scoring import Scoring
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
@@ -117,19 +122,31 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
     for vali_request in vali_requests:
         # standardized request identifier for miners to tie together forward/backprop
         request_uuid = str(uuid.uuid4())
+        data_generator_handler = DataGeneratorHandler()
 
         if isinstance(vali_request, TrainingRequest):
-            stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
+            # stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
+            # stream_type = hash(str(vali_request.stream_type))
+            hash_object = hashlib.sha256(vali_request.stream_type.encode())
+            stream_type = hash_object.hexdigest()
 
             start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
             bt.logging.info(f"sending training data on stream type [{stream_type}] "
                            f"with params start date [{start_dt}] & [{end_dt}] ")
 
             ds = ValiUtils.get_standardized_ds()
+
+            # binance_data = BinanceData()
             for ts_range in ts_ranges:
-                BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
-                                                               ds,
-                                                               ts_range)
+                # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
+                #                                                ds,
+                #                                                ts_range)
+                data_generator_handler.data_generator_handler(vali_request.topic_id,
+                                                              0,
+                                                              vali_request.stream_type,
+                                                              ds,
+                                                              ts_range)
+
             vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
             samples = bt.tensor(sds)
 
@@ -168,9 +185,14 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                 results_ds = ValiUtils.get_standardized_ds()
                 bt.logging.info("getting training results to send back to miners")
 
-                BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
-                                                               results_ds,
-                                                               (training_results_start, training_results_end))
+                # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
+                #                                                results_ds,
+                #                                                (training_results_start, training_results_end))
+                data_generator_handler.data_generator_handler(vali_request.topic_id,
+                                                              vali_request.prediction_size,
+                                                              vali_request.stream_type,
+                                                              results_ds,
+                                                              (training_results_start, training_results_end))
 
                 bt.logging.info("results gathered, sending back to miners")
 
@@ -199,7 +221,10 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                 traceback.print_exc()
 
         elif isinstance(vali_request, ClientRequest):
-            stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
+            # stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
+            # stream_type = hash(str(vali_request.stream_type))
+            hash_object = hashlib.sha256(vali_request.stream_type.encode())
+            stream_type = hash_object.hexdigest()
 
             if vali_request.client_uuid is None:
                 vali_request.client_uuid = wallet.hotkey.ss58_address
@@ -214,9 +239,15 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
             ds = ValiUtils.get_standardized_ds()
             for ts_range in ts_ranges:
-                BinanceData.get_data_and_structure_data_points(vali_request.stream_type,
-                                                               ds,
-                                                               ts_range)
+                # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
+                #                                                ds,
+                #                                                ts_range)
+                data_generator_handler.data_generator_handler(vali_request.topic_id,
+                                                              0,
+                                                              vali_request.stream_type,
+                                                              ds,
+                                                              ts_range)
+
             vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
             samples = bt.tensor(sds)
 
@@ -263,16 +294,15 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                 for i, respi in enumerate(responses):
                     if respi is not None \
                             and len(respi.numpy()) == vali_request.prediction_size:
-                        bt.logging.debug(f"number of responses to requested data: [{len(respi.numpy())}]")
+                        bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi.numpy())}]")
                     else:
-                        bt.logging.debug(f"has no proper response")
-
-                # for file name
-                output_uuid = str(uuid.uuid4())
+                        bt.logging.debug(f"index [{i}] has no proper response")
 
                 for i, resp_i in enumerate(responses):
                     if resp_i is not None \
                             and len(resp_i.numpy()) == vali_request.prediction_size:
+                        # for file name
+                        output_uuid = str(uuid.uuid4())
                         bt.logging.debug(f"axon hotkey [{metagraph.axons[i].hotkey}]")
                         # has the right number of predictions made
                         pdf = PredictionDataFile(
@@ -288,7 +318,8 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                             vmins=vmins,
                             vmaxs=vmaxs,
                             decimal_places=dps,
-                            predictions=resp_i.numpy()
+                            predictions=resp_i.numpy(),
+                            prediction_size=vali_request.prediction_size
                         )
                         ValiUtils.save_predictions_request(output_uuid, pdf)
                 bt.logging.info("completed storing all predictions")
@@ -302,7 +333,9 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
             bt.logging.info("processing predictions ready to be weighed")
             # handle results ready to score and weigh
             request_df = vali_request.df
-            stream_type = hash(str(request_df.stream_type) + wallet.hotkey.ss58_address)
+            # stream_type = hash(str(request_df.stream_type) + wallet.hotkey.ss58_address)
+            hash_object = hashlib.sha256(request_df.stream_type.encode())
+            stream_type = hash_object.hexdigest()
             try:
                 vm = ValiUtils.get_vali_records()
 
@@ -310,9 +343,14 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
                 bt.logging.info("getting results from live predictions")
 
-                BinanceData.get_data_and_structure_data_points(request_df.stream_type,
-                                                               data_structure,
-                                                               (request_df.start, request_df.end))
+                # binance_data.get_data_and_structure_data_points(request_df.stream_type,
+                #                                                data_structure,
+                #                                                (request_df.start, request_df.end))
+                data_generator_handler.data_generator_handler(request_df.topic_id,
+                                                              request_df.prediction_size,
+                                                              request_df.stream_type,
+                                                              data_structure,
+                                                              (request_df.start, request_df.end))
 
                 bt.logging.info("results gathered sending back to miners via backprop and weighing")
 
@@ -339,68 +377,111 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():
-                    scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[0])
+                    try:
+                        scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[0])
+                    except IncorrectPredictionSizeError as e:
+                        bt.logging.error(e)
+                        traceback.print_exc()
 
-                bt.logging.debug(f"unscaled scores [{scores}]")
+                if len(scores) > 0:
+                    bt.logging.debug(f"unscaled scores [{scores}]")
+                    scaled_scores = Scoring.simple_scale_scores(scores)
+                    stream_type = vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
 
-                scaled_scores = Scoring.simple_scale_scores(scores)
-                stream_type = vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+                    # store weights for results
+                    sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+                    winning_scores = sorted_scores[:10]
 
-                # store weights for results
-                sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-                winning_scores = sorted_scores[:10]
+                    # choose top 10
+                    weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+                    weighed_winning_scores = weighed_scores[:10]
+                    weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
-                # choose top 10
-                weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                weighed_winning_scores = weighed_scores[:10]
-                weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                    bt.logging.debug(f"scaled scores [{scaled_scores}]")
+                    bt.logging.debug(f"weighed scores [{weighed_scores}]")
+                    bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
-                bt.logging.info("scores weighed, adding to cmw")
+                    # weights = torch.tensor(np.array([item[1] for item in weighed_winning_scores]))
+                    weights = [item[1] for item in weighed_winning_scores]
 
-                bt.logging.debug(f"scaled scores [{scaled_scores}]")
-                bt.logging.debug(f"weighed scores [{weighed_scores}]")
-                bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
-                try:
-                    # add results to cmw
-                    for miner_uid, scaled_score in scaled_scores.items():
-                        bt.logging.debug(f"review mineruid [{miner_uid}]")
-                        stream_miner = stream_type.get_miner(miner_uid)
-                        if stream_miner is None:
-                            bt.logging.debug("stream miner doesnt exist")
-                            stream_miner = CMWMiner(miner_uid, 0, 0, [])
-                            stream_type.add_miner(stream_miner)
-                            bt.logging.debug("miner added")
-                        stream_miner.add_score(scaled_score)
-                        if weighed_winning_scores_dict[miner_uid] != 0:
-                            bt.logging.debug(f"adding winning miner [{miner_uid}]")
-                            stream_miner.add_win_value(weighed_winning_scores_dict[miner_uid])
-                            stream_miner.add_win()
-                    ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
-                except Exception as e:
-                    # if fail to store cmw for some reason print & continue
-                    bt.logging.error(e)
-                    traceback.print_exc()
+                    converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])]
+                                      for miner_hotkey in weighed_winning_scores]
 
-                bt.logging.info("scores attempted to be stored in cmw, setting weights")
+                    # uids_array = np.array([item.item() for item in converted_uids])
 
-                weights = [item[1] for item in weighed_winning_scores]
+                    for weighed_winning_score in weighed_winning_scores:
+                        bt.logging.debug(f"hotkey [{weighed_winning_score[0]}]")
+                        bt.logging.debug(f"hotkey index [{metagraph.hotkeys.index(weighed_winning_score[0])}]")
+                        bt.logging.debug(f"metagraph uid [{metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])]}]")
 
-                converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])]
-                                  for miner_hotkey in weighed_winning_scores]
+                    bt.logging.debug(f"converted uids [{converted_uids}]")
+                    bt.logging.debug(f"set weights [{weights}]")
 
-                bt.logging.debug(f"converted uids [{converted_uids}]")
-                bt.logging.debug(f"set weights [{weights}]")
+                    # processed_weights = bt.utils.weight_utils.process_weights_for_netuid(uids_array,
+                    #                                                                      weights,
+                    #                                                                      config.netuid,
+                    #                                                                      subtensor,
+                    #                                                                      metagraph)
 
-                subtensor.set_weights(
-                    netuid=config.netuid,  # Subnet to set weights on.
-                    wallet=wallet,  # Wallet to sign set weights using hotkey.
-                    uids=converted_uids,  # Uids of the miners to set weights for.
-                    weights=weights  # Weights to set for the miners.
-                )
-                bt.logging.info("weights set and stored")
+                    min_allowed_weights = subtensor.min_allowed_weights(netuid=config.netuid)
+                    max_weight_limit = subtensor.max_weight_limit(netuid=config.netuid)
+
+                    bt.logging.debug(f"min allowed weights [{min_allowed_weights}]")
+                    bt.logging.debug(f"max weight limit [{max_weight_limit}]")
+
+                    # bt.logging.debug(f"processed weights [{processed_weights}]")
+
+                    result = subtensor.set_weights(
+                        netuid=config.netuid,  # Subnet to set weights on.
+                        wallet=wallet,  # Wallet to sign set weights using hotkey.
+                        uids=converted_uids,  # Uids of the miners to set weights for.
+                        weights=weights,  # Weights to set for the miners.
+                        wait_for_inclusion = True
+                    )
+                    if result:
+                        bt.logging.success('Successfully set weights.')
+                    else:
+                        bt.logging.error('Failed to set weights.')
+                    bt.logging.info("weights set and stored")
+                    bt.logging.info("adding to cmw")
+
+                    try:
+                        # add results to cmw
+                        for miner_uid, scaled_score in scaled_scores.items():
+                            bt.logging.debug(f"review mineruid [{miner_uid}]")
+                            stream_miner = stream_type.get_miner(miner_uid)
+                            if stream_miner is None:
+                                bt.logging.debug("stream miner doesnt exist")
+                                stream_miner = CMWMiner(miner_uid, 0, 0, [])
+                                stream_type.add_miner(stream_miner)
+                                bt.logging.debug("miner added")
+                            stream_miner.add_score(scaled_score)
+                            if weighed_winning_scores_dict[miner_uid] != 0:
+                                bt.logging.debug(f"adding winning miner [{miner_uid}]")
+                                stream_miner.add_win_value(weighed_winning_scores_dict[miner_uid])
+                                stream_miner.add_win()
+                        ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
+                    except Exception as e:
+                        # if fail to store cmw for some reason print & continue
+                        bt.logging.error(e)
+                        traceback.print_exc()
+
+                    bt.logging.info("scores attempted to be stored in cmw")
+                else:
+                    bt.logging.info("there are no predictions to score that have the right number of predictions")
             # If we encounter an unexpected error, log it for debugging.
             except RuntimeError as e:
+                bt.logging.error(e)
+                traceback.print_exc()
+            except MinResponsesException as e:
+                bt.logging.info("removing processed files as min responses "
+                                "not met to not continue to iterate over them")
+                for file in vali_request.files:
+                    os.remove(file)
+                bt.logging.error(e)
+                traceback.print_exc()
+            except Exception as e:
                 bt.logging.error(e)
                 traceback.print_exc()
             else:
@@ -417,11 +498,11 @@ if __name__ == "__main__":
         # if current_time.minute % 5 == 0:
         if current_time.second % 5 == 0:
             requests = []
-            if current_time.second % 59 == 0:
+            # if current_time.second % 59 == 0:
                 # see if any files exist, if not then generate a client request (a live prediction)
-                all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
-                if len(all_files) == 0:
-                    requests.append(ValiUtils.generate_standard_request(ClientRequest))
+            all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
+            if len(all_files) == 0:
+                requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
             # add any predictions that are ready to be scored
             requests.extend(ValiUtils.get_predictions_to_complete())

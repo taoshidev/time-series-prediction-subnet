@@ -127,7 +127,7 @@ class ValiUtils:
     @staticmethod
     def generate_standard_request(request: Type[NewRequestDataClass]):
         # templated for now as we trade only btc
-        stream_type = "BTCUSDT"
+        stream_type = "BTCUSD"
         topic_id = 1
         schema_id = 1
         feature_ids = [0.001, 0.002, 0.003, 0.004]

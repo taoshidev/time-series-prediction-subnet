@@ -17,6 +17,8 @@ class TimeUtil:
         while current_date <= end_date:
             start_timestamp = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
             end_timestamp = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            if end_timestamp > end_date:
+                end_timestamp = end_date
             timestamps.append((start_timestamp, end_timestamp))
             current_date += timedelta(days=1)
 
@@ -24,7 +26,7 @@ class TimeUtil:
 
     @staticmethod
     def generate_start_timestamp(days: int) -> datetime:
-        return datetime.now() - timedelta(days=days)
+        return datetime.utcnow() - timedelta(days=days)
 
     @staticmethod
     def convert_range_timestamps_to_millis(timestamps: List[Tuple[datetime, datetime]]) -> List[Tuple[int, int]]:
@@ -32,11 +34,19 @@ class TimeUtil:
 
     @staticmethod
     def now_in_millis() -> int:
-        return int(datetime.now().timestamp() * 1000)
+        return int(datetime.utcnow().timestamp() * 1000)
 
     @staticmethod
     def timestamp_to_millis(dt) -> int:
         return int(dt.timestamp() * 1000) + 0
+
+    @staticmethod
+    def seconds_to_timestamp(seconds: int) -> datetime:
+        return datetime.fromtimestamp(seconds)
+
+    @staticmethod
+    def millis_to_timestamp(millis: int) -> datetime:
+        return datetime.fromtimestamp(millis / 1000.0)
 
     @staticmethod
     def minute_in_millis(minutes: int) -> int:
