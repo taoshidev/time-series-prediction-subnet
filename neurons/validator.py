@@ -497,10 +497,8 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 if __name__ == "__main__":
     while True:
         current_time = datetime.now().time()
-        # if current_time.minute % 5 == 0:
-        if current_time.second % 5 == 0:
+        if current_time.minute % 5 == 0:
             requests = []
-            # if current_time.second % 30 == 0:
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
             if len(all_files) == 0:
