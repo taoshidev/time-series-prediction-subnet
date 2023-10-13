@@ -1,5 +1,6 @@
 from data_generator.financial_markets_generator.binance_data import BinanceData
 from data_generator.financial_markets_generator.bybit_data import ByBitData
+from vali_objects.exceptions.incorrect_live_results_count_exception import IncorrectLiveResultsCountException
 
 
 class DataGeneratorHandler:
@@ -20,13 +21,16 @@ class DataGeneratorHandler:
             exchange_list_order[exchange_list_order_ind]\
                 .get_data_and_structure_data_points(symbol=symbol, data_structure=ds, ts_range=ts_range)
             if expected_length != 0 and len(ds[0]) != expected_length:
-                raise Exception(f"not expected length for results [{len(ds[0])}], "
+                raise IncorrectLiveResultsCountException(f"not expected length for results [{len(ds[0])}], "
                                 f"expected [{expected_length}]")
         except Exception as e:
             exchange_list_order_ind += 1
             if exchange_list_order_ind > len(exchange_list_order)-1:
-                raise Exception("could not get financial markets data from available exchanges, make sure you "
-                                "are not in a restricted region and have network connectivity.")
+                if isinstance(e, IncorrectLiveResultsCountException):
+                    raise e
+                else:
+                    raise Exception("could not get financial markets data from available exchanges, make sure you "
+                                    "are not in a restricted region and have network connectivity.")
             else:
                 print("trying next exchange", exchange_list_order[exchange_list_order_ind])
                 self._get_financial_markets_data(exchange_list_order_ind, expected_length, args)

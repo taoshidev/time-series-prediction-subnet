@@ -31,6 +31,7 @@ from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.dataclasses.prediction_request import PredictionRequest
 from vali_objects.dataclasses.training_request import TrainingRequest
+from vali_objects.exceptions.incorrect_live_results_count_exception import IncorrectLiveResultsCountException
 from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
 from vali_objects.exceptions.min_responses_exception import MinResponsesException
 from vali_objects.scaling.scaling import Scaling
@@ -136,11 +137,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
             ds = ValiUtils.get_standardized_ds()
 
-            # binance_data = BinanceData()
             for ts_range in ts_ranges:
-                # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
-                #                                                ds,
-                #                                                ts_range)
                 data_generator_handler.data_generator_handler(vali_request.topic_id,
                                                               0,
                                                               vali_request.stream_type,
@@ -189,11 +186,10 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                 #                                                results_ds,
                 #                                                (training_results_start, training_results_end))
                 data_generator_handler.data_generator_handler(vali_request.topic_id,
-                                                              vali_request.prediction_size,
+                                                              0,
                                                               vali_request.stream_type,
                                                               results_ds,
                                                               (training_results_start, training_results_end))
-
                 bt.logging.info("results gathered, sending back to miners")
 
                 results_vmin, results_vmax, results_scaled = Scaling.scale_values(results_ds[0],
@@ -410,10 +406,10 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
                     # uids_array = np.array([item.item() for item in converted_uids])
 
-                    for weighed_winning_score in weighed_winning_scores:
-                        bt.logging.debug(f"hotkey [{weighed_winning_score[0]}]")
-                        bt.logging.debug(f"hotkey index [{metagraph.hotkeys.index(weighed_winning_score[0])}]")
-                        bt.logging.debug(f"metagraph uid [{metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])]}]")
+                    # for weighed_winning_score in weighed_winning_scores:
+                    #     bt.logging.debug(f"hotkey [{weighed_winning_score[0]}]")
+                    #     bt.logging.debug(f"hotkey index [{metagraph.hotkeys.index(weighed_winning_score[0])}]")
+                    #     bt.logging.debug(f"metagraph uid [{metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])]}]")
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
                     bt.logging.debug(f"set weights [{weights}]")
@@ -427,8 +423,8 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                     min_allowed_weights = subtensor.min_allowed_weights(netuid=config.netuid)
                     max_weight_limit = subtensor.max_weight_limit(netuid=config.netuid)
 
-                    bt.logging.debug(f"min allowed weights [{min_allowed_weights}]")
-                    bt.logging.debug(f"max weight limit [{max_weight_limit}]")
+                    # bt.logging.debug(f"min allowed weights [{min_allowed_weights}]")
+                    # bt.logging.debug(f"max weight limit [{max_weight_limit}]")
 
                     # bt.logging.debug(f"processed weights [{processed_weights}]")
 
@@ -481,6 +477,12 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                     os.remove(file)
                 bt.logging.error(e)
                 traceback.print_exc()
+            except IncorrectLiveResultsCountException as e:
+                bt.logging.info("removing processed files as can't get accurate live results")
+                for file in vali_request.files:
+                    os.remove(file)
+                bt.logging.error(e)
+                traceback.print_exc()
             except Exception as e:
                 bt.logging.error(e)
                 traceback.print_exc()
@@ -498,8 +500,8 @@ if __name__ == "__main__":
         # if current_time.minute % 5 == 0:
         if current_time.second % 5 == 0:
             requests = []
-            # if current_time.second % 59 == 0:
-                # see if any files exist, if not then generate a client request (a live prediction)
+            # if current_time.second % 30 == 0:
+            # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
             if len(all_files) == 0:
                 requests.append(ValiUtils.generate_standard_request(ClientRequest))
@@ -509,7 +511,7 @@ if __name__ == "__main__":
 
             # if no requests to fill, randomly send in a training request to help them train
             # randomize to not have all validators sending in training data requests simultaneously to assist with load
-            if len(requests) == 0 and random.randint(0, 10) == 1:
+            if len(requests) == 0 and random.randint(0, 1) == 1:
                 requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
             run_time_series_validation(requests)

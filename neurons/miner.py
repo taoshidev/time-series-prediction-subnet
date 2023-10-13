@@ -92,7 +92,6 @@ def main( config ):
         bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
     def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> Tuple[bool, str]:
-        bt.logging.info("got to blacklisting tf")
         if synapse.dendrite.hotkey not in metagraph.hotkeys:
             # Ignore requests from unrecognized entities.
             bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')

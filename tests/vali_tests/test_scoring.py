@@ -6,6 +6,7 @@ import unittest
 from tests.vali_tests.samples.testing_data import TestingData
 from tests.vali_tests.base_objects.test_base import TestBase
 from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
+from vali_objects.exceptions.min_responses_exception import MinResponsesException
 from vali_objects.scoring.scoring import Scoring
 
 
@@ -27,10 +28,22 @@ class TestScoring(TestBase):
         self.assertEqual(scaled_scores, TestingData.SCALED_SCORES)
 
     def test_simple_scale_scores(self):
-        sample_scores = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 34.54618500386289}
+        try:
+            sample_scores = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 34.54618500386289}
+            scaled_scores = Scoring.simple_scale_scores(sample_scores)
+        except Exception as e:
+            self.assertIsInstance(e, MinResponsesException)
+        sample_scores = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 33.54618500386289,
+                         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe': 34.54618500386289,
+                         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 35.54618500386289,
+                         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 36.54618500386289}
+        scaled_scores_results = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 1.0,
+         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe': 0.6666666666666667,
+         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 0.33333333333333337,
+         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 0.0}
+
         scaled_scores = Scoring.simple_scale_scores(sample_scores)
-        expected_score = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 1}
-        self.assertEqual(expected_score, scaled_scores)
+        self.assertEqual(scaled_scores_results, scaled_scores)
 
     def test_calculate_directional_accuracy(self):
         predictions = [1, 2, 1, 3, 4, 5, 6, 7, 6, 7, 8]

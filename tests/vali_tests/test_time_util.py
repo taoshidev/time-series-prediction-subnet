@@ -14,7 +14,7 @@ class TestTimeUtil(unittest.TestCase):
 
     def test_now_in_millis(self):
         self.assertTrue(int(datetime.now().timestamp() * 1000) > 1694482321729)
-        self.assertAlmostEqual(int(datetime.now().timestamp() * 1000), TimeUtil.now_in_millis())  # add assertion here
+        self.assertAlmostEqual(int(datetime.utcnow().timestamp() * 1000), TimeUtil.now_in_millis())  # add assertion here
 
     def test_convert_millis_to_timestamp(self):
         time.sleep(1)

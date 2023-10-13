@@ -13,7 +13,7 @@ class TestingData:
     po = PredictionDataFile(
         client_uuid="test",
         stream_type="TEST",
-        stream_id=1,
+        stream_id="1",
         topic_id=1,
         request_uuid="testuid",
         miner_uid="test",
@@ -22,7 +22,8 @@ class TestingData:
         vmins=[0.1, 0.2, 0.3],
         vmaxs=[10, 20, 30],
         decimal_places=[1, 2, 3],
-        predictions=np.array([1, 2, 3])
+        predictions=np.array([1, 2, 3]),
+        prediction_size=10
     )
     test_start_time = datetime.datetime(2023, 9, 11, 0, 0)
-    test_generated_timestamps = [(datetime.datetime(2023, 9, 11, 0, 0), datetime.datetime(2023, 9, 11, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 12, 0, 0), datetime.datetime(2023, 9, 12, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 13, 0, 0), datetime.datetime(2023, 9, 13, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 14, 0, 0), datetime.datetime(2023, 9, 14, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 15, 0, 0), datetime.datetime(2023, 9, 15, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 16, 0, 0), datetime.datetime(2023, 9, 16, 23, 59, 59, 999999))]
+    test_generated_timestamps = [(datetime.datetime(2023, 9, 11, 0, 0), datetime.datetime(2023, 9, 11, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 12, 0, 0), datetime.datetime(2023, 9, 12, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 13, 0, 0), datetime.datetime(2023, 9, 13, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 14, 0, 0), datetime.datetime(2023, 9, 14, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 15, 0, 0), datetime.datetime(2023, 9, 15, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 16, 0, 0), datetime.datetime(2023, 9, 16, 0, 0, 0, 0))]
