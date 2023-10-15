@@ -172,4 +172,5 @@ class ValiUtils:
 
     @staticmethod
     def get_standardized_ds() -> List[List]:
+        # close, high, low, volume
         return [[], [], [], []]

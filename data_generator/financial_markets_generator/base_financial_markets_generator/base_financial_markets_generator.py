@@ -17,11 +17,7 @@ class BaseFinancialMarketsGenerator(ABC):
     @staticmethod
     def convert_output_to_data_points(data_structure: List[List], days_data: List[List], order_to_ds: List[int]):
         """
-        return open, high, low, vol
-        close ind 4
-        high ind 2
-        low ind 3
-        vol ind 5
+        return close, high, low, volume
         """
         for tf_row in days_data:
             data_structure[0].append(float(tf_row[order_to_ds[0]]))
