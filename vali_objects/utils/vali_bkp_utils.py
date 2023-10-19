@@ -61,9 +61,10 @@ class ValiBkpUtils:
     @staticmethod
     def get_all_files_in_dir(vali_dir: str) -> list[str]:
         all_files = []
-        for filename in os.listdir(vali_dir):
-            if os.path.exists(vali_dir) and os.path.isfile(os.path.join(vali_dir, filename)):
-                all_files.append(vali_dir + filename)
+        if os.path.exists(vali_dir):
+            for filename in os.listdir(vali_dir):
+                if os.path.isfile(os.path.join(vali_dir, filename)):
+                    all_files.append(vali_dir + filename)
         return all_files
 
     @staticmethod
