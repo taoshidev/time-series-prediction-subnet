@@ -62,21 +62,22 @@ class ValiBkpUtils:
     def get_all_files_in_dir(vali_dir: str) -> list[str]:
         all_files = []
         for filename in os.listdir(vali_dir):
-            if os.path.isfile(os.path.join(vali_dir, filename)):
+            if os.path.exists(vali_dir) and os.path.isfile(os.path.join(vali_dir, filename)):
                 all_files.append(vali_dir + filename)
         return all_files
 
     @staticmethod
     def delete_stale_files(vali_dir: str) -> None:
         current_date = datetime.now()
-        for filename in os.listdir(vali_dir):
-            file_path = os.path.join(vali_dir, filename)
-            if os.path.isfile(file_path):
-                creation_timestamp = os.path.getctime(file_path)
-                creation_date = datetime.fromtimestamp(creation_timestamp)
-                age_in_days = (current_date - creation_date).days
-                if age_in_days > ValiConfig.DELETE_STALE_DATA:
-                    os.remove(file_path)
+        if os.path.exists(vali_dir):
+            for filename in os.listdir(vali_dir):
+                file_path = os.path.join(vali_dir, filename)
+                if os.path.isfile(file_path):
+                    creation_timestamp = os.path.getctime(file_path)
+                    creation_date = datetime.fromtimestamp(creation_timestamp)
+                    age_in_days = (current_date - creation_date).days
+                    if age_in_days > ValiConfig.DELETE_STALE_DATA:
+                        os.remove(file_path)
 
 
 
