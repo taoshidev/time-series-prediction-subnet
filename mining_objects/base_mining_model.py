@@ -1,13 +1,9 @@
-from typing import List
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
 
-import math
 import numpy as np
 import tensorflow
 from numpy import ndarray
-
-from mining_objects.financial_market_indicators import FinancialMarketIndicators
-from vali_objects.scaling.scaling import Scaling
-
 
 class BaseMiningModel:
     def __init__(self, features):

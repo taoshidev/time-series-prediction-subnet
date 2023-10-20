@@ -1,6 +1,7 @@
-from typing import List
+# developer: Taoshidev
+# Copyright © 2023 Taoshi, LLC
 
-import numpy as np
+from typing import List
 import pandas as pd
 
 
@@ -44,14 +45,11 @@ class FinancialMarketIndicators:
                        signal_period=9):
         df = pd.DataFrame({'Close': ds[0]})
 
-        # Calculate Short-term and Long-term Exponential Moving Averages (EMAs)
         df['ShortEMA'] = df['Close'].ewm(span=short_period, adjust=False).mean()
         df['LongEMA'] = df['Close'].ewm(span=long_period, adjust=False).mean()
 
-        # Calculate MACD line
         df['MACD'] = df['ShortEMA'] - df['LongEMA']
 
-        # Calculate the Signal line (Signal line is an EMA of MACD)
         df['Signal'] = df['MACD'].ewm(span=signal_period, adjust=False).mean()
 
         return df['MACD'].tolist(), df['Signal'].tolist()
@@ -62,13 +60,10 @@ class FinancialMarketIndicators:
                                   num_std_dev=2):
         df = pd.DataFrame({'Close': ds[0]})
 
-        # Calculate the rolling mean (Middle Band)
         df['Middle'] = df['Close'].rolling(window=window).mean()
 
-        # Calculate the rolling standard deviation
         rolling_std = df['Close'].rolling(window=window).std()
 
-        # Calculate the Upper and Lower Bands
         df['Upper'] = df['Middle'] + (num_std_dev * rolling_std)
         df['Lower'] = df['Middle'] - (num_std_dev * rolling_std)
 
