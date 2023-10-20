@@ -42,9 +42,9 @@ class Scaling:
         return vmin, vmax, (normalized_scores / ValiConfig.SCALE_FACTOR) + ValiConfig.SCALE_SHIFT
 
     @staticmethod
-    def unscale_values(min_score: float, max_score: float, decimal_places: int, normalized_scores: np):
+    def unscale_values(vmin: float, vmax: float, decimal_places: int, normalized_scores: np):
         denormalized_scores = np.round((((normalized_scores - ValiConfig.SCALE_SHIFT) * ValiConfig.SCALE_FACTOR)
-                                        * (max_score - min_score)) + min_score, decimals=decimal_places)
+                                        * (vmax - vmin)) + vmin, decimals=decimal_places)
         return denormalized_scores
 
     @staticmethod

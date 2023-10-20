@@ -1,2 +1,5 @@
 bittensor
 torch
+tensorflow
+sklearn
+pandas

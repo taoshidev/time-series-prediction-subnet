@@ -17,8 +17,7 @@ import argparse
 import traceback
 import bittensor as bt
 
-# import this repo
-import template
+from mining_objects.base_mining_model import BaseMiningModel
 
 
 def get_config():
@@ -134,7 +133,7 @@ def main( config ):
         return synapse
 
     def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
-        bt.logging.info("got to blacklisting lf")
+        bt.logging.debug("got to blacklisting lf")
         if synapse.dendrite.hotkey not in metagraph.hotkeys:
             # Ignore requests from unrecognized entities.
             bt.logging.trace(f'Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}')
@@ -151,10 +150,21 @@ def main( config ):
     # This is the core miner function, which decides the miner's response to a valid, high-priority request.
     def live_f(synapse: template.protocol.LiveForward) -> template.protocol.LiveForward:
         bt.logging.debug(f'received tf')
-        predictions = np.array([random.uniform(0.499, 0.501) for i in range(0, synapse.prediction_size)])
-        synapse.predictions = bt.tensor(predictions)
-        # synapse.dummy_output = synapse.dummy_input * 2
-        bt.logging.debug(f'sending tf with length {len(predictions)}')
+        prep_dataset = BaseMiningModel.base_model_dataset(synapse.samples.numpy())
+        base_mining_model = BaseMiningModel(len(prep_dataset.T))\
+            .set_model_dir('mining_models/base_model.keras')\
+            .load_model()
+
+        prep_dataset_cp = prep_dataset[:]
+
+        predicted_closes = []
+        for i in range(synapse.prediction_size):
+            predictions = base_mining_model.predict(prep_dataset_cp)[0]
+            prep_dataset_cp = np.concatenate((prep_dataset, predictions), axis=0)
+            predicted_closes.append(predictions.tolist()[0][0])
+
+        synapse.predictions = bt.tensor(np.array(predicted_closes))
+        bt.logging.debug(f'sending tf with length {len(predicted_closes)}')
         return synapse
 
     def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
