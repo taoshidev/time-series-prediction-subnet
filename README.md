@@ -64,7 +64,7 @@ What is the expected data input and output as a miner?
 For financial markets, the goal will be to predict the next 4-8 hours of closes on a 5m interval 
 (so between ~50-100 data points). In order to help with the prediction, the subnet will provide the 
 last 25-30 days of 5m data for the trade pair. You can expect the data to be in the format
-*[close_timestamp (ms), close, high, low, volume]* where close, high, low, and volume are all linearly 
+[close_timestamp (ms), close, high, low, volume] where close, high, low, and volume are all linearly 
 pre-scaled for you between 0.49 to 0.51. 
 
 Can I be a miner with little knowledge?
@@ -105,7 +105,7 @@ We've provided a basis for creating and testing models using runnable/miner_test
 You can begin testing on testnet netuid 3. You can follow the docs/running_on_testnet.md file inside the repo 
 to run on testnet. Some recommendations when testing on testnet to speed up testing is pass the "test_only_historical"
 argument for your validator. You can do this by using running
-*python neurons/validator.py --netuid 3 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug --test_only_historical 1*
+python neurons/validator.py --netuid 3 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug --test_only_historical 1
 this will have the validator run every 5 seconds and test against historical data instead of live. If you only
 want to test against live data then dont use this flag.
 
