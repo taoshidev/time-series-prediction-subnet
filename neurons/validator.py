@@ -76,10 +76,10 @@ def get_config():
     return config
 
 
-def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
+def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]):
 
     # base setup for valis
-    config = get_config()
+
     # Set up logging with the provided configuration and directory.
     bt.logging(config=config, logging_dir=config.full_path)
     bt.logging.info(f"Running validator for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:")
@@ -144,7 +144,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                                                               ds,
                                                               ts_range)
 
-            vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
+            vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
             samples = bt.tensor(sds)
 
             training_proto = TrainingForward(
@@ -244,7 +244,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                                                               ds,
                                                               ts_range)
 
-            vmins, vmaxs, dps, sds = Scaling.scale_data_structure(ds)
+            vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
             samples = bt.tensor(sds)
 
             # forgot adding client request info to the cmw
@@ -350,7 +350,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
                 bt.logging.info("results gathered sending back to miners via backprop and weighing")
 
-                results_vmin, results_vmax, results_scaled = Scaling.scale_values(data_structure[0],
+                results_vmin, results_vmax, results_scaled = Scaling.scale_values(data_structure[1],
                                                                                       vmin=request_df.vmins[0],
                                                                                       vmax=request_df.vmaxs[0])
                 # send back the results for backprop so miners can learn
@@ -374,7 +374,7 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():
                     try:
-                        scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[0])
+                        scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
                     except IncorrectPredictionSizeError as e:
                         bt.logging.error(e)
                         traceback.print_exc()
@@ -495,9 +495,11 @@ def run_time_series_validation(vali_requests: List[BaseRequestDataClass]):
 
 # The main function parses the configuration and runs the validator.
 if __name__ == "__main__":
+    config = get_config()
     while True:
         current_time = datetime.now().time()
-        if current_time.second % 5 == 0:
+        if (config.test_only_historical and current_time.second % 5 == 0) or \
+                current_time.minute % 5 == 0:
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
@@ -512,4 +514,4 @@ if __name__ == "__main__":
             if len(requests) == 0 and random.randint(0, 1) == 1:
                 requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
-            run_time_series_validation(requests)
+            run_time_series_validation(config, requests)

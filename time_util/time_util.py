@@ -8,7 +8,7 @@ from typing import List, Tuple
 class TimeUtil:
 
     @staticmethod
-    def generate_range_timestamps(start_date: datetime, end_date_days: int) -> List[Tuple[datetime, datetime]]:
+    def generate_range_timestamps(start_date: datetime, end_date_days: int, print_timestamps=False) -> List[Tuple[datetime, datetime]]:
         end_date = start_date + timedelta(days=end_date_days)
 
         timestamps = []
@@ -21,6 +21,9 @@ class TimeUtil:
                 end_timestamp = end_date
             timestamps.append((start_timestamp, end_timestamp))
             current_date += timedelta(days=1)
+
+        if print_timestamps:
+            print(timestamps)
 
         return timestamps
 

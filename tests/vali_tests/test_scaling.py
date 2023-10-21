@@ -83,11 +83,11 @@ class TestScaling(unittest.TestCase):
         for i in range(0, 5):
             ds.append([x for x in range(0, 1000)])
 
-        vmins, vmaxs, dps, ds_scale = Scaling.scale_data_structure(ds)
+        vmins, vmaxs, dps, ds_scale = Scaling.scale_ds_with_ts(ds)
 
-        self.assertEqual(5, len(vmins))
-        self.assertEqual(5, len(vmaxs))
-        self.assertEqual(5, len(dps))
+        self.assertEqual(4, len(vmins))
+        self.assertEqual(4, len(vmaxs))
+        self.assertEqual(4, len(dps))
         self.assertEqual(5, len(ds_scale))
 
         for vmin in vmins:
@@ -96,9 +96,10 @@ class TestScaling(unittest.TestCase):
             self.assertEqual(vmax, 999)
         for dp in dps:
             self.assertEqual(dp, 0)
-        for dss in ds_scale:
+        for dss in ds_scale[1:]:
             self.assertLess(dss.max(), 0.51)
             self.assertGreater(dss.min(), 0.49)
+        self.assertEqual(ds[0][len(ds[0])-1], 999)
 
     def test_scale_with_min_max(self):
         values = np.array([x for x in range(500, 1000)])

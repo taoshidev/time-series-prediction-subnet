@@ -68,8 +68,8 @@ if __name__ == "__main__":
         stream_id = hash_object.hexdigest()
         ts = TimeUtil.minute_in_millis(client_request.prediction_size * 5)
 
-        data_structure = [[], [], [], []]
-        data_structure_orig = [[], [], [], []]
+        data_structure = ValiUtils.get_standardized_ds()
+        data_structure_orig = ValiUtils.get_standardized_ds()
 
         print("start", start_dt)
         print("end", end_dt)
@@ -78,7 +78,7 @@ if __name__ == "__main__":
             data_generator_handler.data_generator_handler(client_request.topic_id, 0,
                                                           client_request.stream_type, data_structure, ts_range)
 
-        vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_data_structure(data_structure)
+        vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
         print(scaled_data_structure)
 
         samples = bt.tensor(scaled_data_structure)
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         # logic to gather and score predictions
         for request_details in predictions_to_complete:
             request_df = request_details.df
-            data_structure = [[], [], [], []]
+            data_structure = ValiUtils.get_standardized_ds()
             data_generator_handler = DataGeneratorHandler()
             data_generator_handler.data_generator_handler(request_df.topic_id,
                                                           request_df.prediction_size,
@@ -226,7 +226,7 @@ if __name__ == "__main__":
                                                           (request_df.start, request_df.end))
             scores = {}
             for miner_uid, miner_preds in request_details.predictions.items():
-                scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[0])
+                scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
 
             scaled_scores = Scoring.simple_scale_scores(scores)
             stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)

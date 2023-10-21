@@ -89,10 +89,10 @@ class BaseMiningModel:
     def base_model_dataset(samples):
         min_cutoff = 0
 
-        cutoff_close = samples.tolist()[0][min_cutoff:]
-        cutoff_high = samples.tolist()[1][min_cutoff:]
-        cutoff_low = samples.tolist()[2][min_cutoff:]
-        cutoff_volume = samples.tolist()[3][min_cutoff:]
+        cutoff_close = samples.tolist()[1][min_cutoff:]
+        cutoff_high = samples.tolist()[2][min_cutoff:]
+        cutoff_low = samples.tolist()[3][min_cutoff:]
+        cutoff_volume = samples.tolist()[4][min_cutoff:]
 
         return np.array([cutoff_close,
                                  cutoff_high,

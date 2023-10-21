@@ -66,5 +66,5 @@ class BinanceData(BaseFinancialMarketsGenerator):
             #       TimeUtil.millis_to_timestamp(ts_range[1]))
             self.convert_output_to_data_points(data_structure,
                                                bd,
-                                               [4,2,3,5]
+                                               [6, 4, 2, 3, 5]
                                                )

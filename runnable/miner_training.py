@@ -52,12 +52,12 @@ if __name__ == "__main__":
         start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
 
         # numbers of rows to use in each sequence
-        iter_add = 500
+        iter_add = 3000
 
         hash_object = hashlib.sha256(client_request.stream_type.encode())
         stream_id = hash_object.hexdigest()
 
-        data_structure = [[], [], [], []]
+        data_structure = ValiUtils.get_standardized_ds()
 
         # if you dont want to use the local file and want to gather historical data.
         # as set standard will use randomized historical data from above
@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 data_generator_handler.data_generator_handler(client_request.topic_id, 0,
                                                               client_request.stream_type, data_structure, ts_range)
 
-            vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_data_structure(data_structure)
+            vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
             print(scaled_data_structure)
 
             # close, high, low, volume
@@ -78,13 +78,18 @@ if __name__ == "__main__":
         else:
             print("next iter", curr_iter)
             curr_iter += iter_add
+            # historical doesnt have timestamps
             data_structure = ValiUtils.get_vali_predictions(
-                "historical_financial_data/historical_btc_data_2022_01_01_2023_06_01.pickle")
+                "runnable/historical_financial_data/data.pickle")
             data_structure = [data_structure[0][curr_iter:curr_iter+iter_add],
                               data_structure[1][curr_iter:curr_iter+iter_add],
                               data_structure[2][curr_iter:curr_iter+iter_add],
-                              data_structure[3][curr_iter:curr_iter+iter_add]]
-            vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_data_structure(data_structure)
+                              data_structure[3][curr_iter:curr_iter+iter_add],
+                              data_structure[4][curr_iter:curr_iter+iter_add]]
+            print(len(data_structure[0]))
+            print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
+            print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0])-1]))
+            vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
             samples = bt.tensor(scaled_data_structure)
 
         # will iterate and prepare the dataset and train the model as provided

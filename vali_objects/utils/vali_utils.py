@@ -158,10 +158,8 @@ class ValiUtils:
                                   ValiConfig.HISTORICAL_DATA_LOOKBACK_DAYS_MAX))
         # if 1 then historical lookback, otherwise live
         if historical_lookback:
-            print("generating historical")
             start = int(random.uniform(30,1460))
         else:
-            print("generating live")
             start = days
         TimeUtil.generate_start_timestamp(start)
         return TimeUtil.generate_start_timestamp(start), \
@@ -172,5 +170,5 @@ class ValiUtils:
 
     @staticmethod
     def get_standardized_ds() -> List[List]:
-        # close, high, low, volume
-        return [[], [], [], []]
+        # close time, close, high, low, volume
+        return [[], [], [], [], []]

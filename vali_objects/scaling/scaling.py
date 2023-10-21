@@ -68,3 +68,12 @@ class Scaling:
         for i, dp in enumerate(sds):
             usds.append(Scaling.unscale_values_exp(avgs[i], dp_decimal_places[i], dp))
         return usds
+
+    @staticmethod
+    def scale_ds_with_ts(ds: List[List]) -> (List[float], List[float], List[float], np):
+        ds_ts = ds[0]
+        vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_data_structure(ds[1:])
+        sds_list = scaled_data_structure.tolist()
+        sds_list.insert(0, ds_ts)
+        return vmins, vmaxs, dp_decimal_places, np.array(sds_list)
+
