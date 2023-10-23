@@ -152,7 +152,7 @@ def main( config ):
         bt.logging.debug(f'received tf')
         prep_dataset = BaseMiningModel.base_model_dataset(synapse.samples.numpy())
         base_mining_model = BaseMiningModel(len(prep_dataset.T))\
-            .set_model_dir('mining_models/base_model.keras')\
+            .set_model_dir('mining_models/base_model.h5')\
             .load_model()
 
         prep_dataset_cp = prep_dataset[:]
@@ -160,10 +160,11 @@ def main( config ):
         predicted_closes = []
         for i in range(synapse.prediction_size):
             predictions = base_mining_model.predict(prep_dataset_cp)[0]
-            prep_dataset_cp = np.concatenate((prep_dataset, predictions), axis=0)
+            prep_dataset_cp = np.concatenate((prep_dataset_cp, predictions), axis=0)
             predicted_closes.append(predictions.tolist()[0][0])
 
         synapse.predictions = bt.tensor(np.array(predicted_closes))
+        
         bt.logging.debug(f'sending tf with length {len(predicted_closes)}')
         return synapse
 

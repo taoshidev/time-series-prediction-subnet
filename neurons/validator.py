@@ -380,26 +380,34 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                         traceback.print_exc()
 
                 if len(scores) > 0:
+
                     bt.logging.debug(f"unscaled scores [{scores}]")
-                    scaled_scores = Scoring.simple_scale_scores(scores)
-                    stream_type = vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+                    scores_list = np.array([score for miner_uid, score in scores.items()])
+                    variance = np.var(scores_list)
 
-                    # store weights for results
-                    sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-                    winning_scores = sorted_scores[:10]
+                    if variance == 0:
+                        print("homogenous dataset, going to equally distribute scores")
+                        weighed_winning_scores = [(miner_uid, 1 / len(scores)) for miner_uid, score in scores.items()]
+                        bt.logging.debug(f"weighed scores [{weighed_winning_scores}]")
+                        weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                    else:
+                        scaled_scores = Scoring.simple_scale_scores(scores)
 
-                    # choose top 10
-                    weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                    weighed_winning_scores = weighed_scores[:10]
-                    weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                        # store weights for results
+                        sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+                        winning_scores = sorted_scores[:10]
 
-                    bt.logging.debug(f"scaled scores [{scaled_scores}]")
-                    bt.logging.debug(f"weighed scores [{weighed_scores}]")
-                    bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
+                        # choose top 10
+                        weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+                        weighed_winning_scores = weighed_scores[:10]
+                        weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+
+                        bt.logging.debug(f"scaled scores [{scaled_scores}]")
+                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
+                        bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
                     # weights = torch.tensor(np.array([item[1] for item in weighed_winning_scores]))
                     weights = [item[1] for item in weighed_winning_scores]
-
 
                     converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])]
                                       for miner_hotkey in weighed_winning_scores]
@@ -442,21 +450,22 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                     bt.logging.info("weights set and stored")
                     bt.logging.info("adding to cmw")
 
+                    stream_type = vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
                     try:
+                        time_now = TimeUtil.now_in_millis()
                         # add results to cmw
-                        for miner_uid, scaled_score in scaled_scores.items():
+                        for miner_uid, score in scores.items():
                             bt.logging.debug(f"review mineruid [{miner_uid}]")
                             stream_miner = stream_type.get_miner(miner_uid)
                             if stream_miner is None:
                                 bt.logging.debug("stream miner doesnt exist")
-                                stream_miner = CMWMiner(miner_uid, 0, 0, [])
+                                stream_miner = CMWMiner(miner_uid)
                                 stream_type.add_miner(stream_miner)
                                 bt.logging.debug("miner added")
-                            stream_miner.add_score(scaled_score)
+                            stream_miner.add_unscaled_score([time_now, scores[miner_uid]])
                             if weighed_winning_scores_dict[miner_uid] != 0:
                                 bt.logging.debug(f"adding winning miner [{miner_uid}]")
-                                stream_miner.add_win_value(weighed_winning_scores_dict[miner_uid])
-                                stream_miner.add_win()
+                                stream_miner.add_win_score([time_now, weighed_winning_scores_dict[miner_uid]])
                         ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
                     except Exception as e:
                         # if fail to store cmw for some reason print & continue

@@ -241,17 +241,16 @@ if __name__ == "__main__":
             print("winning distribution", weighed_winning_scores)
             print("weighed_scores_dict", weighed_winning_scores_dict)
 
+            time_now = TimeUtil.now_in_millis()
             # add scaled scores
             for miner_uid, scaled_score in scaled_scores.items():
                 stream_miner = stream_id.get_miner(miner_uid)
                 if stream_miner is None:
-                    stream_miner = CMWMiner(miner_uid, 0, 0, [])
+                    stream_miner = CMWMiner(miner_uid)
                     stream_id.add_miner(stream_miner)
-                stream_miner.add_score(scaled_score)
+                stream_miner.add_unscaled_score([time_now, scores[miner_uid]])
                 if miner_uid in weighed_winning_scores_dict:
-                    stream_miner.add_win_value(weighed_winning_scores_dict[miner_uid])
-                    stream_miner.add_win()
-
+                    stream_miner.add_win_score([time_now, weighed_winning_scores_dict[miner_uid]])
             for file in request_details.files:
                 os.remove(file)
 
