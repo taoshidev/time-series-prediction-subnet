@@ -153,6 +153,7 @@ def main( config ):
         prep_dataset = BaseMiningModel.base_model_dataset(synapse.samples.numpy())
         base_mining_model = BaseMiningModel(len(prep_dataset.T))\
             .set_model_dir('mining_models/base_model.h5')\
+            .set_window_size(12)\
             .load_model()
 
         prep_dataset_cp = prep_dataset[:]
