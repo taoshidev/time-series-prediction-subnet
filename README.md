@@ -118,6 +118,11 @@ python neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner 
 
 ## Recommended Specs to Run
 ```text
+
+Requires Python 3.10 or higher.
+
+These are recommended specs, you may be able to make miner and validator work off lesser specs.
+
 Validator
 2 vCPU + 8 GB memory
 100 GB balanced persistent disk
