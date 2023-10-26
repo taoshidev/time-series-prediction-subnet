@@ -116,7 +116,26 @@ python neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner 
 ```
 
 
-## TODO
+## Recommended Specs to Run
 ```text
-We will provide the cpu/gpu requirements in order to run a miner and a validator.
+Validator
+2 vCPU + 8 GB memory
+100 GB balanced persistent disk
+
+Miner
+2 vCPU + 7.5 GB memory
+1 NVIDIA V100
+100 GB balanced persistent disk
+
+Helpful install commands (on linux machine)
+# sudo apt install git-all
+# git clone https://github.com/taoshidev/time-series-prediction-subnet.git
+# sudo apt install python3-pip 
+# sudo apt-get install python3-venv
+# cd time-series-prediction-subnet
+# python3 -m venv venv
+# . venv/bin/activate
+# export PIP_NO_CACHE_DIR=1
+# pip install -r requirements.txt
+# python -m pip install -e .
 ```
