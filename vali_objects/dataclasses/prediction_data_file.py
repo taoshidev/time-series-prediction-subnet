@@ -23,6 +23,7 @@ class PredictionDataFile(BaseDataClass):
     decimal_places: list[int]
     predictions: np
     prediction_size: int
+    additional_details: dict
 
     def __eq__(self, other):
         return self.equal_base_class_check(other)

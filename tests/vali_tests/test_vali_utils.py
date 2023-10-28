@@ -89,7 +89,7 @@ class TestValiUtils(TestBase):
 
     def test_generate_standard_request(self):
         std_request = ValiUtils.generate_standard_request(ClientRequest)
-        self.assertTrue(std_request.stream_type == "BTCUSD")
+        self.assertTrue(std_request.stream_type == "BTCUSD-5m")
 
     # RUN ONLY IF YOU DONT HAVE VALI RECORDS SET AS IT WILL OVERRIDE
     # def test_set_vali_memory_and_bkp(self):

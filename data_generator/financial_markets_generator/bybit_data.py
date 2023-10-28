@@ -41,8 +41,8 @@ class ByBitData(BaseFinancialMarketsGenerator):
             else:
                 raise ConnectionError("max number of retries exceeded trying to get bybit data")
 
-    def get_data_and_structure_data_points(self, symbol: str, data_structure: List[List], ts_range: Tuple[int, int]):
-        bd = self.get_data(symbol=symbol, start=ts_range[0], end=ts_range[1])
+    def get_data_and_structure_data_points(self, symbol: str, tf: int, data_structure: List[List], ts_range: Tuple[int, int]):
+        bd = self.get_data(symbol=symbol, interval= tf, start=ts_range[0], end=ts_range[1])
         # print("received bybit historical data from : ", TimeUtil.millis_to_timestamp(ts_range[0]),
         #       TimeUtil.millis_to_timestamp(ts_range[1]))
         self.convert_output_to_data_points(data_structure,

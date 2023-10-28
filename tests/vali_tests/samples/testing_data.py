@@ -23,7 +23,11 @@ class TestingData:
         vmaxs=[10, 20, 30],
         decimal_places=[1, 2, 3],
         predictions=np.array([1, 2, 3]),
-        prediction_size=10
+        prediction_size=10,
+        additional_details={
+            "tf": 5,
+            "trade_pair": "BTCUSD"
+        }
     )
     test_start_time = datetime.datetime(2023, 9, 11, 0, 0)
     test_generated_timestamps = [(datetime.datetime(2023, 9, 11, 0, 0), datetime.datetime(2023, 9, 11, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 12, 0, 0), datetime.datetime(2023, 9, 12, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 13, 0, 0), datetime.datetime(2023, 9, 13, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 14, 0, 0), datetime.datetime(2023, 9, 14, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 15, 0, 0), datetime.datetime(2023, 9, 15, 23, 59, 59, 999999)), (datetime.datetime(2023, 9, 16, 0, 0), datetime.datetime(2023, 9, 16, 0, 0, 0, 0))]

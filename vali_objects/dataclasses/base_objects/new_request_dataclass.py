@@ -14,4 +14,5 @@ class NewRequestDataClass(BaseRequestDataClass):
     schema_id: int
     feature_ids: list[float]
     prediction_size: int
+    additional_details: dict
     client_uuid: Optional[str] = None

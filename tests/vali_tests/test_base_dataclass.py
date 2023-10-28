@@ -80,7 +80,11 @@ class TestBaseDataClass(unittest.TestCase):
             topic_id=1,
             schema_id=1,
             feature_ids=[0.001, 0.002, 0.003, 0.004],
-            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX))
+            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
+            additional_details={
+                "tf": 5,
+                "trade_pair": "BTCUSD"
+            }
         )
 
 

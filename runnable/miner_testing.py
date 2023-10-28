@@ -40,15 +40,25 @@ if __name__ == "__main__":
 
         client_request = ClientRequest(
             client_uuid="test_client_uuid",
-            stream_type="BTCUSD",
+            stream_type="BTCUSD-5m",
             topic_id=1,
             schema_id=1,
             feature_ids=[0.001, 0.002, 0.003, 0.004],
-            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX))
+            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
+            additional_details = {
+                "tf": 5,
+                "trade_pair": "BTCUSD"
+            }
         )
 
         # if set to true will use data now and not historical
         start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
+        print(start_dt)
+
+        if start_dt.year >= 2023 and start_dt.month > 6:
+            pass
+        else:
+            continue
 
         '''
         ========================================================================
@@ -76,7 +86,7 @@ if __name__ == "__main__":
         data_generator_handler = DataGeneratorHandler()
         for ts_range in ts_ranges:
             data_generator_handler.data_generator_handler(client_request.topic_id, 0,
-                                                          client_request.stream_type, data_structure, ts_range)
+                                                          client_request.additional_details, data_structure, ts_range)
 
         vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
         print(scaled_data_structure)
@@ -117,11 +127,11 @@ if __name__ == "__main__":
         '''
 
         mining_models = {
-            "../mining_models/base_model.keras": {
-                "window_size": 100,
+            "../mining_models/base_model.h5": {
+                "window_size": 12,
                 "id": 1,
                 "mining_model": BaseMiningModel.base_model_dataset(samples)
-            },
+            }
         }
 
         for model_name, mining_details in mining_models.items():
@@ -158,7 +168,8 @@ if __name__ == "__main__":
                 vmaxs=vmaxs,
                 decimal_places=dp_decimal_places,
                 predictions=np.array(predicted_closes),
-                prediction_size=client_request.prediction_size
+                prediction_size=client_request.prediction_size,
+                additional_details=client_request.additional_details
             )
             ValiUtils.save_predictions_request(output_uuid, pdf)
 
@@ -191,7 +202,8 @@ if __name__ == "__main__":
                 vmaxs=vmaxs,
                 decimal_places=dp_decimal_places,
                 predictions=forward_proto.predictions.numpy(),
-                prediction_size=client_request.prediction_size
+                prediction_size=client_request.prediction_size,
+                additional_details=client_request.additional_details
             )
             ValiUtils.save_predictions_request(output_uuid, pdf)
 
@@ -221,7 +233,7 @@ if __name__ == "__main__":
             data_generator_handler = DataGeneratorHandler()
             data_generator_handler.data_generator_handler(request_df.topic_id,
                                                           request_df.prediction_size,
-                                                          request_df.stream_type,
+                                                          request_df.additional_details,
                                                           data_structure,
                                                           (request_df.start, request_df.end))
             scores = {}

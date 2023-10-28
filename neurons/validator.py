@@ -128,8 +128,10 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
         if isinstance(vali_request, TrainingRequest):
             # stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
             # stream_type = hash(str(vali_request.stream_type))
-            hash_object = hashlib.sha256(vali_request.stream_type.encode())
-            stream_type = hash_object.hexdigest()
+            # hash_object = hashlib.sha256(vali_request.stream_type.encode())
+            # stream_type = hash_object.hexdigest()
+
+            stream_type = vali_request.stream_type
 
             start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
             bt.logging.info(f"sending training data on stream type [{stream_type}] "
@@ -140,7 +142,7 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
             for ts_range in ts_ranges:
                 data_generator_handler.data_generator_handler(vali_request.topic_id,
                                                               0,
-                                                              vali_request.stream_type,
+                                                              vali_request.additional_details,
                                                               ds,
                                                               ts_range)
 
@@ -187,7 +189,7 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                 #                                                (training_results_start, training_results_end))
                 data_generator_handler.data_generator_handler(vali_request.topic_id,
                                                               0,
-                                                              vali_request.stream_type,
+                                                              vali_request.additional_details,
                                                               results_ds,
                                                               (training_results_start, training_results_end))
                 bt.logging.info("results gathered, sending back to miners")
@@ -219,8 +221,10 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
         elif isinstance(vali_request, ClientRequest):
             # stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
             # stream_type = hash(str(vali_request.stream_type))
-            hash_object = hashlib.sha256(vali_request.stream_type.encode())
-            stream_type = hash_object.hexdigest()
+            # hash_object = hashlib.sha256(vali_request.stream_type.encode())
+            # stream_type = hash_object.hexdigest()
+
+            stream_type = vali_request.stream_type
 
             if vali_request.client_uuid is None:
                 vali_request.client_uuid = wallet.hotkey.ss58_address
@@ -240,7 +244,7 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                 #                                                ts_range)
                 data_generator_handler.data_generator_handler(vali_request.topic_id,
                                                               0,
-                                                              vali_request.stream_type,
+                                                              vali_request.additional_details,
                                                               ds,
                                                               ts_range)
 
@@ -315,7 +319,8 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                             vmaxs=vmaxs,
                             decimal_places=dps,
                             predictions=resp_i.numpy(),
-                            prediction_size=vali_request.prediction_size
+                            prediction_size=vali_request.prediction_size,
+                            additional_details=vali_request.additional_details
                         )
                         ValiUtils.save_predictions_request(output_uuid, pdf)
                 bt.logging.info("completed storing all predictions")
@@ -330,8 +335,9 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
             # handle results ready to score and weigh
             request_df = vali_request.df
             # stream_type = hash(str(request_df.stream_type) + wallet.hotkey.ss58_address)
-            hash_object = hashlib.sha256(request_df.stream_type.encode())
-            stream_type = hash_object.hexdigest()
+            # hash_object = hashlib.sha256(request_df.stream_type.encode())
+            # stream_type = hash_object.hexdigest()
+            stream_type = request_df.stream_type
             try:
                 vm = ValiUtils.get_vali_records()
 
@@ -344,7 +350,7 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                 #                                                (request_df.start, request_df.end))
                 data_generator_handler.data_generator_handler(request_df.topic_id,
                                                               request_df.prediction_size,
-                                                              request_df.stream_type,
+                                                              request_df.additional_details,
                                                               data_structure,
                                                               (request_df.start, request_df.end))
 
@@ -507,8 +513,8 @@ if __name__ == "__main__":
     config = get_config()
     while True:
         current_time = datetime.now().time()
-        if (config.test_only_historical and current_time.second % 5 == 0) or \
-                current_time.minute % 5 == 0:
+        if int(config.test_only_historical) == 1 or \
+                (current_time.minute % 5 == 0 and current_time.second < 10):
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())

@@ -20,14 +20,21 @@ class BinanceData(BaseFinancialMarketsGenerator):
         self.symbols = {
             "BTCUSD": "BTCUSDT"
         }
+        self.tf = {
+            5: "5m"
+        }
 
     def get_data(self,
                  symbol='BTCUSDT',
-                 interval=ValiConfig.STANDARD_TF_BINANCE,
+                 interval=ValiConfig.STANDARD_TF,
                  start=None,
                  end=None,
                  limit=1000,
                  retries=0) -> Response:
+
+        if type(interval) == int:
+            interval = self.tf[interval]
+
         if start is None:
             # minute, minutes, hours, days, weeks
             start = str(int(datetime.now().timestamp() * 1000) - 60000 * 60 * 24 * 7 * 2)
@@ -57,8 +64,8 @@ class BinanceData(BaseFinancialMarketsGenerator):
             else:
                 raise ConnectionError("max number of retries exceeded trying to get binance data")
 
-    def get_data_and_structure_data_points(self, symbol: str, data_structure: List[List], ts_range: Tuple[int, int]):
-        bd = self.get_data(symbol=symbol, start=ts_range[0], end=ts_range[1]).json()
+    def get_data_and_structure_data_points(self, symbol: str, tf: int, data_structure: List[List], ts_range: Tuple[int, int]):
+        bd = self.get_data(symbol=symbol, interval=tf, start=ts_range[0], end=ts_range[1]).json()
         if "msg" in bd:
             raise Exception("error occurred getting Binance data, please review", bd["msg"])
         else:

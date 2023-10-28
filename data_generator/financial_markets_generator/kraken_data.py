@@ -30,25 +30,6 @@ class KrakenData(BaseFinancialMarketsGenerator):
 
         response = requests.get(url)
 
-        # if response.status_code == 200:
-        #     data = response.json()["result"][pair]
-        #
-        #     # Filter the data based on the end timestamp
-        #     filtered_data = [entry for entry in data if entry[0] <= end * 1000]
-        #
-        #     # Process and print the historical data
-        #     for entry in filtered_data:
-        #         timestamp = datetime.fromtimestamp(entry[0]).strftime('%Y-%m-%d %H:%M:%S')
-        #         open_price, high_price, low_price, close_price, confirmed_open, volume, trades = entry[1:]
-        #
-        #         print(f"Timestamp: {timestamp}")
-        #         print(f"Open: {open_price}")
-        #         print(f"High: {high_price}")
-        #         print(f"Low: {low_price}")
-        #         print(f"Close: {close_price}")
-        #         print(f"Volume: {volume}")
-        #         print("-" * 20)
-
         try:
             if response.status_code == 200:
                 data = response.json()["result"][pair]

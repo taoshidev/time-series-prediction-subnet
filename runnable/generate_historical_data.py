@@ -25,11 +25,15 @@ if __name__ == "__main__":
 
     client_request = ClientRequest(
         client_uuid=str(uuid.uuid4()),
-        stream_type="BTCUSD",
+        stream_type="BTCUSD-5m",
         topic_id=1,
         schema_id=1,
         feature_ids=[0.001, 0.002, 0.003, 0.004],
-        prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX))
+        prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
+        additional_details = {
+            "tf": 5,
+            "trade_pair": "BTCUSD"
+        }
     )
 
     # choose the range of days to look back
@@ -48,7 +52,7 @@ if __name__ == "__main__":
     data_generator_handler = DataGeneratorHandler()
     for ts_range in ts_ranges:
         data_generator_handler.data_generator_handler(client_request.topic_id, 0,
-                                                      client_request.stream_type, data_structure, ts_range)
+                                                      client_request.additional_details, data_structure, ts_range)
 
     vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
 

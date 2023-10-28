@@ -13,6 +13,7 @@ class ClientOutput(BaseDataClass):
     topic_id: int
     request_uuid: str
     predictions: list[list[float]]
+    additional_details: dict
 
     def __eq__(self, other):
         return self.equal_base_class_check(other)
