@@ -123,6 +123,13 @@ You can run the second miner using the following example command:
 python neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8095
 ```
 
+## Running on mainnet 
+```text
+We will be launching mainnet on November 1st, 2023.
+
+You can run on mainnet by following the instructions in docs/running_on_mainnet.md
+```
+
 
 ## Recommended Specs to Run
 ```text

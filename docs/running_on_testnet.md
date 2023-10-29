@@ -5,12 +5,12 @@ Note: This will require the `revolution` branch for Bittensor
 
 ## Steps
 
-1. Clone and Install Bittensor and the Bittensor Subnet Template.
+1. Clone and Install Time Series Prediction Subnet Source Code
 This clones and installs the template if you dont already have it (if you do, skip this step)
 ```bash
 cd .. # back out of the subtensor repo
-git clone https://github.com/opentensor/bittensor-subnet-template.git # Clone the bittensor-subnet-template repo
-cd bittensor-subnet-template # Enter the bittensor-subnet-template repo
+git clone git@github.com:taoshidev/time-series-prediction-subnet.git # Clone the time series prediction subnet repo
+cd time-series-prediction-subnet # Enter the time series prediction subnet repo
 python -m pip install -e . # Install the bittensor-subnet-template package
 ```
 
@@ -108,11 +108,11 @@ miner    default  1      True   0.00000  0.00000  0.00000    0.00000    0.00000 
 Or run the miner and validator directly with the netuid and chain_endpoint arguments.
 ```bash
 # Run the miner with the netuid and chain_endpoint arguments.
-python neurons/miner.py --netuid 1 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug
+python neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug
 >> 2023-08-08 16:58:11.223 |       INFO       | Running miner for subnet: 1 on network: ws://127.0.0.1:9946 with config: ...
 
 # Run the validator with the netuid and chain_endpoint arguments.
-python neurons/validator.py --netuid 1 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug
+python neurons/validator.py --netuid 3 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug
 >> 2023-08-08 16:58:11.223 |       INFO       | Running validator for subnet: 1 on network: ws://127.0.0.1:9946 with config: ...
 ```
 
