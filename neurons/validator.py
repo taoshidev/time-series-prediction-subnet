@@ -516,7 +516,7 @@ if __name__ == "__main__":
     config = get_config()
     while True:
         current_time = datetime.now().time()
-        if current_time.second < 10:
+        if current_time.second < 20:
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
