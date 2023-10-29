@@ -67,7 +67,7 @@ last 25-30 days of 5m data for the trade pair. You can expect the data to be in 
 [close_timestamp (ms), close, high, low, volume] where close, high, low, and volume are all linearly 
 pre-scaled for you between 0.49 to 0.51. 
 
-Input Features: [close_timestamp (Milliseconds), high, low, volume]
+Input Features: [close_timestamp (milliseconds), close, high, low, volume]
 Target Feature: [close]
 
 We linearly pre-scale because future data may come from clients who want the data to remain anonymous.
