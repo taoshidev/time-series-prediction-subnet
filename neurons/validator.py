@@ -46,6 +46,8 @@ def get_config():
     # TODO(developer): Adds your custom validator arguments to the parser.
     parser.add_argument('--test_only_historical', default=0, help='if you only want to pull in '
                                                                   'historical data for testing.')
+    parser.add_argument('--continuous_data_feed', default=0, help='this will have the validator ping every 5 mins '
+                                                                  'for updated predictions')
     # Adds override arguments for network and netuid.
     parser.add_argument('--netuid', type=int, default=1, help="The chain subnet uid.")
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
@@ -314,7 +316,8 @@ def run_time_series_validation(config, vali_requests: List[BaseRequestDataClass]
                             miner_uid=metagraph.axons[i].hotkey,
                             start=TimeUtil.timestamp_to_millis(end_dt),
                             end=TimeUtil.timestamp_to_millis(end_dt) + \
-                                TimeUtil.minute_in_millis(vali_request.prediction_size * ValiConfig.STANDARD_TF),
+                                TimeUtil.minute_in_millis(vali_request.prediction_size *
+                                                          vali_request.additional_details["tf"]),
                             vmins=vmins,
                             vmaxs=vmaxs,
                             decimal_places=dps,
@@ -513,12 +516,11 @@ if __name__ == "__main__":
     config = get_config()
     while True:
         current_time = datetime.now().time()
-        if int(config.test_only_historical) == 1 or \
-                (current_time.minute % 5 == 0 and current_time.second < 10):
+        if current_time.second < 10:
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
-            if len(all_files) == 0:
+            if len(all_files) == 0 or (int(config.continuous_data_feed) == 1 and current_time.minute % 5 == 0):
                 requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
             # add any predictions that are ready to be scored

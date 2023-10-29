@@ -105,7 +105,8 @@ class ValiUtils:
         request_to_complete = {}
         for file in all_files:
             unpickled_df = ValiUtils.get_vali_predictions(file)
-            if TimeUtil.now_in_millis() > unpickled_df.end:
+            # need to add a buffer of 24 hours to ensure the data is available via api requests
+            if TimeUtil.now_in_millis() > unpickled_df.end + TimeUtil.hours_in_millis():
                 unpickled_unscaled_data_structure = Scaling.unscale_values(unpickled_df.vmins[0],
                                                                            unpickled_df.vmaxs[0],
                                                                            unpickled_df.decimal_places[0],

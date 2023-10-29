@@ -58,3 +58,8 @@ class TimeUtil:
     @staticmethod
     def convert_millis_to_timestamp(millis: int) -> datetime:
         return datetime.fromtimestamp(millis / 1000)
+
+    @staticmethod
+    def hours_in_millis(hours: int = 24) -> int:
+        # standard is 1 day
+        return 60000 * 60 * hours * 1 * 1
