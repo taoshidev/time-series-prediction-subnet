@@ -75,14 +75,17 @@ We linearly pre-scale because future data may come from clients who want the dat
 Can I be a miner with little knowledge?
 
 Predicting on markets is very hard, but we want to help those who want to contribute to the network by providing 
-a base model that can be used. This base can be used to build upon, or just run yourself to try and compete. The 
-model and the specifications for running a miner will be released in the upcoming week as we finalize it.
+a base model that can be used. This base can be used to build upon, or just run yourself to try and compete. You can
+participate by running a pre-built & pre-trained model provided to all miners in mining_models/base_model.h5
+
+This model is already built into the core logic of neurons/miner.py for you to run and compete as a miner. All you
+need to do is run neurons/miner.py
 
 I'm knowledgable about creating a competing prediction model on my own, can I prepare my miner to compete?
 
-Yes, you can start from the base model in order to prepare for release or you can start from scratch and test on 
-testnet (netuid 3). We will run on testnet for the next 2 weeks as we prepare for release on sn8. You can choose to 
-use the training data provided by the subnet on each trade pair or prepare separately using your own 
+Yes, you can start from the base model (neurons/miner.py) in order to prepare for release or you can start from 
+scratch and test on testnet (netuid 3). We will run on testnet for the next 2 weeks as we prepare for release on sn8. 
+You can choose to use the training data provided by the subnet on each trade pair or prepare separately using your own 
 training data (say on BTC to start).
 
 Where can I begin testing?
