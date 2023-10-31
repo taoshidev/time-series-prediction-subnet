@@ -128,19 +128,20 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                 responses = dendrite.query(
                     metagraph.axons,
                     training_proto,
-                    deserialize=True
+                    deserialize=True,
+                    timeout=30
                 )
 
-                # check to see # of responses
-                bt.logging.info(f"number of responses to training data: [{len(responses)}]")
+                # # check to see # of responses
+                # bt.logging.info(f"number of responses to training data: [{responses}]")
 
                 # FOR DEBUG PURPOSES
-                for i, respi in enumerate(responses):
-                    if respi is not None \
-                            and len(respi.numpy()) == vali_request.prediction_size:
-                        bt.logging.debug(f"number of responses to training data: [{len(respi.numpy())}]")
-                    else:
-                        bt.logging.debug(f"has no proper response")
+                # for i, respi in enumerate(responses):
+                #     if respi is not None \
+                #             and len(respi.numpy()) == vali_request.prediction_size:
+                #         bt.logging.debug(f"number of responses to training data: [{len(respi.numpy())}]")
+                #     else:
+                #         bt.logging.debug(f"has no proper response")
 
                 training_results_start = TimeUtil.timestamp_to_millis(end_dt)
                 training_results_end = TimeUtil.timestamp_to_millis(end_dt) + \
@@ -174,7 +175,8 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                 dendrite.query(
                     metagraph.axons,
                     training_backprop_proto,
-                    deserialize=True
+                    deserialize=True,
+                    timeout=30
                 )
                 bt.logging.info("results sent back to miners")
 
@@ -216,8 +218,6 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
             vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
             samples = bt.tensor(sds)
 
-            # forgot adding client request info to the cmw
-
             live_proto = LiveForward(
                 request_uuid=request_uuid,
                 stream_id=stream_type,
@@ -253,44 +253,51 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                     timeout=30
                 )
 
-                # check to see # of responses
+                # # check to see # of responses
                 bt.logging.info(f"number of responses to requested data: [{len(responses)}]")
 
                 # FOR DEBUG PURPOSES
-                for i, respi in enumerate(responses):
-                    if respi is not None \
-                            and len(respi.numpy()) == vali_request.prediction_size:
-                        if len(respi.numpy().shape) == 1:
-                            bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi.numpy())}]")
-                    else:
-                        bt.logging.debug(f"index [{i}] has no proper response")
+                # for i, respi in enumerate(responses):
+                #     predictions = respi.predictions.numpy()
+                #     print(predictions)
+                #     if respi is not None \
+                #             and len(respi) == vali_request.prediction_size:
+                #         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
+                #     else:
+                #         bt.logging.debug(f"index [{i}] has no proper response")
 
                 for i, resp_i in enumerate(responses):
-                    if resp_i is not None \
-                            and len(resp_i.numpy()) == vali_request.prediction_size:
-                        # for file name
-                        output_uuid = str(uuid.uuid4())
-                        bt.logging.debug(f"axon hotkey [{metagraph.axons[i].hotkey}]")
-                        # has the right number of predictions made
-                        pdf = PredictionDataFile(
-                            client_uuid=vali_request.client_uuid,
-                            stream_type=vali_request.stream_type,
-                            stream_id=stream_type,
-                            topic_id=vali_request.topic_id,
-                            request_uuid=request_uuid,
-                            miner_uid=metagraph.axons[i].hotkey,
-                            start=TimeUtil.timestamp_to_millis(end_dt),
-                            end=TimeUtil.timestamp_to_millis(end_dt) + \
-                                TimeUtil.minute_in_millis(vali_request.prediction_size *
-                                                          vali_request.additional_details["tf"]),
-                            vmins=vmins,
-                            vmaxs=vmaxs,
-                            decimal_places=dps,
-                            predictions=resp_i.numpy(),
-                            prediction_size=vali_request.prediction_size,
-                            additional_details=vali_request.additional_details
-                        )
-                        ValiUtils.save_predictions_request(output_uuid, pdf)
+                    if resp_i.predictions is not None:
+                        try:
+                            predictions = resp_i.predictions.numpy()
+                        except Exception as e:
+                            bt.logging.debug(f"not correctly configured predictions: [{metagraph.axons[i].hotkey}]")
+                            continue
+                        print(predictions)
+                        if len(predictions) == vali_request.prediction_size:
+                            # for file name
+                            output_uuid = str(uuid.uuid4())
+                            bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
+                            # has the right number of predictions made
+                            pdf = PredictionDataFile(
+                                client_uuid=vali_request.client_uuid,
+                                stream_type=vali_request.stream_type,
+                                stream_id=stream_type,
+                                topic_id=vali_request.topic_id,
+                                request_uuid=request_uuid,
+                                miner_uid=metagraph.axons[i].hotkey,
+                                start=TimeUtil.timestamp_to_millis(end_dt),
+                                end=TimeUtil.timestamp_to_millis(end_dt) + \
+                                    TimeUtil.minute_in_millis(vali_request.prediction_size *
+                                                              vali_request.additional_details["tf"]),
+                                vmins=vmins,
+                                vmaxs=vmaxs,
+                                decimal_places=dps,
+                                predictions=predictions,
+                                prediction_size=vali_request.prediction_size,
+                                additional_details=vali_request.additional_details
+                            )
+                            ValiUtils.save_predictions_request(output_uuid, pdf)
                 bt.logging.info("completed storing all predictions")
 
             # If we encounter an unexpected error, log it for debugging.
