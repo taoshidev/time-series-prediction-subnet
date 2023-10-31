@@ -483,7 +483,9 @@ if __name__ == "__main__":
 
     # Set up logging with the provided configuration and directory.
     bt.logging(config=config, logging_dir=config.full_path)
-    bt.logging.info(f"Running validator for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:")
+    bt.logging.info(
+        f"Running validator for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:"
+    )
     # Log the configuration for reference.
     bt.logging.info(config)
 
@@ -492,33 +494,42 @@ if __name__ == "__main__":
     bt.logging.info("Setting up bittensor objects.")
 
     # The wallet holds the cryptographic key pairs for the validator.
-    wallet = bt.wallet( config = config )
+    wallet = bt.wallet(config=config)
     bt.logging.info(f"Wallet: {wallet}")
 
     # The subtensor is our connection to the Bittensor blockchain.
-    subtensor = bt.subtensor( config = config )
+    subtensor = bt.subtensor(config=config)
     bt.logging.info(f"Subtensor: {subtensor}")
 
     # Dendrite is the RPC client; it lets us send messages to other nodes (axons) in the network.
-    dendrite = bt.dendrite( wallet = wallet )
+    dendrite = bt.dendrite(wallet=wallet)
     bt.logging.info(f"Dendrite: {dendrite}")
 
-    # The metagraph holds the state of the network, letting us know about other miners.
-    metagraph = subtensor.metagraph( config.netuid )
+    # The metagraph holds the state of the network, letting us know about other validators and miners.
+    metagraph = subtensor.metagraph(config.netuid)
     bt.logging.info(f"Metagraph: {metagraph}")
 
     # Step 5: Connect the validator to the network
     if wallet.hotkey.ss58_address not in metagraph.hotkeys:
-        bt.logging.error(f"\nYour validator: {wallet} if not registered to chain connection: {subtensor} \nRun btcli register and try again.")
+        bt.logging.error(
+            f"\nYour validator: {wallet} if not registered to chain connection: {subtensor} \nRun btcli register and try again."
+        )
         exit()
-    else:
-        # Each miner gets a unique identity (UID) in the network for differentiation.
-        my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
-        bt.logging.info(f"Running validator on uid: {my_subnet_uid}")
+
+    # Each validator gets a unique identity (UID) in the network for differentiation.
+    my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
+    bt.logging.info(f"Running validator on uid: {my_subnet_uid}")
+
+    # Step 6: Set up initial scoring weights for validation
+    bt.logging.info("Building validation weights.")
+    scores = torch.ones_like(metagraph.S, dtype=torch.float32)
+    bt.logging.info(f"Weights: {scores}")
+    # Step 7: The Main Validation Loop
+    bt.logging.info("Starting validator loop.")
 
     while True:
         current_time = datetime.now().time()
-        if current_time.minute % 5 == 0 and current_time.second < 20:
+        if current_time.second < 20:
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())

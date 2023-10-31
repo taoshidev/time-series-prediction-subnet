@@ -25,9 +25,12 @@ def get_config():
     # This function initializes the necessary command-line arguments.
     # Using command-line arguments allows users to customize various miner settings.
     parser = argparse.ArgumentParser()
-    parser.add_argument('--custom', default='my_custom_value', help='Adds a custom value to the parser.')
+    # TODO(developer): Adds your custom miner arguments to the parser.
+    parser.add_argument(
+        "--custom", default="my_custom_value", help="Adds a custom value to the parser."
+    )
     # Adds override arguments for network and netuid.
-    parser.add_argument( '--netuid', type = int, default = 1, help = "The chain subnet uid." )
+    parser.add_argument("--netuid", type=int, default=1, help="The chain subnet uid.")
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
     bt.subtensor.add_args(parser)
     # Adds logging specific arguments i.e. --logging.debug ..., --logging.trace .. or --logging.logging_dir ...
@@ -48,11 +51,12 @@ def get_config():
             config.wallet.name,
             config.wallet.hotkey,
             config.netuid,
-            'miner',
+            "miner",
         )
     )
     # Ensure the directory for logging exists, else create one.
-    if not os.path.exists(config.full_path): os.makedirs(config.full_path, exist_ok=True)
+    if not os.path.exists(config.full_path):
+        os.makedirs(config.full_path, exist_ok=True)
     return config
 
 
@@ -61,7 +65,9 @@ def main( config ):
 
     # Activating Bittensor's logging with the set configurations.
     bt.logging(config=config, logging_dir=config.full_path)
-    bt.logging.info(f"Running miner for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:")
+    bt.logging.info(
+        f"Running miner for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:"
+    )
 
     # This logs the active configuration to the specified logging directory for review.
     bt.logging.info(config)
@@ -71,11 +77,11 @@ def main( config ):
     bt.logging.info("Setting up bittensor objects.")
 
     # Wallet holds cryptographic information, ensuring secure transactions and communication.
-    wallet = bt.wallet( config = config )
+    wallet = bt.wallet(config=config)
     bt.logging.info(f"Wallet: {wallet}")
 
     # subtensor manages the blockchain connection, facilitating interaction with the Bittensor blockchain.
-    subtensor = bt.subtensor( config = config )
+    subtensor = bt.subtensor(config=config)
     bt.logging.info(f"Subtensor: {subtensor}")
 
     # metagraph provides the network's current state, holding state about other participants in a subnet.
@@ -83,12 +89,14 @@ def main( config ):
     bt.logging.info(f"Metagraph: {metagraph}")
 
     if wallet.hotkey.ss58_address not in metagraph.hotkeys:
-        bt.logging.error(f"\nYour validator: {wallet} if not registered to chain connection: {subtensor} \nRun btcli register and try again. ")
+        bt.logging.error(
+            f"\nYour miner: {wallet} is not registered to chain connection: {subtensor} \nRun btcli register and try again. "
+        )
         exit()
-    else:
-        # Each miner gets a unique identity (UID) in the network for differentiation.
-        my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
-        bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
+
+    # Each miner gets a unique identity (UID) in the network for differentiation.
+    my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
+    bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
     def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> Tuple[bool, str]:
         if synapse.dendrite.hotkey not in metagraph.hotkeys:
