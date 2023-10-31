@@ -260,7 +260,8 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                 for i, respi in enumerate(responses):
                     if respi is not None \
                             and len(respi.numpy()) == vali_request.prediction_size:
-                        bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi.numpy())}]")
+                        if len(respi.numpy().shape) == 1:
+                            bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi.numpy())}]")
                     else:
                         bt.logging.debug(f"index [{i}] has no proper response")
 
@@ -414,7 +415,6 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                         wallet=wallet,  # Wallet to sign set weights using hotkey.
                         uids=converted_uids,  # Uids of the miners to set weights for.
                         weights=weights,  # Weights to set for the miners.
-                        wait_for_inclusion = True
                     )
                     if result:
                         bt.logging.success('Successfully set weights.')
