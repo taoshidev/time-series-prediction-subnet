@@ -74,7 +74,7 @@ class Scoring:
         normalized_scores = [(name, (score - min_score) / (max_score - min_score)) for name, score in scores]
         total_normalized_score = sum(score for _, score in normalized_scores)
 
-        normalized_scores = [(name, round(score / total_normalized_score, 2)) for name, score in normalized_scores]
+        normalized_scores = [(name, round(score / total_normalized_score, 4)) for name, score in normalized_scores]
         return normalized_scores
 
     @staticmethod

@@ -368,11 +368,11 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
 
                         # store weights for results
                         sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-                        winning_scores = sorted_scores[:10]
+                        winning_scores = sorted_scores[:100]
 
                         # choose top 10
                         weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                        weighed_winning_scores = weighed_scores[:10]
+                        weighed_winning_scores = weighed_scores[:100]
                         weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
                         bt.logging.debug(f"scaled scores [{scaled_scores}]")
