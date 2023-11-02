@@ -534,7 +534,7 @@ if __name__ == "__main__":
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
 
-    time_interval = random.randint(1, 60)
+    time_interval = random.randint(0, 59)
     bt.logging.info("loop time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
