@@ -534,9 +534,11 @@ if __name__ == "__main__":
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
 
+    time_interval = random.randint(1, 60)
+    bt.logging.info("loop time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
-        if current_time.minute % 5 == 0 and current_time.second < 20:
+        if current_time.minute == time_interval and current_time.second < 20:
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
@@ -548,7 +550,7 @@ if __name__ == "__main__":
 
             # if no requests to fill, randomly send in a training request to help them train
             # randomize to not have all validators sending in training data requests simultaneously to assist with load
-            if len(requests) == 0 and random.randint(0, 1) == 1:
+            if len(requests) == 0:
                 requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
             run_time_series_validation(config, metagraph, requests)
