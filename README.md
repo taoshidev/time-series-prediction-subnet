@@ -125,9 +125,41 @@ python neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner 
 
 ## Running on mainnet 
 ```text
-We will be launching mainnet on November 1st, 2023.
-
 You can run on mainnet by following the instructions in docs/running_on_mainnet.md
+
+If you are running into issues please run with --logging.debug and --logging.trace set so you can better
+analyze why your miner isnt running.
+
+The current flow of information is as follows:
+1. valis request predictions hourly
+2. miners make predictions
+3. valis store predictions
+4. valis wait until data is available to compare against (roughly a day and a half for 5m data)
+5. valis compare when data is ready
+
+so dont expect emissions on predictions immediately, you'll need to wait for the predicted information to occur to be
+compared against. 
+
+*Running a miner*
+
+If you're running a miner you should see two types of requests, LiveForward and LiveBackward. LiveForward will be when
+your miner performs predictions, LiveBackward will be receiving back the results that occurred live in case you want
+to use them for any updating purposes.
+
+Short term, it shouldn't be expected to run your miner to be trained on the network (TrainingBackward and TrainingForward
+won't be consistently running). Please train ahead of time as we'll only be using BTC/USD on the 5m to begin which you can prepare for. 
+
+*Running a validator*
+
+Please run your validator with the flag --continuous_data_feed set to 1.
+
+ex.
+python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.hotkey <hotkey> --continuous_data_feed 1
+
+We are going to have some validators requesting predictions frequently and because of that we want to make sure 
+your validator doesn't fall out of consensus with those who are requesting more frequently. Your validator
+will request predictions hourly based on your randomized interval (to distribute load). Distributing rewards will still 
+happen after live results come in (36 hours after predictions are made)
 ```
 
 
