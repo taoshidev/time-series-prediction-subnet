@@ -29,6 +29,10 @@ class ValiBkpUtils:
         return str(request_uuid) + ".pickle"
 
     @staticmethod
+    def get_cmw_filename(request_uuid: str) -> str:
+        return str(request_uuid) + ".json"
+
+    @staticmethod
     def make_dir(vali_dir: str) -> None:
         if not os.path.exists(vali_dir):
             os.makedirs(vali_dir)

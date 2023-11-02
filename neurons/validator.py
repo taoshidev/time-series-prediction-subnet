@@ -20,6 +20,7 @@ import torch
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from data_generator.financial_markets_generator.binance_data import BinanceData
+from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
@@ -229,23 +230,6 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
             )
 
             try:
-                vm = ValiUtils.get_vali_records()
-                client = vm.get_client(vali_request.client_uuid)
-                if client is None:
-                    cmw_client = CMWClient().set_client_uuid(vali_request.client_uuid)
-                    cmw_client.add_stream(CMWStreamType().set_stream_id(stream_type).set_topic_id(vali_request.topic_id))
-                    vm.add_client(cmw_client)
-                else:
-                    client_stream_type = client.get_stream(stream_type)
-                    if client_stream_type is None:
-                        client.add_stream(CMWStreamType().set_stream_id(stream_type).set_topic_id(vali_request.topic_id))
-                ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
-            except Exception as e:
-                # if fail to store cmw for some reason print & continue
-                bt.logging.error(e)
-                traceback.print_exc()
-
-            try:
                 responses = dendrite.query(
                     metagraph.axons,
                     live_proto,
@@ -273,7 +257,6 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                         except Exception as e:
                             bt.logging.debug(f"not correctly configured predictions: [{metagraph.axons[i].hotkey}]")
                             continue
-                        print(predictions)
                         if len(predictions) == vali_request.prediction_size:
                             # for file name
                             output_uuid = str(uuid.uuid4())
@@ -314,8 +297,6 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
             # stream_type = hash_object.hexdigest()
             stream_type = request_df.stream_type
             try:
-                vm = ValiUtils.get_vali_records()
-
                 data_structure = ValiUtils.get_standardized_ds()
 
                 bt.logging.info("getting results from live predictions")
@@ -430,23 +411,31 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                     bt.logging.info("weights set and stored")
                     bt.logging.info("adding to cmw")
 
-                    stream_type = vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+                    time_now = TimeUtil.now_in_millis()
                     try:
-                        time_now = TimeUtil.now_in_millis()
-                        # add results to cmw
+                        new_cmw = CMW()
+                        cmw_client = CMWClient()\
+                            .set_client_uuid(request_df.client_uuid)
+                        cmw_client.add_stream(
+                            CMWStreamType()
+                            .set_stream_id(stream_type)
+                            .set_topic_id(request_df.topic_id))
+                        new_cmw.add_client(cmw_client)
+                        cmw_client.add_stream(CMWStreamType()
+                                              .set_stream_id(stream_type)
+                                              .set_topic_id(request_df.topic_id))
+                        stream = cmw_client.get_stream(stream_type)
                         for miner_uid, score in scores.items():
-                            bt.logging.debug(f"review mineruid [{miner_uid}]")
-                            stream_miner = stream_type.get_miner(miner_uid)
-                            if stream_miner is None:
-                                bt.logging.debug("stream miner doesnt exist")
-                                stream_miner = CMWMiner(miner_uid)
-                                stream_type.add_miner(stream_miner)
-                                bt.logging.debug("miner added")
+                            bt.logging.debug(f"adding mineruid [{miner_uid}]")
+                            stream_miner = CMWMiner(miner_uid)
+                            stream.add_miner(stream_miner)
+                            bt.logging.debug("miner added")
                             stream_miner.add_unscaled_score([time_now, scores[miner_uid]])
                             if weighed_winning_scores_dict[miner_uid] != 0:
                                 bt.logging.debug(f"adding winning miner [{miner_uid}]")
                                 stream_miner.add_win_score([time_now, weighed_winning_scores_dict[miner_uid]])
-                        ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
+                        ValiUtils.save_cmw_results(request_df.request_uuid, CMWUtil.dump_cmw(new_cmw))
+                        bt.logging.info("cmw saved: ", request_df.request_uuid)
                     except Exception as e:
                         # if fail to store cmw for some reason print & continue
                         bt.logging.error(e)

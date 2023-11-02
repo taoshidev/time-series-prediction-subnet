@@ -83,6 +83,12 @@ class ValiUtils:
             raise ValiBkpCorruptDataException("prediction data is not pickled")
 
     @staticmethod
+    def save_cmw_results(request_uuid: str, content: Dict | object):
+        ValiBkpUtils.write_vali_file(ValiBkpUtils.get_vali_bkp_dir(),
+                                     ValiBkpUtils.get_cmw_filename(request_uuid),
+                                     content)
+
+    @staticmethod
     def save_predictions_request(request_uuid: str, content: Dict | object):
         ValiBkpUtils.write_vali_file(ValiBkpUtils.get_vali_predictions_dir(),
                                      ValiBkpUtils.get_response_filename(request_uuid),
