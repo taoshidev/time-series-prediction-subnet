@@ -17,6 +17,10 @@ class ValiBkpUtils:
         return ValiConfig.BASE_DIR + '/validation/backups/'
 
     @staticmethod
+    def get_vali_outputs_dir() -> str:
+        return ValiConfig.BASE_DIR + '/validation/outputs/'
+
+    @staticmethod
     def get_vali_data_file() -> str:
         return 'valirecords.json'
 
