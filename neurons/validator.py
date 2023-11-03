@@ -79,7 +79,7 @@ def get_config():
     return config
 
 
-def run_time_series_validation(config, metagraph, vali_requests: List[BaseRequestDataClass]):
+def run_time_series_validation(wallet, config, metagraph, vali_requests: List[BaseRequestDataClass]):
 
     # Set up initial scoring weights for validation
     # bt.logging.info("Building validation weights.")
@@ -368,41 +368,20 @@ def run_time_series_validation(config, metagraph, vali_requests: List[BaseReques
                         bt.logging.debug(f"weighed scores [{weighed_scores}]")
                         bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
-                    # weights = torch.tensor(np.array([item[1] for item in weighed_winning_scores]))
                     weights = [item[1] for item in weighed_winning_scores]
 
                     converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])]
                                       for miner_hotkey in weighed_winning_scores]
 
-                    # uids_array = np.array([item.item() for item in converted_uids])
-
-                    # for weighed_winning_score in weighed_winning_scores:
-                    #     bt.logging.debug(f"hotkey [{weighed_winning_score[0]}]")
-                    #     bt.logging.debug(f"hotkey index [{metagraph.hotkeys.index(weighed_winning_score[0])}]")
-                    #     bt.logging.debug(f"metagraph uid [{metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])]}]")
-
                     bt.logging.debug(f"converted uids [{converted_uids}]")
                     bt.logging.debug(f"set weights [{weights}]")
-
-                    # processed_weights = bt.utils.weight_utils.process_weights_for_netuid(uids_array,
-                    #                                                                      weights,
-                    #                                                                      config.netuid,
-                    #                                                                      subtensor,
-                    #                                                                      metagraph)
-
-                    min_allowed_weights = subtensor.min_allowed_weights(netuid=config.netuid)
-                    max_weight_limit = subtensor.max_weight_limit(netuid=config.netuid)
-
-                    # bt.logging.debug(f"min allowed weights [{min_allowed_weights}]")
-                    # bt.logging.debug(f"max weight limit [{max_weight_limit}]")
-
-                    # bt.logging.debug(f"processed weights [{processed_weights}]")
 
                     result = subtensor.set_weights(
                         netuid=config.netuid,  # Subnet to set weights on.
                         wallet=wallet,  # Wallet to sign set weights using hotkey.
                         uids=converted_uids,  # Uids of the miners to set weights for.
                         weights=weights,  # Weights to set for the miners.
+                        wait_for_inclusion=True,
                     )
                     if result:
                         bt.logging.success('Successfully set weights.')
@@ -516,10 +495,6 @@ if __name__ == "__main__":
     my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
     bt.logging.info(f"Running validator on uid: {my_subnet_uid}")
 
-    # Step 6: Set up initial scoring weights for validation
-    bt.logging.info("Building validation weights.")
-    scores = torch.ones_like(metagraph.S, dtype=torch.float32)
-    bt.logging.info(f"Weights: {scores}")
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
 
@@ -528,6 +503,10 @@ if __name__ == "__main__":
     while True:
         current_time = datetime.now().time()
         if current_time.minute == time_interval and current_time.second < 20:
+            # updating metagraph before run
+            metagraph = subtensor.metagraph(config.netuid)
+            bt.logging.info(f"Metagraph: {metagraph}")
+
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
@@ -542,4 +521,4 @@ if __name__ == "__main__":
             if len(requests) == 0:
                 requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
-            run_time_series_validation(config, metagraph, requests)
+            run_time_series_validation(wallet, config, metagraph, requests)
