@@ -254,33 +254,33 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     if resp_i.predictions is not None:
                         try:
                             predictions = resp_i.predictions.numpy()
+                            if len(predictions) == vali_request.prediction_size and len(predictions.shape) == 1:
+                                # for file name
+                                output_uuid = str(uuid.uuid4())
+                                bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
+                                # has the right number of predictions made
+                                pdf = PredictionDataFile(
+                                    client_uuid=vali_request.client_uuid,
+                                    stream_type=vali_request.stream_type,
+                                    stream_id=stream_type,
+                                    topic_id=vali_request.topic_id,
+                                    request_uuid=request_uuid,
+                                    miner_uid=metagraph.axons[i].hotkey,
+                                    start=TimeUtil.timestamp_to_millis(end_dt),
+                                    end=TimeUtil.timestamp_to_millis(end_dt) + \
+                                        TimeUtil.minute_in_millis(vali_request.prediction_size *
+                                                                  vali_request.additional_details["tf"]),
+                                    vmins=vmins,
+                                    vmaxs=vmaxs,
+                                    decimal_places=dps,
+                                    predictions=predictions,
+                                    prediction_size=vali_request.prediction_size,
+                                    additional_details=vali_request.additional_details
+                                )
+                                ValiUtils.save_predictions_request(output_uuid, pdf)
                         except Exception as e:
                             bt.logging.debug(f"not correctly configured predictions: [{metagraph.axons[i].hotkey}]")
                             continue
-                        if len(predictions) == vali_request.prediction_size:
-                            # for file name
-                            output_uuid = str(uuid.uuid4())
-                            bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
-                            # has the right number of predictions made
-                            pdf = PredictionDataFile(
-                                client_uuid=vali_request.client_uuid,
-                                stream_type=vali_request.stream_type,
-                                stream_id=stream_type,
-                                topic_id=vali_request.topic_id,
-                                request_uuid=request_uuid,
-                                miner_uid=metagraph.axons[i].hotkey,
-                                start=TimeUtil.timestamp_to_millis(end_dt),
-                                end=TimeUtil.timestamp_to_millis(end_dt) + \
-                                    TimeUtil.minute_in_millis(vali_request.prediction_size *
-                                                              vali_request.additional_details["tf"]),
-                                vmins=vmins,
-                                vmaxs=vmaxs,
-                                decimal_places=dps,
-                                predictions=predictions,
-                                prediction_size=vali_request.prediction_size,
-                                additional_details=vali_request.additional_details
-                            )
-                            ValiUtils.save_predictions_request(output_uuid, pdf)
                 bt.logging.info("completed storing all predictions")
 
             # If we encounter an unexpected error, log it for debugging.
@@ -325,13 +325,16 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     topic_id=request_df.topic_id
                 )
 
-                dendrite.query(
-                    metagraph.axons,
-                    results_backprop_proto,
-                    deserialize=True
-                )
-
-                bt.logging.info("live results sent back to miners")
+                try:
+                    dendrite.query(
+                        metagraph.axons,
+                        results_backprop_proto,
+                        deserialize=True
+                    )
+                    bt.logging.info("live results sent back to miners")
+                except Exception:
+                    traceback.print_exc()
+                    bt.logging.info("failed sending back results to miners and continuing...")
 
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():
