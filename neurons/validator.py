@@ -249,12 +249,14 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 #         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
                 #     else:
                 #         bt.logging.debug(f"index [{i}] has no proper response")
+                metagraph_uids = []
 
                 for i, resp_i in enumerate(responses):
                     if resp_i.predictions is not None:
                         try:
                             predictions = resp_i.predictions.numpy()
                             if len(predictions) == vali_request.prediction_size and len(predictions.shape) == 1:
+                                metagraph_uids.append(i)
                                 # for file name
                                 output_uuid = str(uuid.uuid4())
                                 bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
@@ -282,6 +284,23 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                             bt.logging.debug(f"not correctly configured predictions: [{metagraph.axons[i].hotkey}]")
                             continue
                 bt.logging.info("completed storing all predictions")
+
+                bt.logging.info("equally splitting emissions across all predictions that were accurate")
+                weight_set = 1 / len(metagraph_uids)
+                pred_weights = [weight_set for metagraph_uid in metagraph_uids]
+
+                bt.logging.info(f"weight set [{weight_set}]")
+
+                bt.logging.info(f"prediction weights [{pred_weights}]")
+                bt.logging.info(f"metagraph uids [{metagraph_uids}]")
+
+                result = subtensor.set_weights(
+                    netuid=config.netuid,  # Subnet to set weights on.
+                    wallet=wallet,  # Wallet to sign set weights using hotkey.
+                    uids=metagraph_uids,  # Uids of the miners to set weights for.
+                    weights=pred_weights,  # Weights to set for the miners.
+                    wait_for_inclusion=True,
+                )
 
             # If we encounter an unexpected error, log it for debugging.
             except RuntimeError as e:
@@ -372,9 +391,16 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
                     weights = [item[1] for item in weighed_winning_scores]
+                    converted_uids = []
 
-                    converted_uids = [metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])]
-                                      for miner_hotkey in weighed_winning_scores]
+                    for ind, miner_hotkey in enumerate(weighed_winning_scores):
+                        try:
+                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])])
+                        except Exception:
+                            bt.logging.debug(f"removing ind from weights [{ind}]")
+                            weights.pop(ind)
+                            bt.logging.info(f"not able to find miner hotkey, "
+                                            f"likely deregistered [{miner_hotkey}]")
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
                     bt.logging.debug(f"set weights [{weights}]")
@@ -505,7 +531,8 @@ if __name__ == "__main__":
     bt.logging.info("loop time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
-        if current_time.minute == time_interval and current_time.second < 20:
+        if (current_time.minute == time_interval and current_time.second < 20) or \
+                (current_time.minute % 5 == 0 and current_time.second < 20 and int(config.continuous_data_feed) == 1):
             # updating metagraph before run
             metagraph = subtensor.metagraph(config.netuid)
             bt.logging.info(f"Metagraph: {metagraph}")
@@ -513,8 +540,10 @@ if __name__ == "__main__":
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
-            if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
-                requests.append(ValiUtils.generate_standard_request(ClientRequest))
+            # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
+
+            # standardizing getting request
+            requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
             # add any predictions that are ready to be scored
             requests.extend(ValiUtils.get_predictions_to_complete())
