@@ -86,6 +86,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
     # scores = torch.ones_like(metagraph.S, dtype=torch.float32)
     # bt.logging.info(f"Weights: {scores}")
 
+    pred_metagraph_hotkeys = []
+
     for vali_request in vali_requests:
         # standardized request identifier for miners to tie together forward/backprop
         request_uuid = str(uuid.uuid4())
@@ -249,14 +251,13 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 #         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
                 #     else:
                 #         bt.logging.debug(f"index [{i}] has no proper response")
-                metagraph_uids = []
 
                 for i, resp_i in enumerate(responses):
                     if resp_i.predictions is not None:
                         try:
                             predictions = resp_i.predictions.numpy()
                             if len(predictions) == vali_request.prediction_size and len(predictions.shape) == 1:
-                                metagraph_uids.append(i)
+                                pred_metagraph_hotkeys.append(metagraph.axons[i].hotkey)
                                 # for file name
                                 output_uuid = str(uuid.uuid4())
                                 bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
@@ -283,24 +284,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         except Exception as e:
                             bt.logging.debug(f"not correctly configured predictions: [{metagraph.axons[i].hotkey}]")
                             continue
+                bt.logging.info(f"all hotkeys of accurately formatted predictions received {pred_metagraph_hotkeys}")
                 bt.logging.info("completed storing all predictions")
-
-                bt.logging.info("equally splitting emissions across all predictions that were accurate")
-                weight_set = 1 / len(metagraph_uids)
-                pred_weights = [weight_set for metagraph_uid in metagraph_uids]
-
-                bt.logging.info(f"weight set [{weight_set}]")
-
-                bt.logging.info(f"prediction weights [{pred_weights}]")
-                bt.logging.info(f"metagraph uids [{metagraph_uids}]")
-
-                result = subtensor.set_weights(
-                    netuid=config.netuid,  # Subnet to set weights on.
-                    wallet=wallet,  # Wallet to sign set weights using hotkey.
-                    uids=metagraph_uids,  # Uids of the miners to set weights for.
-                    weights=pred_weights,  # Weights to set for the miners.
-                    wait_for_inclusion=True,
-                )
 
             # If we encounter an unexpected error, log it for debugging.
             except RuntimeError as e:
@@ -390,6 +375,43 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         bt.logging.debug(f"weighed scores [{weighed_scores}]")
                         bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
+                    if len(pred_metagraph_hotkeys) > 0:
+                        bt.logging.info("predictions occurred, equally splitting 1% of emissions across"
+                                        " all predictions that were accurate")
+
+                        removed_wwsd = {}
+
+                        for hotkey, weighed_score in weighed_winning_scores_dict.items():
+                            if weighed_score > 0:
+                                removed_wwsd[hotkey] = weighed_score
+
+                        bt.logging.info(f"removed zero weights on wwsd [{removed_wwsd}]")
+
+                        weighed_winning_scores_dict = removed_wwsd
+
+                        reduction_per_weighed_score = 0.01 / len(weighed_winning_scores_dict)
+                        bt.logging.info(f"reducing all winning scores by [{reduction_per_weighed_score}]")
+
+                        for hotkey, weight in weighed_winning_scores_dict.items():
+                            weighed_winning_scores_dict[hotkey] = weighed_winning_scores_dict[hotkey] - reduction_per_weighed_score
+
+                        bt.logging.debug(f"updated weighed winning scores with reduction [{weighed_winning_scores_dict}]")
+
+                        weight_set = 0.01 / len(pred_metagraph_hotkeys)
+
+                        for hotkey in pred_metagraph_hotkeys:
+                            if hotkey not in weighed_winning_scores_dict:
+                                weighed_winning_scores_dict[hotkey] = weight_set
+                            else:
+                                weighed_winning_scores_dict[hotkey] += weight_set
+
+                        bt.logging.debug(f"updated weighed winning scores with addition of new preds [{weighed_winning_scores_dict}]")
+
+                        bt.logging.debug(f"new total summed {sum([weighed_score for weighed_score in weighed_winning_scores_dict.values()])}")
+
+                        weighed_winning_scores = [(hotkey, weight) for hotkey, weight in weighed_winning_scores_dict.items()]
+
+                    print(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = [item[1] for item in weighed_winning_scores]
                     converted_uids = []
 
@@ -554,3 +576,4 @@ if __name__ == "__main__":
                 requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
             run_time_series_validation(wallet, config, metagraph, requests)
+
