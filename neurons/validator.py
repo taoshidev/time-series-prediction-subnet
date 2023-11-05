@@ -461,9 +461,10 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                             stream.add_miner(stream_miner)
                             bt.logging.debug("miner added")
                             stream_miner.add_unscaled_score([time_now, scores[miner_uid]])
-                            if weighed_winning_scores_dict[miner_uid] != 0:
-                                bt.logging.debug(f"adding winning miner [{miner_uid}]")
-                                stream_miner.add_win_score([time_now, weighed_winning_scores_dict[miner_uid]])
+                            if miner_uid in weighed_winning_scores_dict:
+                                if weighed_winning_scores_dict[miner_uid] != 0:
+                                    bt.logging.debug(f"adding winning miner [{miner_uid}]")
+                                    stream_miner.add_win_score([time_now, weighed_winning_scores_dict[miner_uid]])
                         ValiUtils.save_cmw_results(request_df.request_uuid, CMWUtil.dump_cmw(new_cmw))
                         bt.logging.info("cmw saved: ", request_df.request_uuid)
                     except Exception as e:
