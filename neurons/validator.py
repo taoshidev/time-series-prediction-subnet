@@ -436,6 +436,12 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     )
                     if result:
                         bt.logging.success('Successfully set weights.')
+                        bt.logging.info("removing processed files")
+                        # remove files that have been properly processed & weighed
+                        for file in vali_request.files:
+                            os.remove(file)
+                        bt.logging.info(f"removed [{len(vali_request.files)}] processed files")
+
                     else:
                         bt.logging.error('Failed to set weights.')
                     bt.logging.info("weights set and stored")
@@ -495,11 +501,6 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
             except Exception as e:
                 bt.logging.error(e)
                 traceback.print_exc()
-            else:
-                bt.logging.info("removing processed files")
-                # remove files that have been properly processed & weighed
-                for file in vali_request.files:
-                    os.remove(file)
 
 
 # The main function parses the configuration and runs the validator.
