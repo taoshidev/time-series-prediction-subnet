@@ -432,7 +432,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         wallet=wallet,  # Wallet to sign set weights using hotkey.
                         uids=converted_uids,  # Uids of the miners to set weights for.
                         weights=weights,  # Weights to set for the miners.
-                        wait_for_inclusion=True,
+                        # wait_for_inclusion=True,
                     )
                     if result:
                         bt.logging.success('Successfully set weights.')
@@ -569,13 +569,19 @@ if __name__ == "__main__":
             # standardizing getting request
             requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
-            # add any predictions that are ready to be scored
-            requests.extend(ValiUtils.get_predictions_to_complete())
+            predictions_to_complete = ValiUtils.get_predictions_to_complete()
+
+            bt.logging.info(f"Have [{len(predictions_to_complete)}] requests prepared to have weights set for")
+
+            if len(predictions_to_complete) > 0:
+                # add one request of predictions to complete
+                requests.append(predictions_to_complete[0])
 
             # if no requests to fill, randomly send in a training request to help them train
             # randomize to not have all validators sending in training data requests simultaneously to assist with load
             if len(requests) == 0:
                 requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
+            bt.logging.info(f"Number of requests being handled [{len(requests)}]")
             run_time_series_validation(wallet, config, metagraph, requests)
 
