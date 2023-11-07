@@ -48,9 +48,7 @@ class Scoring:
 
         rmse = Scoring.calculate_weighted_rmse(predictions, actual)
 
-        da = Scoring.calculate_directional_accuracy(predictions, actual)
-        # geometric mean
-        return np.sqrt(rmse * da)
+        return rmse
 
     @staticmethod
     def scale_scores(scores: Dict[str, float]) -> Dict[str, float]:
