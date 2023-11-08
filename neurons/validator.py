@@ -409,7 +409,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                         bt.logging.debug(f"new total summed {sum([weighed_score for weighed_score in weighed_winning_scores_dict.values()])}")
 
-                        weighed_winning_scores = [(hotkey, weight) for hotkey, weight in weighed_winning_scores_dict.items()]
+                        weighed_winning_scores = [(hotkey, weight) for hotkey, weight in weighed_winning_scores_dict.items() if weight > 0]
 
                     print(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = [item[1] for item in weighed_winning_scores]
