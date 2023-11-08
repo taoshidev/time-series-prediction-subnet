@@ -411,6 +411,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                         weighed_winning_scores = [(hotkey, weight) for hotkey, weight in weighed_winning_scores_dict.items() if weight > 0]
 
+                        bt.logging.debug(f"new total summed with removed negatives {sum([weighed_score for weighed_score in weighed_winning_scores_dict.values()])}")
+
                     print(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = [item[1] for item in weighed_winning_scores]
                     converted_uids = []
