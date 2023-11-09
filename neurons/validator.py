@@ -558,7 +558,7 @@ if __name__ == "__main__":
     while True:
         current_time = datetime.now().time()
         if (current_time.minute == time_interval and current_time.second < 20) or \
-                (current_time.minute % 5 == 0 and current_time.second < 20 and int(config.continuous_data_feed) == 1):
+                (current_time.minute in [0, 30] and current_time.second < 20 and int(config.continuous_data_feed) == 1):
             # updating metagraph before run
             metagraph = subtensor.metagraph(config.netuid)
             bt.logging.info(f"Metagraph: {metagraph}")
