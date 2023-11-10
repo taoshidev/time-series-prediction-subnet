@@ -167,7 +167,14 @@ sudo apt update && sudo apt install jq && sudo apt install npm && sudo npm insta
 On Mac OS:
 brew update && brew install jq && brew install npm && sudo npm install pm2 -g && pm2 update
 
-3. Run the run.sh script which will handle running your validator and pulling the latest updates as they are issued.
+3. Be sure to installed venv for the repo
+
+Inside the repository directory (time-series-prediction-subnet) run:
+python3 -m venv venv
+pip install -r requirements.txt
+source venv/bin/activate
+
+4. Run the run.sh script which will handle running your validator and pulling the latest updates as they are issued.
 pm2 start run.sh --name sn8 -- --wallet.name <wallet> --wallet.hotkey <hotkey> --netuid 8
 
 This will run two PM2 process: one for the validator which is called sn8 by default (you can change this in run.sh), 
