@@ -73,6 +73,12 @@ def prepare_cmw_object():
     # =====================================
     cmw_object = {}
 
+    _miner_id = "miner_id"
+    _unscaled_scores = "unscaled_scores"
+    _win_scores = "win_scores"
+    _timestamp = "timestamp"
+    _score = "score"
+
     cmw_files = os.listdir(ValiBkpUtils.get_vali_bkp_dir())
     for cmw_file in cmw_files:
         cmw_file_json = json.loads(ValiBkpUtils.get_vali_file(ValiBkpUtils.get_vali_bkp_dir() + cmw_file))
@@ -82,14 +88,29 @@ def prepare_cmw_object():
                 if stream.topic_id not in cmw_object:
                     cmw_object[stream.topic_id] = {}
                 if stream.stream_id not in cmw_object[stream.topic_id]:
-                    cmw_object[stream.topic_id][stream.stream_id] = {}
+                    cmw_object[stream.topic_id][stream.stream_id] = []
                 for miner in stream.miners:
-                    if miner.miner_id not in cmw_object[stream.topic_id][stream.stream_id]:
-                        cmw_object[stream.topic_id][stream.stream_id][miner.miner_id] = {}
-                        cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["unscaled_scores"] = []
-                        cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["win_scores"] = []
-                    cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["unscaled_scores"].extend(miner.unscaled_scores)
-                    cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["win_scores"].extend(miner.win_scores)
+                    miner_exists = False
+                    for miner_info in cmw_object[stream.topic_id][stream.stream_id]:
+                        if miner.miner_id == miner_info[_miner_id]:
+                            miner_exists = True
+                    if miner_exists is False:
+                        miner_info = {
+                            _miner_id: miner.miner_id,
+                            _unscaled_scores: [],
+                            _win_scores: []
+                        }
+                    for unscaled_score in miner.unscaled_scores:
+                        miner_info[_unscaled_scores].append({
+                            _timestamp: unscaled_score[0],
+                            _score: unscaled_score[1]
+                        })
+                    for win_score in miner.win_scores:
+                        miner_info[_win_scores].append({
+                            _timestamp: win_score[0],
+                            _score: win_score[1]
+                        })
+                    cmw_object[stream.topic_id][stream.stream_id].append(miner_info)
     ValiBkpUtils.make_dir(ValiBkpUtils.get_vali_outputs_dir())
     ValiBkpUtils.write_to_vali_dir(ValiBkpUtils.get_vali_outputs_dir() + "cmw.json", cmw_object)
 
