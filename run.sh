@@ -20,20 +20,20 @@ then
 fi
 
 # Checks if $1 is smaller than $2
-# If $1 is smaller than or equal to $2, then true. 
+# If $1 is smaller than or equal to $2, then true.
 # else false.
 version_less_than_or_equal() {
     [  "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
 }
 
 # Checks if $1 is smaller than $2
-# If $1 is smaller than $2, then true. 
+# If $1 is smaller than $2, then true.
 # else false.
 version_less_than() {
     [ "$1" = "$2" ] && return 1 || version_less_than_or_equal $1 $2
 }
 
-# Returns the difference between 
+# Returns the difference between
 # two versions as a numerical value.
 get_version_difference() {
     local tag1="$1"
@@ -72,7 +72,7 @@ read_version_value() {
 check_package_installed() {
     local package_name="$1"
     os_name=$(uname -s)
-    
+
     if [[ "$os_name" == "Linux" ]]; then
         # Use dpkg-query to check if the package is installed
         if dpkg-query -W -f='${Status}' "$package_name" 2>/dev/null | grep -q "installed"; then
@@ -100,14 +100,11 @@ check_variable_value_on_github() {
     local url="https://api.github.com/repos/$repo/contents/$file_path"
     local response=$(curl -s "$url")
 
-    echo "Getting from url:" $url
-
     # Check if the response contains an error message
     if [[ $response =~ "message" ]]; then
         echo "Error: Failed to retrieve file contents from GitHub."
         return 1
     fi
-    echo "response received" $response
 
     # Extract the base64 content and decode it
     json_content=$(echo "$response" | jq -r '.content' | base64 --decode)
@@ -116,7 +113,7 @@ check_variable_value_on_github() {
     subnet_version=$(echo "$json_content" | jq -r '.subnet_version')
 
     # Print the value
-    echo "subnet_version: $subnet_version"
+    echo "$subnet_version"
 }
 
 strip_quotes() {
@@ -207,56 +204,62 @@ pm2 start app.config.js
 check_package_installed "jq"
 if [ "$?" -eq 1 ]; then
     while true; do
-
         # First ensure that this is a git installation
         if [ -d "./.git" ]; then
-
             # check value on github remotely
             latest_version=$(check_variable_value_on_github "taoshidev/time-series-prediction-subnet" $version_location $version)
 
-            echo "latest version pulled" $latest_version
+            # Wait until the variable is not empty
+            while [ -z "$latest_version" ]; do
+                echo "Waiting for latest version to be set..."
+                sleep 1  # You can adjust the sleep duration as needed
+            done
 
-            # If the file has been updated
-            if version_less_than $current_version $latest_version; then
-#                diff=$(get_version_difference $latest_version $current_version)
-#                if [ "$diff" -eq 1 ]; then
-                echo "current validator version:" "$current_version"
-                echo "latest validator version:" "$latest_version"
+            latest_version="${latest_version#"${latest_version%%[![:space:]]*}"}"
+            current_version="${current_version#"${current_version%%[![:space:]]*}"}"
 
-                # Pull latest changes
-                # Failed git pull will return a non-zero output
-                if git pull origin $branch; then
-                    # latest_version is newer than current_version, should download and reinstall.
-                    echo "New version published. Updating the local copy."
+            if [ -n "$latest_version" ]; then
+                # If the file has been updated
+                if [ "$latest_version" != "$current_version" ]; then
+                    echo "---- updating because of version mismatch ----"
+                    echo "current validator version:" "$current_version"
+                    echo "latest validator version:" "$latest_version"
 
-                    # Install latest changes just in case.
-                    pip install -e .
+                    # Pull latest changes
+                    # Failed git pull will return a non-zero output
+                    if git pull origin $branch; then
+                        # latest_version is newer than current_version, should download and reinstall.
+                        echo "New version published. Updating the local copy."
 
-                    # # Run the Python script with the arguments using pm2
-                    # TODO (shib): Remove this pm2 del in the next spec version update.
-                    pm2 del tsps
-                    echo "Restarting PM2 process"
-                    pm2 restart $proc_name
+                        # Install latest changes just in case.
+                        pip install -e .
 
-                    # Update current version:
-                    current_version=$(read_version_value)
-                    echo ""
+                        # # Run the Python script with the arguments using pm2
+                        # TODO (shib): Remove this pm2 del in the next spec version update.
+                        pm2 del tsps
+                        echo "Restarting PM2 process"
+                        pm2 restart $proc_name
 
-                    # Restart autorun script
-                    echo "Restarting script..."
-                    ./$(basename $0) $old_args && exit
+                        # Update current version:
+                        current_version=$(read_version_value)
+                        echo ""
+
+                        # Restart autorun script
+                        echo "Restarting script..."
+                        ./$(basename $0) $old_args && exit
+                    else
+                        echo "**Will not update**"
+                        echo "It appears you have made changes on your local copy. Please stash your changes using git stash."
+                    fi
                 else
-                    echo "**Will not update**"
-                    echo "It appears you have made changes on your local copy. Please stash your changes using git stash."
+                    echo "**Skipping update **"
+                    echo "$current_version is the same as or more than $latest_version. You are likely running locally."
                 fi
-            else
-                echo "**Skipping update **"
-                echo "$current_version is the same as or more than $latest_version. You are likely running locally."
             fi
         else
             echo "The installation does not appear to be done through Git. Please install from source at https://github.com/taoshidev/time-series-prediction-subnet and rerun this script."
         fi
-        
+
         # Wait about 30 minutes
         # This should be plenty of time for validators to catch up
         # and should prevent any rate limitations by GitHub.
