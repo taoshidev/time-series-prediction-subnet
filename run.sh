@@ -200,6 +200,7 @@ cat app.config.js
 
 pm2 start app.config.js
 
+
 # Check if packages are installed.
 check_package_installed "jq"
 if [ "$?" -eq 1 ]; then
@@ -215,10 +216,12 @@ if [ "$?" -eq 1 ]; then
                 sleep 1  # You can adjust the sleep duration as needed
             done
 
+            echo "latest version value" $latest_version
+
             latest_version="${latest_version#"${latest_version%%[![:space:]]*}"}"
             current_version="${current_version#"${current_version%%[![:space:]]*}"}"
 
-            if [ -n "$latest_version" ]; then
+            if [ -n "$latest_version" ] && ! echo "$latest_version" | grep -q "Error"; then
                 # If the file has been updated
                 if [ "$latest_version" != "$current_version" ]; then
                     echo "---- updating because of version mismatch ----"
@@ -259,7 +262,13 @@ if [ "$?" -eq 1 ]; then
         else
             echo "The installation does not appear to be done through Git. Please install from source at https://github.com/taoshidev/time-series-prediction-subnet and rerun this script."
         fi
-
+        # Check if the process is running if something went sideways
+        if pm2 list | grep -q "$proc_name"; then
+            echo "Process $proc_name is already running."
+        else
+            echo "Process $proc_name is not running. Starting it..."
+            pm2 start $proc_name
+        fi
         # Wait about 30 minutes
         # This should be plenty of time for validators to catch up
         # and should prevent any rate limitations by GitHub.
