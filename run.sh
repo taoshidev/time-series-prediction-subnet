@@ -237,9 +237,6 @@ if [ "$?" -eq 1 ]; then
                         # Install latest changes just in case.
                         pip install -e .
 
-                        # give permissions to run for run.sh
-                        chmod +x run.sh
-
                         # # Run the Python script with the arguments using pm2
                         # TODO (shib): Remove this pm2 del in the next spec version update.
                         pm2 del tsps
