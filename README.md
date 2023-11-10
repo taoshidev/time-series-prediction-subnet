@@ -151,15 +151,36 @@ won't be consistently running). Please train ahead of time as we'll only be usin
 
 *Running a validator*
 
-Please run your validator with the flag --continuous_data_feed set to 1.
+Your validator will request predictions hourly based on your randomized interval (to distribute load). Distributing rewards will still 
+happen after live results come in (28-32 hours after predictions are made)
 
-ex.
-python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.hotkey <hotkey> --continuous_data_feed 1
+_Using run script_
 
-We are going to have some validators requesting predictions frequently and because of that we want to make sure 
-your validator doesn't fall out of consensus with those who are requesting more frequently. Your validator
-will request predictions hourly based on your randomized interval (to distribute load). Distributing rewards will still 
-happen after live results come in (36 hours after predictions are made)
+These validators are designed to run and update themselves automatically. To run a validator, follow these steps:
+
+1. Install this repository, you can do so by following the steps outlined in the installation section.
+
+2. Install PM2 and the jq package on your system. 
+
+On Linux:
+sudo apt update && sudo apt install jq && sudo apt install npm && sudo npm install pm2 -g && pm2 update
+On Mac OS:
+brew update && brew install jq && brew install npm && sudo npm install pm2 -g && pm2 update
+
+3. Run the run.sh script which will handle running your validator and pulling the latest updates as they are issued.
+pm2 start run.sh --name sn8 -- --wallet.name <wallet> --wallet.hotkey <hotkey> --netuid 8
+
+This will run two PM2 process: one for the validator which is called sn8 by default (you can change this in run.sh), 
+and one for the run.sh script (in step 4, we named it tsps). The script will check for updates every 30 minutes, 
+if there is an update then it will pull it, install it, restart tsps and then restart itself.
+
+_Not using run script_
+
+If there are any issues with the run script or you choose to not use it, you can run your validator with the following command:
+python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.hotkey <hotkey>
+
+You can also choose to simply run your script in the background and logs will get stored in nohup.out, you can do that using:
+nohup python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.hotkey <hotkey> &
 ```
 
 
