@@ -17,10 +17,10 @@ from vali_config import ValiConfig
 class BinanceData(BaseFinancialMarketsGenerator):
     def __init__(self):
         super().__init__()
-        self.symbols = {
+        self._symbols = {
             "BTCUSD": "BTCUSDT"
         }
-        self.tf = {
+        self._tf = {
             5: "5m"
         }
 
@@ -33,7 +33,9 @@ class BinanceData(BaseFinancialMarketsGenerator):
                  retries=0) -> Response:
 
         if type(interval) == int:
-            interval = self.tf[interval]
+            binance_interval = self._tf[interval]
+        else:
+            raise Exception("no mapping for binance interval")
 
         if start is None:
             # minute, minutes, hours, days, weeks
@@ -43,10 +45,10 @@ class BinanceData(BaseFinancialMarketsGenerator):
             end = str(int(datetime.now().timestamp() * 1000))
 
         if symbol != "BTCUSDT":
-            symbol = self.symbols[symbol]
+            symbol = self._symbols[symbol]
 
         url = f'https://api.binance.com/api/v3/klines?symbol={symbol}' \
-              f'&interval={interval}&startTime={start}&endTime={end}&limit={limit}'
+              f'&interval={binance_interval}&startTime={start}&endTime={end}&limit={limit}'
 
         response = requests.get(url)
 
@@ -73,5 +75,5 @@ class BinanceData(BaseFinancialMarketsGenerator):
             #       TimeUtil.millis_to_timestamp(ts_range[1]))
             self.convert_output_to_data_points(data_structure,
                                                bd,
-                                               [6, 4, 2, 3, 5]
+                                               [0, 4, 2, 3, 5]
                                                )

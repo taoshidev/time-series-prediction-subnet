@@ -6,7 +6,7 @@ from vali_objects.exceptions.incorrect_live_results_count_exception import Incor
 class DataGeneratorHandler:
 
     def _get_financial_markets_data(self, exchange_list_order_ind: int = 0, expected_length: int = 0, *args):
-        exchange_list_order = [BinanceData(), ByBitData()]
+        exchange_list_order = [BinanceData()]
 
         try:
             args = args[0]

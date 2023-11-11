@@ -251,6 +251,13 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 #         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
                 #     else:
                 #         bt.logging.debug(f"index [{i}] has no proper response")
+                prediction_start_time = TimeUtil.timestamp_to_millis(end_dt)
+                prediction_end_time = TimeUtil.timestamp_to_millis(end_dt) + \
+                TimeUtil.minute_in_millis(vali_request.prediction_size *
+                                          vali_request.additional_details["tf"])
+
+                bt.logging.debug(f"prediction start time [{prediction_start_time}], [{TimeUtil.millis_to_timestamp(prediction_start_time)}]")
+                bt.logging.debug(f"prediction end time [{prediction_end_time}], [{TimeUtil.millis_to_timestamp(prediction_end_time)}]")
 
                 for i, resp_i in enumerate(responses):
                     if resp_i.predictions is not None:
@@ -261,6 +268,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                                 # for file name
                                 output_uuid = str(uuid.uuid4())
                                 bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
+
                                 # has the right number of predictions made
                                 pdf = PredictionDataFile(
                                     client_uuid=vali_request.client_uuid,
@@ -269,10 +277,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                                     topic_id=vali_request.topic_id,
                                     request_uuid=request_uuid,
                                     miner_uid=metagraph.axons[i].hotkey,
-                                    start=TimeUtil.timestamp_to_millis(end_dt),
-                                    end=TimeUtil.timestamp_to_millis(end_dt) + \
-                                        TimeUtil.minute_in_millis(vali_request.prediction_size *
-                                                                  vali_request.additional_details["tf"]),
+                                    start=prediction_start_time,
+                                    end=prediction_end_time,
                                     vmins=vmins,
                                     vmaxs=vmaxs,
                                     decimal_places=dps,
@@ -305,14 +311,18 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                 bt.logging.info("getting results from live predictions")
 
-                # binance_data.get_data_and_structure_data_points(request_df.stream_type,
-                #                                                data_structure,
-                #                                                (request_df.start, request_df.end))
+                bt.logging.debug(f"requested results start: [{TimeUtil.millis_to_timestamp(request_df.start)}]")
+                bt.logging.debug(f"requested results end: [{TimeUtil.millis_to_timestamp(request_df.end)}]")
+
                 data_generator_handler.data_generator_handler(request_df.topic_id,
                                                               request_df.prediction_size,
                                                               request_df.additional_details,
                                                               data_structure,
                                                               (request_df.start, request_df.end))
+
+                bt.logging.debug(f"number of results: [{len(data_structure[0])}]")
+                bt.logging.debug(f"results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
+                bt.logging.debug(f"results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
 
                 bt.logging.info("results gathered sending back to miners via backprop and weighing")
 

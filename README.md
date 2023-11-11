@@ -31,9 +31,7 @@ DEALINGS IN THE SOFTWARE.
 ## Overview
 Overview of the Time-Series Prediction Subnet
 ```text
-This subnet is dedicated to the Time-Series Prediction Subnet (TSPS) made by Taoshi. We will have a lot of information 
-available over the next 2 weeks, but we'll start with some basic information here on the subnet and also a bit of 
-information on our timeline.
+This subnet is dedicated to the Time-Series Prediction Subnet (TSPS) made by Taoshi.
 
 Initially the TSPS will be predictions on the future movement of financial markets. We will start with predictions 
 on Bitcoin's price movement, and quickly move to more crypto trade pairs and eventually into other financial markets. 
@@ -61,8 +59,8 @@ therefore a relatively small machine can be a validator (will have exact details
 
 What is the expected data input and output as a miner?
 
-For financial markets, the goal will be to predict the next 4-8 hours of closes on a 5m interval 
-(so between ~50-100 data points). In order to help with the prediction, the subnet will provide the 
+For financial markets, the goal will be to predict the next 8 hours of closes on a 5m interval 
+(100 closes). In order to help with the prediction, the subnet will provide the 
 last 25-30 days of 5m data for the trade pair. You can expect the data to be in the format
 [close_timestamp (ms), close, high, low, volume] where close, high, low, and volume are all linearly 
 pre-scaled for you between 0.49 to 0.51. 
@@ -152,7 +150,7 @@ won't be consistently running). Please train ahead of time as we'll only be usin
 *Running a validator*
 
 Your validator will request predictions hourly based on your randomized interval (to distribute load). Distributing rewards will still 
-happen after live results come in (28-32 hours after predictions are made)
+happen after live results come in (32 hours after predictions are made)
 
 _Using run script_
 
