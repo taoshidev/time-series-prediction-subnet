@@ -13,11 +13,10 @@ class ValiConfig:
     SCALE_SHIFT = (1 - 1/SCALE_FACTOR) / 2
     HISTORICAL_DATA_LOOKBACK_DAYS_MIN = 25
     HISTORICAL_DATA_LOOKBACK_DAYS_MAX = 30
-    PREDICTIONS_MIN = 50
-    PREDICTIONS_MAX = 100
+    PREDICTIONS_MIN = 100
+    PREDICTIONS_MAX = 101
     DELETE_STALE_DATA = 180
 
-    STANDARD_TF_BINANCE = "5m"
     STANDARD_TF = 5
 
     BASE_DIR = base_directory = os.path.dirname(os.path.abspath(__file__))

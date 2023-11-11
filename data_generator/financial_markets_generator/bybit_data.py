@@ -14,6 +14,11 @@ from vali_config import ValiConfig
 
 
 class ByBitData(BaseFinancialMarketsGenerator):
+    def __init__(self):
+        super().__init__()
+        self._symbols = {
+            "BTCUSD": "BTCUSDT"
+        }
 
     def get_data(self,
                  symbol='BTCUSD',
@@ -23,13 +28,21 @@ class ByBitData(BaseFinancialMarketsGenerator):
                  retries=0,
                  limit=1000):
 
+        if symbol != "BTCUSDT":
+            symbol = self._symbols[symbol]
+
+        downshifted_start_by_one_unit = start - TimeUtil.minute_in_millis(interval)
+        downshifted_end_by_one_unit = end - TimeUtil.minute_in_millis(interval)
+
         url = f"https://api.bybit.com/v5/market/kline?" \
-              f"symbol={symbol}&interval={interval}&start={start}&end={end}&limit={limit}"
+              f"category=spot&symbol={symbol}&interval={interval}&start={downshifted_start_by_one_unit}&end={downshifted_end_by_one_unit}&limit={limit}"
         response = requests.get(url)
 
         try:
             if response.status_code == 200:
-                return response.json()["result"]["list"]
+                results = response.json()["result"]["list"]
+                reversed_data = sorted(results, key=lambda x: int(x[0]))
+                return reversed_data
             else:
                 raise Exception(f"Failed to retrieve data. Status code: {response.status_code}")
         except Exception:

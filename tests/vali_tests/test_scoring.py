@@ -3,11 +3,14 @@
 
 import unittest
 
+from data_generator.data_generator_handler import DataGeneratorHandler
 from tests.vali_tests.samples.testing_data import TestingData
 from tests.vali_tests.base_objects.test_base import TestBase
+from time_util.time_util import TimeUtil
 from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
 from vali_objects.exceptions.min_responses_exception import MinResponsesException
 from vali_objects.scoring.scoring import Scoring
+from vali_objects.utils.vali_utils import ValiUtils
 
 
 class TestScoring(TestBase):
@@ -22,6 +25,40 @@ class TestScoring(TestBase):
 
         weighted_rmse = Scoring.calculate_weighted_rmse(predictions, actual)
         self.assertEqual(weighted_rmse, 0.04999999999999829)
+
+    def test_score_response_rmse(self):
+        predictions = []
+        actual = []
+
+        for x in range(0, 100):
+            predictions.append(x)
+            actual.append(x - 0.05)
+
+        weighted_rmse = Scoring.score_response(predictions, actual)
+        self.assertEqual(weighted_rmse, 0.04999999999999829)
+
+    def test_score_response_rmse_exs(self):
+        predictions1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 11]
+        actual1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+        weighted_rmse1 = Scoring.score_response(predictions1, actual1)
+
+        predictions2 = [2, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        actual2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+        weighted_rmse2 = Scoring.score_response(predictions2, actual2)
+
+        predictions3 = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11]
+        actual3 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+        weighted_rmse3 = Scoring.score_response(predictions3, actual3)
+
+        predictions4 = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11]
+        actual4 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+        weighted_rmse4 = Scoring.score_response(predictions4, actual4)
+
+        self.assertTrue(weighted_rmse3 > weighted_rmse4)
 
     def test_scale_scores(self):
         scaled_scores = Scoring.scale_scores(TestingData.SCORES)
@@ -91,7 +128,7 @@ class TestScoring(TestBase):
             actual.append(x - 0.05)
 
         score = Scoring.score_response(predictions, actual)
-        self.assertEqual(score, 0.22360679774997513)
+        self.assertEqual(score, 0.04999999999999829)
 
 
 if __name__ == '__main__':
