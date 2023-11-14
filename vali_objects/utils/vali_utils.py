@@ -107,6 +107,10 @@ class ValiUtils:
 
     @staticmethod
     def get_predictions_to_complete() -> List[PredictionRequest]:
+        def sort_by_end(item):
+            # Assuming item[1].df is the UnpickledDF object inside PredictionRequest
+            return item.df.end
+
         all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
         request_to_complete = {}
         for file in all_files:
@@ -129,7 +133,9 @@ class ValiUtils:
                     unpickled_df.request_uuid].predictions[unpickled_df.miner_uid] = unpickled_unscaled_data_structure
                 request_to_complete[
                     unpickled_df.request_uuid].files.append(file)
-        return [pred_request for pred_request in request_to_complete.values()]
+        pred_requests = [pred_request for pred_request in request_to_complete.values()]
+        sorted_pred_requests = sorted(pred_requests, key=sort_by_end, reverse=True)
+        return sorted_pred_requests
 
     @staticmethod
     def generate_standard_request(request: Type[NewRequestDataClass]):
