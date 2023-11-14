@@ -127,7 +127,7 @@ def prepare_cmw_object():
         subnet_performance_dict[ts] = total_value / len(win_values)
 
     subnet_performance = [{"timestamp": key, "score": value} for key, value in subnet_performance_dict.items()]
-
+    subnet_performance = sorted(subnet_performance, key=lambda x: x['timestamp'])
 
     # top miners past 7 days
     top_miners_seven_days_dict = {}
@@ -153,12 +153,20 @@ def prepare_cmw_object():
     top_predictions = []
     for key, values in latest_predictions.items():
         for value in values:
+            curr_timestamp = value["start"]
             if value["miner_uid"] in top_twenty_five_miners_seven_days_ids:
-                top_predictions.append({
+                curr_predictions = {
                     "miner_uid": value["miner_uid"],
                     "timestamp": value["start"],
-                    "predictions": value["predictions"]
-                })
+                    "predictions": [],
+                }
+                for row in value["predictions"]:
+                    curr_timestamp += TimeUtil.minute_in_millis(5)
+                    curr_predictions["predictions"].append({
+                        "timestamp": curr_timestamp,
+                        "prediction": row
+                    })
+                top_predictions.append(curr_predictions)
 
     cmw_aggregated_obj = {
         "subnet_performance": subnet_performance,
