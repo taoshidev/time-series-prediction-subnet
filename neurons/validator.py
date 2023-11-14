@@ -5,6 +5,7 @@
 import hashlib
 import os
 import random
+import time
 import uuid
 from datetime import datetime
 from typing import List
@@ -491,6 +492,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         traceback.print_exc()
 
                     bt.logging.info("scores attempted to be stored in cmw")
+                    bt.logging.info("run complete.")
                 else:
                     bt.logging.info("there are no predictions to score that have the right number of predictions")
             # If we encounter an unexpected error, log it for debugging.
@@ -563,12 +565,12 @@ if __name__ == "__main__":
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
 
-    time_interval = random.randint(0, 59)
-    bt.logging.info("loop time interval: ", time_interval)
+    time_interval = random.randint(0, 550)
+    bt.logging.info("sleep time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
-        if (current_time.minute == time_interval and current_time.second < 20) or \
-                (current_time.minute in [0, 30] and current_time.second < 20 and int(config.continuous_data_feed) == 1):
+        if current_time.minute in [0, 30]:
+            time.sleep(time_interval)
             # updating metagraph before run
             metagraph = subtensor.metagraph(config.netuid)
             bt.logging.info(f"Metagraph: {metagraph}")
@@ -596,4 +598,5 @@ if __name__ == "__main__":
 
             bt.logging.info(f"Number of requests being handled [{len(requests)}]")
             run_time_series_validation(wallet, config, metagraph, requests)
+            time.sleep(60)
 

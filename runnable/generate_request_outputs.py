@@ -9,8 +9,8 @@ from vali_objects.scaling.scaling import Scaling
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
 
-def prepare_latest_predictions():
 
+def prepare_latest_predictions(return_result=False):
     # TODO this is fine for now, but eventually needs to be split
     #  out to multiple topics and streams will leave as is for now to move faster
 
@@ -63,6 +63,8 @@ def prepare_latest_predictions():
                 append_to_latest_predictions_files(latest_predictions, unpickled_file_pdf)
         ValiBkpUtils.make_dir(ValiBkpUtils.get_vali_outputs_dir())
         ValiBkpUtils.write_to_vali_dir(LATEST_PREDICTIONS_LOCATION, latest_predictions)
+        if return_result:
+            return latest_predictions
     else:
         print("The directory is empty.")
 
@@ -79,6 +81,13 @@ def prepare_cmw_object():
     _timestamp = "timestamp"
     _score = "score"
 
+    '''
+    win_scores = {
+        <timestamp>: [(miner_uid, win_score, unscaled_score)]
+    }
+    '''
+    win_scores = {}
+
     cmw_files = os.listdir(ValiBkpUtils.get_vali_bkp_dir())
     for cmw_file in cmw_files:
         cmw_file_json = json.loads(ValiBkpUtils.get_vali_file(ValiBkpUtils.get_vali_bkp_dir() + cmw_file))
@@ -88,41 +97,92 @@ def prepare_cmw_object():
                 if stream.topic_id not in cmw_object:
                     cmw_object[stream.topic_id] = {}
                 if stream.stream_id not in cmw_object[stream.topic_id]:
-                    cmw_object[stream.topic_id][stream.stream_id] = []
+                    cmw_object[stream.topic_id][stream.stream_id] = {}
                 for miner in stream.miners:
-                    miner_exists = False
-                    for miner_info in cmw_object[stream.topic_id][stream.stream_id]:
-                        if miner.miner_id == miner_info[_miner_id]:
-                            miner_exists = True
-                    if miner_exists is False:
-                        miner_info = {
-                            _miner_id: miner.miner_id,
-                            _unscaled_scores: [],
-                            _win_scores: []
-                        }
-                    for unscaled_score in miner.unscaled_scores:
-                        miner_info[_unscaled_scores].append({
-                            _timestamp: unscaled_score[0],
-                            _score: unscaled_score[1]
-                        })
-                    for win_score in miner.win_scores:
-                        miner_info[_win_scores].append({
-                            _timestamp: win_score[0],
-                            _score: win_score[1]
-                        })
-                    cmw_object[stream.topic_id][stream.stream_id].append(miner_info)
+                    miner_win_scores = {mws[0]: (miner.miner_id, mws[1], mus[1]) for mws in miner.win_scores for mus in miner.unscaled_scores if mws[0] == mus[0]}
+                    for key, value in miner_win_scores.items():
+                        if key not in win_scores:
+                            win_scores[key] = []
+                        win_scores[key].append(value)
+                    # for mws in miner.win_scores:
+                    #     if mws[0] not in win_scores:
+                    #         win_scores[mws[0]] = []
+                    #
+                    # if
+                    # if miner.miner_id not in cmw_object[stream.topic_id][stream.stream_id]:
+                    #     cmw_object[stream.topic_id][stream.stream_id][miner.miner_id] = {}
+                    #     cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["unscaled_scores"] = []
+                    #     cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["win_scores"] = []
+                    # cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["unscaled_scores"].extend(miner.unscaled_scores)
+                    # cmw_object[stream.topic_id][stream.stream_id][miner.miner_id]["win_scores"].extend(miner.win_scores)
+
+    # subnet performance
+    subnet_performance_dict = {}
+    total_value = 0
+    for ts, win_values in win_scores.items():
+        total_value = 0
+        for win_value in win_values:
+            total_value += win_value[2]
+        # assuming sum to 1
+        subnet_performance_dict[ts] = total_value / len(win_values)
+
+    subnet_performance = [{"timestamp": key, "score": value} for key, value in subnet_performance_dict.items()]
+    subnet_performance = sorted(subnet_performance, key=lambda x: x['timestamp'])
+
+    # top miners past 7 days
+    top_miners_seven_days_dict = {}
+
+    seven_days_ago = TimeUtil.timestamp_to_millis(TimeUtil.generate_start_timestamp(7))
+
+    win_scores_seven_days_ago = {time: data for time, data in win_scores.items() if time > seven_days_ago}
+    for ts, win_values in win_scores_seven_days_ago.items():
+        for win_value in win_values:
+            if win_value[0] not in top_miners_seven_days_dict:
+                top_miners_seven_days_dict[win_value[0]] = 0
+            top_miners_seven_days_dict[win_value[0]] += win_value[1]
+
+    top_miners_seven_days = [{"miner_uid": key, "score": value} for key, value in top_miners_seven_days_dict.items()]
+    top_miners_seven_days = sorted(top_miners_seven_days, key=lambda x: x['score'], reverse=True)
+
+    top_twenty_five_miners_seven_days = top_miners_seven_days[:25]
+    top_twenty_five_miners_seven_days_ids = [value["miner_uid"] for value in top_twenty_five_miners_seven_days]
+
+    latest_predictions = prepare_latest_predictions(True)
+
+    # get top predictions
+    top_predictions = []
+    for key, values in latest_predictions.items():
+        for value in values:
+            curr_timestamp = value["start"]
+            if value["miner_uid"] in top_twenty_five_miners_seven_days_ids:
+                curr_predictions = {
+                    "miner_uid": value["miner_uid"],
+                    "timestamp": value["start"],
+                    "predictions": [],
+                }
+                for row in value["predictions"]:
+                    curr_timestamp += TimeUtil.minute_in_millis(5)
+                    curr_predictions["predictions"].append({
+                        "timestamp": curr_timestamp,
+                        "prediction": row
+                    })
+                top_predictions.append(curr_predictions)
+
+    cmw_aggregated_obj = {
+        "subnet_performance": subnet_performance,
+        "top_miners_7": top_twenty_five_miners_seven_days,
+        "top_miners_7_predictions": top_predictions
+    }
+
     ValiBkpUtils.make_dir(ValiBkpUtils.get_vali_outputs_dir())
-    ValiBkpUtils.write_to_vali_dir(ValiBkpUtils.get_vali_outputs_dir() + "cmw.json", cmw_object)
+    ValiBkpUtils.write_to_vali_dir(ValiBkpUtils.get_vali_outputs_dir() + "cmw.json", cmw_aggregated_obj)
 
 
 if __name__ == "__main__":
     print("generate request outputs")
     while True:
         now = datetime.utcnow()
-        if now.minute % 5 == 0:
-            print(f"{now}: outputting latest predictions")
-            prepare_latest_predictions()
-            print(f"{now}: successfully outputted latest predictions")
+        if True:
             print(f"{now}: outputting cmw object")
             prepare_cmw_object()
             print(f"{now}: successfully outputted cmw object")
