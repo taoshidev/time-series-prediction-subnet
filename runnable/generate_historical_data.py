@@ -5,6 +5,7 @@ import uuid
 import random
 
 from data_generator.data_generator_handler import DataGeneratorHandler
+from mining_objects.mining_utils import MiningUtils
 
 from time_util.time_util import TimeUtil
 from vali_objects.dataclasses.client_request import ClientRequest
@@ -38,10 +39,10 @@ if __name__ == "__main__":
 
     # choose the range of days to look back
     # number of days back start
-    days_back_start = 10
+    days_back_start = 100
     # number of days forward since end day
-    # for example start from 10 days ago and get 2 days from 10 days ago (10 days ago, 9 days ago, 8 days ago)
-    days_back_end = 2
+    # for example start from 100 days ago and get 70 days from 100 days ago (100 days ago, 99 days ago, 98 days ago, etc.)
+    days_back_end = 70
 
     ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
         TimeUtil.generate_range_timestamps(
@@ -58,4 +59,4 @@ if __name__ == "__main__":
 
     # close timestamp, close, high, low, volume
     samples = bt.tensor(scaled_data_structure)
-    ValiUtils.save_predictions_request("../../runnable/historical_financial_data/data", data_structure)
+    MiningUtils.write_file("/runnable/historical_financial_data/", "data.pickle", data_structure, True)
