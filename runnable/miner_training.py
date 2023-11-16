@@ -2,31 +2,16 @@
 # Copyright © 2023 Taoshi, LLC
 
 import hashlib
-import os
-import uuid
 import random
-import time
-from datetime import datetime
-
-import math
-import numpy as np
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from mining_objects.base_mining_model import BaseMiningModel
-from mining_objects.financial_market_indicators import FinancialMarketIndicators
-from template.protocol import Forward
+from mining_objects.mining_utils import MiningUtils
 from time_util.time_util import TimeUtil
-from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
-from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
-from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
-from vali_objects.cmw.cmw_util import CMWUtil
 from vali_objects.dataclasses.client_request import ClientRequest
-from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
 from vali_config import ValiConfig
-from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.scaling.scaling import Scaling
-from vali_objects.scoring.scoring import Scoring
 
 import bittensor as bt
 
@@ -56,7 +41,7 @@ if __name__ == "__main__":
         start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
 
         # numbers of rows to use in each sequence
-        iter_add = 3000
+        iter_add = 1000
 
         hash_object = hashlib.sha256(client_request.stream_type.encode())
         stream_id = hash_object.hexdigest()
@@ -83,8 +68,7 @@ if __name__ == "__main__":
             print("next iter", curr_iter)
             curr_iter += iter_add
             # historical doesnt have timestamps
-            data_structure = ValiUtils.get_vali_predictions(
-                "historical_financial_data/data.pickle")
+            data_structure = MiningUtils.get_file("/runnable/historical_financial_data/data.pickle", True)
             data_structure = [data_structure[0][curr_iter:curr_iter+iter_add],
                               data_structure[1][curr_iter:curr_iter+iter_add],
                               data_structure[2][curr_iter:curr_iter+iter_add],
@@ -99,4 +83,4 @@ if __name__ == "__main__":
         # will iterate and prepare the dataset and train the model as provided
         prep_dataset = BaseMiningModel.base_model_dataset(samples)
         base_mining_model = BaseMiningModel(len(prep_dataset.T))
-        base_mining_model.train(prep_dataset, epochs=25)
+        base_mining_model.train(prep_dataset, epochs=25).set_model_dir('model2.h5')

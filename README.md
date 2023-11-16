@@ -1,4 +1,4 @@
-## License
+# License
 Copyright © 2023 Taoshi, LLC
 ```text
 Taoshi All rights reserved. 
@@ -7,7 +7,7 @@ without the express permission of Taoshi, LLC.
 ```
 
 
-## License
+# License
 Bittensor source code in this repository is licensed under the MIT License.
 ```text
 The MIT License (MIT)
@@ -28,7 +28,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE S
 DEALINGS IN THE SOFTWARE.
 ```
 
-## Overview
+# Overview
 Overview of the Time-Series Prediction Subnet
 ```text
 This subnet is dedicated to the Time-Series Prediction Subnet (TSPS) made by Taoshi.
@@ -41,70 +41,81 @@ Over time, we expect miners to concentrate on various topics or domains, or thos
 try and take on multiple topics (sports betting, unspecified topics sent by clients, etc.).
 ```
 
-## FAQ
-```text
-How does rewarding work?
+# FAQ
 
+## How does rewarding work?
+
+```text
 Miners are rewarded based on predicting future information or live data as we classify it in the subnet. In 
 order to help train miners the network will also provide training data on the various datasets (trade pairs for 
 financial market data) but rewarding only occurs on data that hasn't occurred yet, or what the subnet defines as 
 live data. Once the future data is known, we compare against the predictions made and reward based on performance.
+```
 
-What processing power does it require to be a validator?
-
+## What processing power does it require to be a validator?
+```text
 In order to be a validator you simply need to have a server running in the EU (recommend Ireland, UK). This can be 
 through VPN or a cloud-based server. This is because not all financial data can be accessed inside the US (for crypto). 
 The actual processing power is light, as validators are really only comparing results against what occurs live 
 therefore a relatively small machine can be a validator (will have exact details soon).
+```
 
-What is the expected data input and output as a miner?
-
+## What is the expected data input and output as a miner?
+```text
 For financial markets, the goal will be to predict the next 8 hours of closes on a 5m interval 
 (100 closes). In order to help with the prediction, the subnet will provide the 
 last 25-30 days of 5m data for the trade pair. You can expect the data to be in the format
 [close_timestamp (ms), close, high, low, volume] where close, high, low, and volume are all linearly 
-pre-scaled for you between 0.49 to 0.51. 
+pre-scaled for you between 0.495 to 0.505. You can convert the linear scale to whatever format you'd like, 
+but you can consistently expect the data to be on this scale.
+
+We linearly pre-scale because future data may come from clients who want the data to remain anonymous and
+we've planned ahead to account for these future cases.
 
 Input Features: [close_timestamp (milliseconds), close, high, low, volume]
 Target Feature: [close]
+```
 
-We linearly pre-scale because future data may come from clients who want the data to remain anonymous.
 
-Can I be a miner with little knowledge?
-
+## Can I be a miner with little knowledge?
+```text
 Predicting on markets is very hard, but we want to help those who want to contribute to the network by providing 
 a base model that can be used. This base can be used to build upon, or just run yourself to try and compete. You can
 participate by running a pre-built & pre-trained model provided to all miners in mining_models/base_model.h5
 
 This model is already built into the core logic of neurons/miner.py for you to run and compete as a miner. All you
 need to do is run neurons/miner.py
+```
 
-I'm knowledgable about creating a competing prediction model on my own, can I prepare my miner to compete?
-
+## I'm knowledgable about creating a competing prediction model on my own, can I prepare my miner to compete?
+```text
 Yes, you can start from the base model (neurons/miner.py) in order to prepare for release or you can start from 
-scratch and test on testnet (netuid 3). We will run on testnet for the next 2 weeks as we prepare for release on sn8. 
+scratch and test on testnet (netuid 3). 
 You can choose to use the training data provided by the subnet on each trade pair or prepare separately using your own 
 training data (say on BTC to start).
+```
 
-Where can I begin testing?
-
+## Where can I begin testing?
+```text
 You can begin testing on testnet netuid 3. You can follow the 
 docs/running_on_testnet.md file inside the repo to run on testnet.
 ```
 
 ## Building a model
-```text
+
 How can I build a model? 
 
 You can choose to build a model on your own or using the infrastructure inside this repository. If you choose
 to use the infra provided in here, you can choose to leverage standardized financial market indicators provided
-in mining_objects/financial_market_indicators.py as well as a standardized LSTM model 
-in mining_objects/base_mining_model.py . You can generate a historical Bitcoin dataset using the script 
-runnable/generate_historical_data.py and choose the timeframe you'd like to generate for using the comments provided
+in `mining_objects/financial_market_indicators.py` as well as a standardized LSTM model 
+in `mining_objects/base_mining_model.py`. You can generate a historical Bitcoin dataset using the script 
+`runnable/generate_historical_data.py` and choose the timeframe you'd like to generate for using the comments provided
 inside the script.
 
-We've provided a basis for creating and testing models using runnable/miner_testing.py and runnable/miner_training.py
-```
+We've provided a basis for creating and testing models using `runnable/miner_testing.py` and `runnable/miner_training.py`
+
+Please note we are constantly adjusting these scripts and will be making improvements over time.
+
 
 ## Testing on testnet 
 ```text
@@ -112,7 +123,7 @@ You can begin testing on testnet netuid 3. You can follow the docs/running_on_te
 to run on testnet. Some recommendations when testing on testnet to speed up testing is pass the "test_only_historical"
 argument for your validator. You can do this by using running
 python neurons/validator.py --netuid 3 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug --test_only_historical 1
-this will have the validator run every 5 seconds and test against historical data instead of live. If you only
+this will have the validator run and test against historical data instead of live. If you only
 want to test against live data then dont use this flag.
 
 When youre testing we also recommend using 2 miners as a single miner won't provide enough responses to pass for
@@ -137,18 +148,21 @@ The current flow of information is as follows:
 
 so dont expect emissions on predictions immediately, you'll need to wait for the predicted information to occur to be
 compared against. 
+```
 
 *Running a miner*
-
+```text
 If you're running a miner you should see two types of requests, LiveForward and LiveBackward. LiveForward will be when
 your miner performs predictions, LiveBackward will be receiving back the results that occurred live in case you want
 to use them for any updating purposes.
 
 Short term, it shouldn't be expected to run your miner to be trained on the network (TrainingBackward and TrainingForward
 won't be consistently running). Please train ahead of time as we'll only be using BTC/USD on the 5m to begin which you can prepare for. 
+```
 
 *Running a validator*
 
+```text
 Your validator will request predictions hourly based on your randomized interval (to distribute load). Distributing rewards will still 
 happen after live results come in (32 hours after predictions are made)
 
