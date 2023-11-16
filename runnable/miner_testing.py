@@ -175,8 +175,12 @@ if __name__ == "__main__":
 
         # creating some additional miners who generate noise to compare against
         for a in range(0, 25):
+            # s_predictions = np.array(
+            #     [random.uniform(0.499, 0.501) for i in range(0, client_request.prediction_size)])
             s_predictions = np.array(
-                [random.uniform(0.499, 0.501) for i in range(0, client_request.prediction_size)])
+                [random.uniform(samples.numpy()[1][len(samples.numpy()[1]) - 1] - .0001,
+                                samples.numpy()[1][len(samples.numpy()[1]) - 1] + .0001) for i in
+                 range(0, client_request.prediction_size)])
 
             # using proto for testing
             forward_proto.predictions = bt.tensor(s_predictions)
@@ -186,7 +190,7 @@ if __name__ == "__main__":
             #                                                  dp_decimal_places[0],
             #                                                  forward_proto.predictions.numpy())
             output_uuid = str(uuid.uuid4())
-            miner_uuid = str(uuid.uuid4())
+            miner_uuid = "noise-miner-" + str(a)
             # just the vali hotkey for now
 
             pdf = PredictionDataFile(
