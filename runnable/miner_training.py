@@ -82,5 +82,5 @@ if __name__ == "__main__":
 
         # will iterate and prepare the dataset and train the model as provided
         prep_dataset = BaseMiningModel.base_model_dataset(samples)
-        base_mining_model = BaseMiningModel(len(prep_dataset.T))
-        base_mining_model.train(prep_dataset, epochs=25).set_model_dir('model2.h5')
+        base_mining_model = BaseMiningModel(len(prep_dataset.T)).set_model_dir('mining_models/model2.h5')
+        base_mining_model.train(prep_dataset, epochs=25)
