@@ -386,56 +386,17 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         bt.logging.debug(f"weighed scores [{weighed_scores}]")
                         bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
-                    if len(pred_metagraph_hotkeys) > 0:
-                        bt.logging.info("predictions occurred, equally splitting 1% of emissions across"
-                                        " all predictions that were accurate")
-
-                        removed_wwsd = {}
-
-                        for hotkey, weighed_score in weighed_winning_scores_dict.items():
-                            if weighed_score > 0:
-                                removed_wwsd[hotkey] = weighed_score
-
-                        bt.logging.info(f"removed zero weights on wwsd [{removed_wwsd}]")
-
-                        weighed_winning_scores_dict = removed_wwsd
-
-                        reduction_per_weighed_score = 0.01 / len(weighed_winning_scores_dict)
-                        bt.logging.info(f"reducing all winning scores by [{reduction_per_weighed_score}]")
-
-                        for hotkey, weight in weighed_winning_scores_dict.items():
-                            weighed_winning_scores_dict[hotkey] = weighed_winning_scores_dict[hotkey] - reduction_per_weighed_score
-
-                        bt.logging.debug(f"updated weighed winning scores with reduction [{weighed_winning_scores_dict}]")
-
-                        weight_set = 0.01 / len(pred_metagraph_hotkeys)
-
-                        for hotkey in pred_metagraph_hotkeys:
-                            if hotkey not in weighed_winning_scores_dict:
-                                weighed_winning_scores_dict[hotkey] = weight_set
-                            else:
-                                weighed_winning_scores_dict[hotkey] += weight_set
-
-                        bt.logging.debug(f"updated weighed winning scores with addition of new preds [{weighed_winning_scores_dict}]")
-
-                        bt.logging.debug(f"new total summed {sum([weighed_score for weighed_score in weighed_winning_scores_dict.values()])}")
-
-                        weighed_winning_scores = [(hotkey, weight) for hotkey, weight in weighed_winning_scores_dict.items() if weight > 0]
-
-                        bt.logging.debug(f"new total summed with removed negatives {sum([weighed_score for weighed_score in weighed_winning_scores_dict.values()])}")
-
                     print(f"finalized weighed winning scores [{weighed_winning_scores}]")
-                    weights = [item[1] for item in weighed_winning_scores]
+                    weights = []
                     converted_uids = []
 
-                    for ind, miner_hotkey in enumerate(weighed_winning_scores):
+                    for ind, weighed_winning_score in enumerate(weighed_winning_scores):
                         try:
-                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_hotkey[0])])
+                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])])
+                            weights.append(weighed_winning_score[1])
                         except Exception:
-                            bt.logging.debug(f"removing ind from weights [{ind}]")
-                            weights.pop(ind)
                             bt.logging.info(f"not able to find miner hotkey, "
-                                            f"likely deregistered [{miner_hotkey}]")
+                                            f"likely deregistered [{weighed_winning_score}]")
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
                     bt.logging.debug(f"set weights [{weights}]")
