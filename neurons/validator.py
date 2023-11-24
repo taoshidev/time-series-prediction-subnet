@@ -237,7 +237,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_proto,
                     deserialize=True,
-                    timeout=30
+                    timeout=120
                 )
 
                 # # check to see # of responses
@@ -533,7 +533,7 @@ if __name__ == "__main__":
         if current_time.minute in [0, 30]:
             time.sleep(time_interval)
             # updating metagraph before run
-            metagraph = subtensor.metagraph(config.netuid)
+            metagraph.sync(subtensor = subtensor)
             bt.logging.info(f"Metagraph: {metagraph}")
 
             requests = []
