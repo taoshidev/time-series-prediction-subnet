@@ -87,6 +87,58 @@ class TestBaseDataClass(unittest.TestCase):
             }
         )
 
+    def test_pdf_optionals(self):
+        po = PredictionDataFile(
+            client_uuid="test",
+            stream_type="TEST",
+            stream_id="test",
+            topic_id=1,
+            request_uuid="testuid",
+            miner_uid="test",
+            start=1234,
+            end=12345,
+            predictions=np.array([1, 2, 3]),
+            prediction_size=3,
+            additional_details={
+                "tf": 5,
+                "trade_pair": "BTCUSD"
+            },
+            vmaxs = [0.1, 0.2, 0.3],
+            vmins = [0.1, 0.2, 0.3],
+            decimal_places = [1, 2, 3],
+        )
+
+        po2 = PredictionDataFile(
+            client_uuid="test",
+            stream_type="TEST",
+            stream_id="test",
+            topic_id=1,
+            request_uuid="testuid",
+            miner_uid="test",
+            start=1234,
+            end=12345,
+            predictions=np.array([1, 2, 3]),
+            prediction_size=3,
+            additional_details={
+                "tf": 5,
+                "trade_pair": "BTCUSD"
+            }
+        )
+
+        self.assertIsNotNone(po.vmaxs)
+        self.assertIsNotNone(po.vmins)
+        self.assertIsNotNone(po.decimal_places)
+
+        self.assertIsNone(po2.vmaxs)
+        self.assertIsNone(po2.vmins)
+        self.assertIsNone(po2.decimal_places)
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':

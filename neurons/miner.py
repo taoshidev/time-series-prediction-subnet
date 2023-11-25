@@ -11,6 +11,7 @@ import time
 from typing import Type, Tuple
 
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
 import template
 import argparse
@@ -18,7 +19,10 @@ import traceback
 import bittensor as bt
 
 from mining_objects.base_mining_model import BaseMiningModel
+from vali_config import ValiConfig
 
+base_mining_model = None
+base_model_id = None
 
 def get_config():
     # Step 2: Set up the configuration parser
@@ -31,6 +35,7 @@ def get_config():
     )
     # Adds override arguments for network and netuid.
     parser.add_argument("--netuid", type=int, default=1, help="The chain subnet uid.")
+    parser.add_argument("--base_model", type=str, default="model_v4_1", help="Choose the base model you want to run (if youre not using a custom one).")
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
     bt.subtensor.add_args(parser)
     # Adds logging specific arguments i.e. --logging.debug ..., --logging.trace .. or --logging.logging_dir ...
@@ -60,14 +65,68 @@ def get_config():
     return config
 
 
+def get_model_dir(model):
+    return ValiConfig.BASE_DIR + model
+
+
 # Main takes the config and starts the miner.
 def main( config ):
+    base_mining_models = {
+        "model_v4_1": {
+            "creation_id": "model2308",
+            "model_dir": "/mining_models/model_v4_1.h5",
+            "window_size": 100
+        },
+        "model_v4_2": {
+            "creation_id": "model3005",
+            "model_dir": "/mining_models/model_v4_2.h5",
+            "window_size": 500
+        },
+        "model_v4_3": {
+            "creation_id": "model3103",
+            "model_dir": "/mining_models/model_v4_3.h5",
+            "window_size": 100
+        },
+        "model_v4_4": {
+            "creation_id": "model3104",
+            "model_dir": "/mining_models/model_v4_4.h5",
+            "window_size": 100
+        },
+        "model_v4_5": {
+             "creation_id": "model3105",
+             "model_dir": "/mining_models/model_v4_5.h5",
+             "window_size": 100
+        },
+        "model_v4_6": {
+            "creation_id": "model3106",
+            "model_dir": "/mining_models/model_v4_6.h5",
+            "window_size": 100
+        },
+    }
 
     # Activating Bittensor's logging with the set configurations.
     bt.logging(config=config, logging_dir=config.full_path)
     bt.logging.info(
         f"Running miner for subnet: {config.netuid} on network: {config.subtensor.chain_endpoint} with config:"
     )
+
+    global base_mining_model
+    global base_model_id
+
+    base_mining_model = None
+    base_model_id = config.base_model
+
+    if base_model_id is not None and base_model_id in base_mining_models:
+        bt.logging.debug(f"using an existing base model [{config.base_model}]")
+
+        model_chosen = base_mining_models[base_model_id]
+
+        base_mining_model = BaseMiningModel(4) \
+            .set_window_size(model_chosen["window_size"]) \
+            .set_model_dir(get_model_dir(model_chosen["model_dir"])) \
+            .load_model()
+    else:
+        bt.logging.debug("base model not chosen.")
 
     # This logs the active configuration to the specified logging directory for review.
     bt.logging.info(config)
@@ -157,20 +216,55 @@ def main( config ):
 
     # This is the core miner function, which decides the miner's response to a valid, high-priority request.
     def live_f(synapse: template.protocol.LiveForward) -> template.protocol.LiveForward:
+
+        global base_mining_model
+        global base_model_id
+
         bt.logging.debug(f'received tf')
-        prep_dataset = BaseMiningModel.base_model_dataset(synapse.samples.numpy())
-        base_mining_model = BaseMiningModel(len(prep_dataset.T))\
-            .set_model_dir('mining_models/base_model.h5')\
-            .set_window_size(12)\
-            .load_model()
 
-        prep_dataset_cp = prep_dataset[:]
+        synapse_data_structure = synapse.samples.numpy()
 
-        predicted_closes = []
-        for i in range(synapse.prediction_size):
-            predictions = base_mining_model.predict(prep_dataset_cp)[0]
-            prep_dataset_cp = np.concatenate((prep_dataset_cp, predictions), axis=0)
-            predicted_closes.append(predictions.tolist()[0][0])
+        print(synapse)
+        bt.logging.debug(f"features in synapse [{len(synapse_data_structure)}],"
+                         f" length of synapse ds [{len(synapse_data_structure[0])}]")
+        data_structure = synapse_data_structure.T[-601:, :].T
+        bt.logging.debug(f"length of windowed ds [{len(data_structure[0])}]")
+
+        if base_mining_model is not None:
+            bt.logging.debug(f"base model being used [{base_model_id}]")
+
+            # scaling data
+            sds_ndarray = data_structure.T
+            scaler = MinMaxScaler(feature_range=(0, 1))
+
+            scaled_data = scaler.fit_transform(sds_ndarray)
+            scaled_data = scaled_data.T
+
+            prep_dataset_cp = BaseMiningModel.base_model_dataset(scaled_data)
+
+            last_close = prep_dataset_cp.T[0][len(prep_dataset_cp) - 1]
+            predicted_close = base_mining_model.predict(prep_dataset_cp,)[0].tolist()[0]
+            total_movement = predicted_close - last_close
+            total_movement_increment = total_movement / synapse.prediction_size
+
+            predicted_closes = []
+            curr_price = last_close
+            for x in range(synapse.prediction_size):
+                curr_price += total_movement_increment
+                predicted_closes.append(curr_price[0])
+
+            close_column = data_structure[1].reshape(-1, 1)
+
+            refit_scaler = MinMaxScaler()
+            refit_scaler.fit(close_column)
+
+            reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
+            predicted_closes = refit_scaler.inverse_transform(reshaped_predicted_closes)
+            predicted_closes = predicted_closes.T.tolist()[0]
+
+        else:
+            predicted_closes = []
+            bt.logging.error(f"base model not chosen, please pass using --base_model input arg")
 
         synapse.predictions = bt.tensor(np.array(predicted_closes))
         

@@ -1,3 +1,4 @@
+
 # developer: Taoshidev
 # Copyright © 2023 Taoshi, LLC
 
@@ -6,35 +7,38 @@ import os
 import uuid
 import random
 import time
-from datetime import datetime
 
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from mining_objects.base_mining_model import BaseMiningModel
-from template.protocol import Forward
+from mining_objects.mining_utils import MiningUtils
 from time_util.time_util import TimeUtil
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
-from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
 from vali_objects.cmw.cmw_util import CMWUtil
 from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
-from vali_config import ValiConfig
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
-from vali_objects.scaling.scaling import Scaling
 from vali_objects.scoring.scoring import Scoring
 
-import bittensor as bt
-
+# import bittensor as bt
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
+
+    # if you'd like to view the output plotted
+    plot_predictions = False
 
     days_processed = []
     curr_iter = 0
 
     start_iter = []
+
+    totals = {}
+    total_weights = {}
 
     while True:
 
@@ -44,21 +48,30 @@ if __name__ == "__main__":
             topic_id=1,
             schema_id=1,
             feature_ids=[0.001, 0.002, 0.003, 0.004],
-            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
-            additional_details = {
+            prediction_size=100,
+            additional_details={
                 "tf": 5,
                 "trade_pair": "BTCUSD"
             }
         )
 
-        # if set to true will use data now and not historical
-        start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
-        print(start_dt)
+        iter_add = 601
 
-        if start_dt.year >= 2023 and start_dt.month > 6:
-            pass
-        else:
-            continue
+        data_structure = MiningUtils.get_file(
+            "/runnable/historical_financial_data/data_testing.pickle", True)
+        data_structure = [data_structure[0][curr_iter:curr_iter + iter_add],
+                          data_structure[1][curr_iter:curr_iter + iter_add],
+                          data_structure[2][curr_iter:curr_iter + iter_add],
+                          data_structure[3][curr_iter:curr_iter + iter_add],
+                          data_structure[4][curr_iter:curr_iter + iter_add]]
+        print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
+        print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
+        start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
+        end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
+        curr_iter += iter_add
+
+        data_structure = np.array(data_structure)
+        samples = data_structure
 
         '''
         ========================================================================
@@ -69,8 +82,6 @@ if __name__ == "__main__":
         ========================================================================
         '''
 
-        iter_add = 0
-
         request_uuid = str(uuid.uuid4())
         test_vali_hotkey = str(uuid.uuid4())
         # should be a hash of the vali hotkey & stream type (1 is fine)
@@ -78,30 +89,27 @@ if __name__ == "__main__":
         stream_id = hash_object.hexdigest()
         ts = TimeUtil.minute_in_millis(client_request.prediction_size * 5)
 
-        data_structure = ValiUtils.get_standardized_ds()
-        data_structure_orig = ValiUtils.get_standardized_ds()
+        # data_structure = ValiUtils.get_standardized_ds()
+        # data_structure_orig = ValiUtils.get_standardized_ds()
+        #
+        # data_generator_handler = DataGeneratorHandler()
+        # for ts_range in ts_ranges:
+        #     data_generator_handler.data_generator_handler(client_request.topic_id, 0,
+        #                                                   client_request.additional_details, data_structure, ts_range)
+        #
+        # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
 
-        print("start", start_dt)
-        print("end", end_dt)
-        data_generator_handler = DataGeneratorHandler()
-        for ts_range in ts_ranges:
-            data_generator_handler.data_generator_handler(client_request.topic_id, 0,
-                                                          client_request.additional_details, data_structure, ts_range)
+        # samples = scaled_data_structure
 
-        vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
-        print(scaled_data_structure)
-
-        samples = bt.tensor(scaled_data_structure)
-
-        forward_proto = Forward(
-            request_uuid=request_uuid,
-            stream_id=stream_id,
-            samples=samples,
-            topic_id=client_request.topic_id,
-            feature_ids=client_request.feature_ids,
-            schema_id=client_request.schema_id,
-            prediction_size=client_request.prediction_size
-        )
+        # forward_proto = Forward(
+        #     request_uuid=request_uuid,
+        #     stream_id=stream_id,
+        #     samples=samples,
+        #     topic_id=client_request.topic_id,
+        #     feature_ids=client_request.feature_ids,
+        #     schema_id=client_request.schema_id,
+        #     prediction_size=client_request.prediction_size
+        # )
 
         vm = ValiUtils.get_vali_records()
         client = vm.get_client(client_request.client_uuid)
@@ -114,7 +122,6 @@ if __name__ == "__main__":
             client_stream_type = client.get_stream(stream_id)
             if client_stream_type is None:
                 client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(client_request.topic_id))
-        print(CMWUtil.dump_cmw(vm))
         ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
 
         print("number of predictions needed", client_request.prediction_size)
@@ -127,29 +134,50 @@ if __name__ == "__main__":
         '''
 
         mining_models = {
-            "../mining_models/base_model.h5": {
-                "window_size": 12,
-                "id": 1,
-                "mining_model": BaseMiningModel.base_model_dataset(samples)
-            }
+            "1": {
+                "model_dir": "mining_models/model_v4_1.h5",
+                "window_size": 100,
+                "id": 64,
+                "mining_model": BaseMiningModel.base_model_dataset(samples),
+            },
         }
 
         for model_name, mining_details in mining_models.items():
             prep_dataset = mining_details["mining_model"]
-            base_mining_model = BaseMiningModel(len(prep_dataset.T))\
-                .set_window_size(mining_details["window_size"])\
-                .set_model_dir(model_name)\
+            base_mining_model = BaseMiningModel(len(prep_dataset.T)) \
+                .set_window_size(mining_details["window_size"]) \
+                .set_model_dir(mining_details["model_dir"]) \
                 .load_model()
 
-            prep_dataset_cp = prep_dataset[:]
+            sds_ndarray = data_structure.T
+            scaler = MinMaxScaler(feature_range=(0, 1))
+
+            scaled_data = scaler.fit_transform(sds_ndarray)
+            scaled_data = scaled_data.T
+            prep_dataset_cp = BaseMiningModel.base_model_dataset(scaled_data)
+
+            last_close = prep_dataset_cp.T[0][len(prep_dataset_cp)-1]
+            predicted_close = base_mining_model.predict(prep_dataset_cp, )[0].tolist()[0]
+            total_movement = predicted_close - last_close
+            total_movement_increment = total_movement / client_request.prediction_size
 
             predicted_closes = []
-            for i in range(client_request.prediction_size):
-                predictions = base_mining_model.predict(prep_dataset_cp,)[0]
-                prep_dataset_cp = np.concatenate((prep_dataset, predictions), axis=0)
-                predicted_closes.append(predictions.tolist()[0][0])
+            curr_price = last_close
+            for x in range(client_request.prediction_size):
+                curr_price += total_movement_increment
+                predicted_closes.append(curr_price[0])
 
-            print(predicted_closes)
+            plot_length = range(len(predicted_closes))
+
+            close_column = data_structure[1].reshape(-1, 1)
+
+            scaler = MinMaxScaler()
+            scaler.fit(close_column)
+
+            reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
+            predicted_closes = scaler.inverse_transform(reshaped_predicted_closes)
+
+            predicted_closes = predicted_closes.T.tolist()[0]
 
             output_uuid = str(uuid.uuid4())
             miner_uuid = "miner" + str(mining_details["id"])
@@ -164,9 +192,6 @@ if __name__ == "__main__":
                 miner_uid=miner_uuid,
                 start=TimeUtil.timestamp_to_millis(end_dt),
                 end=TimeUtil.timestamp_to_millis(end_dt) + ts,
-                vmins=vmins,
-                vmaxs=vmaxs,
-                decimal_places=dp_decimal_places,
                 predictions=np.array(predicted_closes),
                 prediction_size=client_request.prediction_size,
                 additional_details=client_request.additional_details
@@ -175,23 +200,16 @@ if __name__ == "__main__":
 
         # creating some additional miners who generate noise to compare against
         for a in range(0, 25):
-            # s_predictions = np.array(
-            #     [random.uniform(0.499, 0.501) for i in range(0, client_request.prediction_size)])
+            last_close = samples[1][len(samples[1]) - 1]
             s_predictions = np.array(
-                [random.uniform(samples.numpy()[1][len(samples.numpy()[1]) - 1] - .0001,
-                                samples.numpy()[1][len(samples.numpy()[1]) - 1] + .0001) for i in
+                [random.uniform(last_close - .0025 * last_close,
+                                last_close + .00025 * last_close) for i in
                  range(0, client_request.prediction_size)])
 
-            # using proto for testing
-            forward_proto.predictions = bt.tensor(s_predictions)
+            predictions = s_predictions
 
-            # unscaled_data_structure = Scaling.unscale_values(vmins[0],
-            #                                                  vmaxs[0],
-            #                                                  dp_decimal_places[0],
-            #                                                  forward_proto.predictions.numpy())
             output_uuid = str(uuid.uuid4())
-            miner_uuid = "noise-miner-" + str(a)
-            # just the vali hotkey for now
+            miner_uuid = str(a)
 
             pdf = PredictionDataFile(
                 client_uuid=client_request.client_uuid,
@@ -202,10 +220,7 @@ if __name__ == "__main__":
                 miner_uid=miner_uuid,
                 start=TimeUtil.timestamp_to_millis(end_dt),
                 end=TimeUtil.timestamp_to_millis(end_dt) + ts,
-                vmins=vmins,
-                vmaxs=vmaxs,
-                decimal_places=dp_decimal_places,
-                predictions=forward_proto.predictions.numpy(),
+                predictions=np.array(predictions),
                 prediction_size=client_request.prediction_size,
                 additional_details=client_request.additional_details
             )
@@ -235,40 +250,75 @@ if __name__ == "__main__":
             request_df = request_details.df
             data_structure = ValiUtils.get_standardized_ds()
             data_generator_handler = DataGeneratorHandler()
-            data_generator_handler.data_generator_handler(request_df.topic_id,
-                                                          request_df.prediction_size,
-                                                          request_df.additional_details,
-                                                          data_structure,
-                                                          (request_df.start, request_df.end))
+
+            data_structure = MiningUtils.get_file(
+                "/runnable/historical_financial_data/data_testing.pickle", True)
+            data_structure = [data_structure[0][curr_iter:curr_iter + client_request.prediction_size],
+                              data_structure[1][curr_iter:curr_iter + client_request.prediction_size],
+                              data_structure[2][curr_iter:curr_iter + client_request.prediction_size],
+                              data_structure[3][curr_iter:curr_iter + client_request.prediction_size],
+                              data_structure[4][curr_iter:curr_iter + client_request.prediction_size]]
+            print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
+            print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
+            start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
+            end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
+            # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
+
+            print("number of results gathered: ", len(data_structure[1]))
+
             scores = {}
+
+            if plot_predictions:
+                NUM_COLORS = 20
+                cm = plt.get_cmap('gist_rainbow')
+                colors = [cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)]
+                x_values = range(len(data_structure[1]))
+
+            color_chosen = 0
             for miner_uid, miner_preds in request_details.predictions.items():
+                if plot_predictions and "miner" in miner_uid:
+                    plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
+                    color_chosen += 1
                 scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
+
+            print("scores ", scores)
+            if plot_predictions:
+                plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
+
+                plt.legend()
+                plt.show()
 
             scaled_scores = Scoring.simple_scale_scores(scores)
             stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
 
             sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-            winning_scores = sorted_scores[:10]
+            winning_scores = sorted_scores[:100]
 
             weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-            weighed_winning_scores = weighed_scores[:10]
-            weighed_winning_scores_dict = {score[0]:score[1] for score in weighed_winning_scores}
+            weighed_winning_scores = weighed_scores[:100]
+            weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+
+            for key, score in scores.items():
+                if key not in totals:
+                    totals[key] = 0
+                totals[key] += score
+
+            for key, score in weighed_winning_scores_dict.items():
+                if key not in total_weights:
+                    total_weights[key] = 0
+                total_weights[key] += score
 
             print("winning distribution", weighed_winning_scores)
             print("weighed_scores_dict", weighed_winning_scores_dict)
 
+            print("updated totals:", totals)
+            print("updated total weights:", total_weights)
+
             time_now = TimeUtil.now_in_millis()
-            # add scaled scores
-            for miner_uid, scaled_score in scaled_scores.items():
-                stream_miner = stream_id.get_miner(miner_uid)
-                if stream_miner is None:
-                    stream_miner = CMWMiner(miner_uid)
-                    stream_id.add_miner(stream_miner)
-                stream_miner.add_unscaled_score([time_now, scores[miner_uid]])
-                if miner_uid in weighed_winning_scores_dict:
-                    stream_miner.add_win_score([time_now, weighed_winning_scores_dict[miner_uid]])
             for file in request_details.files:
                 os.remove(file)
 
+            curr_iter -= 0
+
         # end results are stored in the path validation/backups/valiconfig.json (same as it goes on the subnet)
-        ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))
+        # ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))

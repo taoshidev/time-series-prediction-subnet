@@ -14,10 +14,10 @@ from vali_objects.utils.vali_utils import ValiUtils
 class TestExchangeData(unittest.TestCase):
 
     @staticmethod
-    def generate_start_end_ms(start_dt):
+    def generate_start_end_ms(start_dt, minutes=100):
         start_ms = TimeUtil.timestamp_to_millis(start_dt)
         end_ms = TimeUtil.timestamp_to_millis(start_dt) + TimeUtil.minute_in_millis(
-            100 * 5)
+            minutes * 5)
 
         return start_ms, end_ms
 

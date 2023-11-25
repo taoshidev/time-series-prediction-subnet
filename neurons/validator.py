@@ -219,8 +219,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                                                               ds,
                                                               ts_range)
 
-            vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
-            samples = bt.tensor(sds)
+            # vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
+            samples = bt.tensor(np.array(ds))
 
             live_proto = LiveForward(
                 request_uuid=request_uuid,
@@ -280,9 +280,6 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                                     miner_uid=metagraph.axons[i].hotkey,
                                     start=prediction_start_time,
                                     end=prediction_end_time,
-                                    vmins=vmins,
-                                    vmaxs=vmaxs,
-                                    decimal_places=dps,
                                     predictions=predictions,
                                     prediction_size=vali_request.prediction_size,
                                     additional_details=vali_request.additional_details
@@ -327,11 +324,11 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                 bt.logging.info("results gathered sending back to miners via backprop and weighing")
 
-                results_vmin, results_vmax, results_scaled = Scaling.scale_values(data_structure[1],
-                                                                                      vmin=request_df.vmins[0],
-                                                                                      vmax=request_df.vmaxs[0])
+                # results_vmin, results_vmax, results_scaled = Scaling.scale_values(data_structure[1],
+                #                                                                       vmin=request_df.vmins[0],
+                #                                                                       vmax=request_df.vmaxs[0])
                 # send back the results for backprop so miners can learn
-                results = bt.tensor(results_scaled)
+                results = bt.tensor(np.array(data_structure[1]))
 
                 results_backprop_proto = LiveBackward(
                     request_uuid=request_uuid,
@@ -540,7 +537,7 @@ if __name__ == "__main__":
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
             # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
-
+    
             # standardizing getting request
             requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
