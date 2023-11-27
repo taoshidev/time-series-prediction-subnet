@@ -108,7 +108,6 @@ class ValiUtils:
     @staticmethod
     def get_predictions_to_complete() -> List[PredictionRequest]:
         def sort_by_end(item):
-            # Assuming item[1].df is the UnpickledDF object inside PredictionRequest
             return item.df.end
 
         all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
@@ -117,10 +116,15 @@ class ValiUtils:
             unpickled_df = ValiUtils.get_vali_predictions(file)
             # need to add a buffer of 24 hours to ensure the data is available via api requests
             if TimeUtil.now_in_millis() > unpickled_df.end + TimeUtil.hours_in_millis():
-                unpickled_unscaled_data_structure = Scaling.unscale_values(unpickled_df.vmins[0],
-                                                                           unpickled_df.vmaxs[0],
-                                                                           unpickled_df.decimal_places[0],
-                                                                           unpickled_df.predictions)
+                if unpickled_df.vmins is not None \
+                        and unpickled_df.vmaxs is not None \
+                        and unpickled_df.decimal_places is not None:
+                    unpickled_unscaled_data_structure = Scaling.unscale_values(unpickled_df.vmins[0],
+                                                                               unpickled_df.vmaxs[0],
+                                                                               unpickled_df.decimal_places[0],
+                                                                               unpickled_df.predictions)
+                else:
+                    unpickled_unscaled_data_structure = unpickled_df.predictions
                 if unpickled_df.request_uuid not in request_to_complete:
                     # keeping as a dict to easily add new files to ref
                     request_to_complete[unpickled_df.request_uuid] = PredictionRequest(
@@ -177,15 +181,15 @@ class ValiUtils:
                                   ValiConfig.HISTORICAL_DATA_LOOKBACK_DAYS_MAX))
         # if 1 then historical lookback, otherwise live
         if historical_lookback:
-            start = int(random.uniform(30,1460))
+            start = int(random.uniform(30, 1460))
         else:
             start = days
         TimeUtil.generate_start_timestamp(start)
         return TimeUtil.generate_start_timestamp(start), \
-               TimeUtil.generate_start_timestamp(start-days), \
+               TimeUtil.generate_start_timestamp(start - days), \
                TimeUtil.convert_range_timestamps_to_millis(
-            TimeUtil.generate_range_timestamps(
-                TimeUtil.generate_start_timestamp(start), days))
+                   TimeUtil.generate_range_timestamps(
+                       TimeUtil.generate_start_timestamp(start), days))
 
     @staticmethod
     def get_standardized_ds() -> List[List]:

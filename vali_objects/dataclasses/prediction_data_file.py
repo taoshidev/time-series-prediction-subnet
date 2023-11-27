@@ -2,6 +2,7 @@
 # Copyright © 2023 Taoshi, LLC
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -18,12 +19,12 @@ class PredictionDataFile(BaseDataClass):
     miner_uid: str
     start: int
     end: int
-    vmins: list[float]
-    vmaxs: list[float]
-    decimal_places: list[int]
     predictions: np
     prediction_size: int
     additional_details: dict
+    vmins: list[float] = None
+    vmaxs: list[float] = None
+    decimal_places: list[int] = None
 
     def __eq__(self, other):
         return self.equal_base_class_check(other)
