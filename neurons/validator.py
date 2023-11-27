@@ -237,7 +237,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_proto,
                     deserialize=True,
-                    timeout=120
+                    timeout=180
                 )
 
                 # # check to see # of responses
@@ -372,11 +372,11 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                         # store weights for results
                         sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-                        winning_scores = sorted_scores[:100]
+                        winning_scores = sorted_scores
 
                         # choose top 10
                         weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                        weighed_winning_scores = weighed_scores[:100]
+                        weighed_winning_scores = weighed_scores
                         weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
                         bt.logging.debug(f"scaled scores [{scaled_scores}]")
@@ -537,7 +537,7 @@ if __name__ == "__main__":
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
             # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
-    
+
             # standardizing getting request
             requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
