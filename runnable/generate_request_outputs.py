@@ -19,10 +19,13 @@ def prepare_latest_predictions(return_result=False):
     # =====================================
 
     def append_to_latest_predictions_files(lp, updf):
-        updf.predictions = Scaling.unscale_values(updf.vmins[0],
-                               updf.vmaxs[0],
-                               updf.decimal_places[0],
-                               updf.predictions).tolist()
+        if updf.vmins is not None and updf.vmaxs is not None and updf.decimal_places is not None:
+            updf.predictions = Scaling.unscale_values(updf.vmins[0],
+                                   updf.vmaxs[0],
+                                   updf.decimal_places[0],
+                                   updf.predictions).tolist()
+        else:
+            updf.predictions = updf.predictions.tolist()
         lp[INITIAL_STREAM_TYPE].append(updf.__dict__)
 
     LATEST_PREDICTIONS = "latest_predictions"
