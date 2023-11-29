@@ -359,11 +359,18 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 if len(scores) > 0:
 
                     bt.logging.debug(f"unscaled scores [{scores}]")
+                    acceptable_scores = {miner_uid: score for miner_uid, score in scores.items() if score < 1000}
+                    bt.logging.debug(f"removed scores out of acceptable range [{scores}]")
+
+                    if len(acceptable_scores) > 2:
+                        bt.logging.debug(f"enough acceptable range scores to continue with them")
+                        scores = acceptable_scores
+
                     scores_list = np.array([score for miner_uid, score in scores.items()])
                     variance = np.var(scores_list)
 
                     if variance == 0:
-                        print("homogenous dataset, going to equally distribute scores")
+                        bt.logging.debug("homogenous dataset, going to equally distribute scores")
                         weighed_winning_scores = [(miner_uid, 1 / len(scores)) for miner_uid, score in scores.items()]
                         bt.logging.debug(f"weighed scores [{weighed_winning_scores}]")
                         weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
@@ -383,7 +390,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         bt.logging.debug(f"weighed scores [{weighed_scores}]")
                         bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
 
-                    print(f"finalized weighed winning scores [{weighed_winning_scores}]")
+                    bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = []
                     converted_uids = []
 
