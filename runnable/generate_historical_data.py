@@ -39,10 +39,10 @@ if __name__ == "__main__":
 
     # choose the range of days to look back
     # number of days back start
-    days_back_start = 100
+    days_back_start = 200
     # number of days forward since end day
     # for example start from 100 days ago and get 70 days from 100 days ago (100 days ago, 99 days ago, 98 days ago, etc.)
-    days_back_end = 70
+    days_back_end = 199
 
     ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
         TimeUtil.generate_range_timestamps(

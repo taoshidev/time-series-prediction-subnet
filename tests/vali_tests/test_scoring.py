@@ -1,15 +1,21 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi, LLC
-
+import os
 import unittest
+
+import math
+import numpy as np
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from tests.vali_tests.samples.testing_data import TestingData
 from tests.vali_tests.base_objects.test_base import TestBase
+from tests.vali_tests.test_exchange_data import TestExchangeData
 from time_util.time_util import TimeUtil
+from vali_config import ValiConfig
 from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
 from vali_objects.exceptions.min_responses_exception import MinResponsesException
 from vali_objects.scoring.scoring import Scoring
+from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
 
 
@@ -81,6 +87,66 @@ class TestScoring(TestBase):
 
         scaled_scores = Scoring.simple_scale_scores(sample_scores)
         self.assertEqual(scaled_scores_results, scaled_scores)
+
+    def test_get_percentile(self):
+        self.assertEqual(0.01, Scoring.get_percentile(0, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
+        self.assertEqual(0.02, Scoring.get_percentile(1.004, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
+        self.assertEqual(0.14, Scoring.get_percentile(1.01, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
+        self.assertEqual(1, Scoring.get_percentile(1.05, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
+
+        self.assertEqual(0.01, Scoring.get_percentile(0, ValiConfig.STD_DEV_RANGES_PERCENTILED))
+        self.assertEqual(0.11, Scoring.get_percentile(45, ValiConfig.STD_DEV_RANGES_PERCENTILED))
+        self.assertEqual(0.29, Scoring.get_percentile(100, ValiConfig.STD_DEV_RANGES_PERCENTILED))
+        self.assertEqual(1, Scoring.get_percentile(1000, ValiConfig.STD_DEV_RANGES_PERCENTILED))
+
+    def test_get_geometric_mean_of_percentile(self):
+        ds = [[], [30000, 30100, 30150, 30200]]
+
+        mean = np.mean(ds[1])
+        squared_diff = np.sum((ds[1] - mean) ** 2)
+        std_dev = np.sqrt(squared_diff / len(ds[1]))
+
+        min_max = 1.006666666666667
+
+        min_max_percentage = Scoring.get_percentile(min_max, ValiConfig.MIN_MAX_RANGES_PERCENTILED)
+        std_dev_percentage = Scoring.get_percentile(std_dev, ValiConfig.STD_DEV_RANGES_PERCENTILED)
+
+        geometric_mean_of_percentiles = math.sqrt(min_max_percentage * std_dev_percentage)
+
+        self.assertEqual(geometric_mean_of_percentiles,
+                         Scoring.get_geometric_mean_of_percentile(ds))
+
+    def test_update_weights_using_historical_distributions(self):
+        try:
+            os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+        except:
+            pass
+
+        scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
+        ds = [[], [30000, 30100, 30150, 30200]]
+
+        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+
+        gmop = 0.11224972160321824
+
+        self.assertEqual(gmop, geometric_mean_of_percentile)
+
+        new_scores = {score[0]: score[1] * geometric_mean_of_percentile for score in scores}
+
+        self.assertEqual(new_scores, vweights)
+
+        set_vweights = ValiUtils.get_vali_weights_json()
+        self.assertEqual(vweights, set_vweights)
+
+        ds = [[], [30000, 30100, 30150, 30200]]
+
+        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+        os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+
+    def test_update_weights_using_historical_distributions_with_dummy_data(self):
+        scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
+        data = [[],[10, 20, 30, 40]]
+        updated_scores = Scoring.update_weights_using_historical_distributions(scores, data)
 
     def test_calculate_directional_accuracy(self):
         predictions = [1, 2, 1, 3, 4, 5, 6, 7, 6, 7, 8]

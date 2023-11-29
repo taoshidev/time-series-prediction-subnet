@@ -37,7 +37,7 @@ class TestRawClosingPrices(unittest.TestCase):
         )
 
         start_dt = datetime(2023, 11, 1, 0, 1).replace(tzinfo=timezone.utc)
-        start_ms, end_ms = TestExchangeData.generate_start_end_ms(start_dt)
+        start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(start_dt)
 
         exchange = BinanceData()
         data_structure = ValiUtils.get_standardized_ds()
@@ -108,7 +108,7 @@ class TestRawClosingPrices(unittest.TestCase):
         )
 
         start_dt = datetime(2023, 11, 1, 0, 0).replace(tzinfo=timezone.utc)
-        start_ms, end_ms = TestExchangeData.generate_start_end_ms(start_dt)
+        start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(start_dt)
 
         exchange = BinanceData()
         data_structure = ValiUtils.get_standardized_ds()

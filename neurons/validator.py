@@ -313,14 +313,14 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 bt.logging.debug(f"requested results end: [{TimeUtil.millis_to_timestamp(request_df.end)}]")
 
                 data_generator_handler.data_generator_handler(request_df.topic_id,
-                                                              request_df.prediction_size,
+                                                              0,
                                                               request_df.additional_details,
                                                               data_structure,
                                                               (request_df.start, request_df.end))
 
                 bt.logging.debug(f"number of results: [{len(data_structure[0])}]")
-                bt.logging.debug(f"results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
-                bt.logging.debug(f"results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
+                bt.logging.debug(f"gathered results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
+                bt.logging.debug(f"gathered results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
 
                 bt.logging.info("results gathered sending back to miners via backprop and weighing")
 
@@ -359,13 +359,6 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 if len(scores) > 0:
 
                     bt.logging.debug(f"unscaled scores [{scores}]")
-                    acceptable_scores = {miner_uid: score for miner_uid, score in scores.items() if score < 1000}
-                    bt.logging.debug(f"removed scores out of acceptable range [{scores}]")
-
-                    if len(acceptable_scores) > 2:
-                        bt.logging.debug(f"enough acceptable range scores to continue with them")
-                        scores = acceptable_scores
-
                     scores_list = np.array([score for miner_uid, score in scores.items()])
                     variance = np.var(scores_list)
 
@@ -383,24 +376,25 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                         # choose top 10
                         weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                        weighed_winning_scores = weighed_scores
-                        weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                        weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(weighed_scores, data_structure)
+                        # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
-                        bt.logging.debug(f"scaled scores [{scaled_scores}]")
-                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
-                        bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
+                        bt.logging.debug(f"weight for the predictions: [{weight}]")
+                        bt.logging.debug(f"scaled scores: [{scaled_scores}]")
+                        bt.logging.debug(f"weighed winning scores: [{weighed_winning_scores_dict}]")
 
-                    bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
+
+                    # bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = []
                     converted_uids = []
 
-                    for ind, weighed_winning_score in enumerate(weighed_winning_scores):
+                    for miner_uid, weighed_winning_score in weighed_winning_scores_dict.items():
                         try:
-                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])])
-                            weights.append(weighed_winning_score[1])
+                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_uid)])
+                            weights.append(weighed_winning_score)
                         except Exception:
                             bt.logging.info(f"not able to find miner hotkey, "
-                                            f"likely deregistered [{weighed_winning_score}]")
+                                            f"likely deregistered [{miner_uid}]")
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
                     bt.logging.debug(f"set weights [{weights}]")
@@ -564,4 +558,3 @@ if __name__ == "__main__":
             bt.logging.info(f"Number of requests being handled [{len(requests)}]")
             run_time_series_validation(wallet, config, metagraph, requests)
             time.sleep(60)
-
