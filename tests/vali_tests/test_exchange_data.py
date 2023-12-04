@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import random
 
 from data_generator.data_generator_handler import DataGeneratorHandler
@@ -14,9 +14,46 @@ from vali_objects.utils.vali_utils import ValiUtils
 class TestExchangeData(unittest.TestCase):
 
     @staticmethod
-    def generate_start_end_ms(start_dt, minutes=100):
+    def generate_test_data():
+        client_request = ClientRequest(
+            client_uuid="test_client_uuid",
+            stream_type="BTCUSD-5m",
+            topic_id=1,
+            schema_id=1,
+            feature_ids=[0.001, 0.002, 0.003, 0.004],
+            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
+            additional_details = {
+                "tf": 5,
+                "trade_pair": "BTCUSD"
+            }
+        )
+
+        start_dt = datetime(2023, 11, 1, 0, 1).replace(tzinfo=timezone.utc)
+        start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(start_dt)
+
+        exchange = BinanceData()
+        data_structure = ValiUtils.get_standardized_ds()
+
+        exchange.get_data_and_structure_data_points(
+            client_request.additional_details["trade_pair"],
+            client_request.additional_details["tf"],
+            data_structure,
+            (start_ms, end_ms)
+        )
+        return data_structure
+
+    @staticmethod
+    def generate_start_end_ms_using_start(start_dt, minutes=100):
         start_ms = TimeUtil.timestamp_to_millis(start_dt)
         end_ms = TimeUtil.timestamp_to_millis(start_dt) + TimeUtil.minute_in_millis(
+            minutes * 5)
+
+        return start_ms, end_ms
+
+    @staticmethod
+    def generate_start_end_ms_using_end(end_dt, minutes=100):
+        end_ms = TimeUtil.timestamp_to_millis(end_dt)
+        start_ms = TimeUtil.timestamp_to_millis(end_dt) - TimeUtil.minute_in_millis(
             minutes * 5)
 
         return start_ms, end_ms
@@ -38,7 +75,7 @@ class TestExchangeData(unittest.TestCase):
 
         for ind, exchange in enumerate([BinanceData()]):
             start_dt = datetime(2023, 11, 1, 0, 0).replace(tzinfo=timezone.utc)
-            start_ms, end_ms = TestExchangeData.generate_start_end_ms(start_dt)
+            start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(start_dt)
 
             self.assertEqual(start_ms + TimeUtil.minute_in_millis(5) * 100, end_ms)
 
@@ -55,7 +92,7 @@ class TestExchangeData(unittest.TestCase):
             self.assertEqual(len(data_structure[0]), 101)
 
             start_dt1 = datetime(2023, 11, 1, 0, 1).replace(tzinfo=timezone.utc)
-            start_ms1, end_ms1 = TestExchangeData.generate_start_end_ms(start_dt1)
+            start_ms1, end_ms1 = TestExchangeData.generate_start_end_ms_using_start(start_dt1)
 
             data_structure = ValiUtils.get_standardized_ds()
 
@@ -83,6 +120,47 @@ class TestExchangeData(unittest.TestCase):
                 self.assertEqual(exchange_start, datetime(2023, 11, 1, 0, 5, 0, 0))
                 self.assertEqual(exchange_end, datetime(2023, 11, 1, 8, 20, 0, 0))
 
+    def test_reduced_wait(self):
+        start_dt = TimeUtil.generate_start_timestamp(0) - timedelta(hours=1)
+        start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_end(start_dt)
+
+        print(f"requested results start: [{TimeUtil.millis_to_timestamp(start_ms)}]")
+        print(f"requested results end: [{TimeUtil.millis_to_timestamp(end_ms)}]")
+
+        data_structure = ValiUtils.get_standardized_ds()
+
+        data_generator_handler = DataGeneratorHandler()
+        data_generator_handler.data_generator_handler(1,
+                                                      0,
+                                                      {
+                                                          "tf": 5,
+                                                          "trade_pair": "BTCUSD"
+                                                      },
+                                                      data_structure,
+                                                      (start_ms - TimeUtil.hours_in_millis(24), end_ms))
+
+        print(f"number of results: [{len(data_structure[0])}]")
+        print(f"gathered results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
+        print(
+            f"gathered results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
+
+        print("trimming results to be only for start/end")
+
+        trimmed_ds_start_ind = 0
+
+        for ind, row in enumerate(data_structure[0]):
+            if trimmed_ds_start_ind == 0 and row > start_ms:
+                print("set start", ind)
+                trimmed_ds_start_ind = ind
+
+        for x in range(len(data_structure) - 1):
+            data_structure[x] = data_structure[x][trimmed_ds_start_ind:]
+
+        print(f"number of results: [{len(data_structure[0])}]")
+        print(f"trimmed results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
+        print(
+            f"trimmed results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
+
     # def test_sample_run(self):
     #     days = 1
     #     start = 5
@@ -109,7 +187,7 @@ class TestExchangeData(unittest.TestCase):
     #
     #     end_dt = ts_ranges[1][1]
     #     end_dt_conv = TimeUtil.millis_to_timestamp(end_dt)
-    #     start_ms, end_ms = TestExchangeData.generate_start_end_ms(end_dt_conv)
+    #     start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(end_dt_conv)
     #
     #     print(TimeUtil.millis_to_timestamp(start_ms))
     #     print(TimeUtil.millis_to_timestamp(end_ms))

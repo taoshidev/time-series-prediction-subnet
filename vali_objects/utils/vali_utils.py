@@ -48,6 +48,17 @@ class ValiUtils:
             return json.loads(vbkp)
 
     @staticmethod
+    def get_vali_weights_json() -> Dict:
+        # wrapping here to allow simpler error handling & original for other error handling
+        try:
+            vweights = ValiBkpUtils.get_vali_file(ValiBkpUtils.get_vali_weights_dir()
+                                              + ValiBkpUtils.get_vali_weights_file())
+        except FileNotFoundError:
+            return {}
+        else:
+            return json.loads(vweights)
+
+    @staticmethod
     def get_vali_memory_json() -> CMW:
         # wrapping here to allow simpler error handling & original for other error handling
         try:
@@ -106,6 +117,12 @@ class ValiUtils:
                                      vali_records)
 
     @staticmethod
+    def set_vali_weights_bkp(vali_weights: Dict):
+        ValiBkpUtils.write_vali_file(ValiBkpUtils.get_vali_weights_dir(),
+                                     ValiBkpUtils.get_vali_weights_file(),
+                                     vali_weights)
+
+    @staticmethod
     def get_predictions_to_complete() -> List[PredictionRequest]:
         def sort_by_end(item):
             return item.df.end
@@ -115,7 +132,7 @@ class ValiUtils:
         for file in all_files:
             unpickled_df = ValiUtils.get_vali_predictions(file)
             # need to add a buffer of 24 hours to ensure the data is available via api requests
-            if TimeUtil.now_in_millis() > unpickled_df.end + TimeUtil.hours_in_millis():
+            if TimeUtil.now_in_millis() > unpickled_df.end + TimeUtil.hours_in_millis(1):
                 if unpickled_df.vmins is not None \
                         and unpickled_df.vmaxs is not None \
                         and unpickled_df.decimal_places is not None:

@@ -13,6 +13,6 @@ class MiningUtils:
         ValiBkpUtils.write_to_vali_dir(ValiConfig.BASE_DIR + dir + file_name, vali_data, is_pickle)
 
     @staticmethod
-    def get_file(file, is_pickle: bool = False) -> dict | object:
+    def get_file(file, is_pickle: bool = True) -> dict | object:
         with open(ValiConfig.BASE_DIR + file, ValiBkpUtils.get_read_type(is_pickle)) as f:
             return pickle.load(f) if is_pickle else f.read()
