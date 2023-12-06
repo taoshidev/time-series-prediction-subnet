@@ -1,7 +1,7 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi, LLC
 
-from tests.vali_tests.base_objects.test_base import TestBase
+from vali_tests.vali_tests.base_objects.test_base import TestBase
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
 from vali_objects.cmw.cmw_util import CMWUtil

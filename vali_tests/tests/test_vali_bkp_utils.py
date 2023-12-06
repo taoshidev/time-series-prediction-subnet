@@ -6,8 +6,8 @@ import os
 import unittest
 import shutil
 
-from tests.vali_tests.samples.testing_data import TestingData
-from tests.vali_tests.base_objects.test_base import TestBase
+from vali_tests.vali_tests.samples.testing_data import TestingData
+from vali_tests.vali_tests.base_objects.test_base import TestBase
 from vali_config import ValiConfig
 from vali_objects.cmw.cmw_util import CMWUtil
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils

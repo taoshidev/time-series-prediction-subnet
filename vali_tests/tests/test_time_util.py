@@ -5,7 +5,7 @@ import time
 import unittest
 from datetime import datetime
 
-from tests.vali_tests.samples.testing_data import TestingData
+from vali_tests.vali_tests.samples.testing_data import TestingData
 from time_util.time_util import TimeUtil
 from vali_config import ValiConfig
 

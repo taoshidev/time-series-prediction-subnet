@@ -4,7 +4,7 @@
 import json
 import unittest
 
-from tests.vali_tests.base_objects.test_base import TestBase
+from vali_tests.vali_tests.base_objects.test_base import TestBase
 from vali_objects.utils.vali_memory_utils import ValiMemoryUtils
 
 

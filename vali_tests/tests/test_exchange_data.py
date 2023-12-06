@@ -14,7 +14,7 @@ from vali_objects.utils.vali_utils import ValiUtils
 class TestExchangeData(unittest.TestCase):
 
     @staticmethod
-    def generate_test_data():
+    def generate_test_data(rows=100):
         client_request = ClientRequest(
             client_uuid="test_client_uuid",
             stream_type="BTCUSD-5m",
@@ -29,7 +29,7 @@ class TestExchangeData(unittest.TestCase):
         )
 
         start_dt = datetime(2023, 11, 1, 0, 1).replace(tzinfo=timezone.utc)
-        start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(start_dt)
+        start_ms, end_ms = TestExchangeData.generate_start_end_ms_using_start(start_dt, minutes=rows)
 
         exchange = BinanceData()
         data_structure = ValiUtils.get_standardized_ds()

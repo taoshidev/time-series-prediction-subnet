@@ -5,8 +5,8 @@ import json
 import os
 import unittest
 
-from tests.vali_tests.samples.testing_data import TestingData
-from tests.vali_tests.base_objects.test_base import TestBase
+from vali_tests.vali_tests.samples.testing_data import TestingData
+from vali_tests.vali_tests.base_objects.test_base import TestBase
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_util import CMWUtil

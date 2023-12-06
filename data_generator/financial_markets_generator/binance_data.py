@@ -21,7 +21,8 @@ class BinanceData(BaseFinancialMarketsGenerator):
             "BTCUSD": "BTCUSDT"
         }
         self._tf = {
-            5: "5m"
+            5: "5m",
+            1: "1m"
         }
 
     def get_data(self,
@@ -29,7 +30,7 @@ class BinanceData(BaseFinancialMarketsGenerator):
                  interval=ValiConfig.STANDARD_TF,
                  start=None,
                  end=None,
-                 limit=1000,
+                 limit=9999,
                  retries=0) -> Response:
 
         if type(interval) == int:
@@ -67,13 +68,28 @@ class BinanceData(BaseFinancialMarketsGenerator):
                 raise ConnectionError("max number of retries exceeded trying to get binance data")
 
     def get_data_and_structure_data_points(self, symbol: str, tf: int, data_structure: List[List], ts_range: Tuple[int, int]):
-        bd = self.get_data(symbol=symbol, interval=tf, start=ts_range[0], end=ts_range[1]).json()
-        if "msg" in bd:
-            raise Exception("error occurred getting Binance data, please review", bd["msg"])
-        else:
-            # print("received binance historical data from : ", TimeUtil.millis_to_timestamp(ts_range[0]),
-            #       TimeUtil.millis_to_timestamp(ts_range[1]))
-            self.convert_output_to_data_points(data_structure,
-                                               bd,
-                                               [0, 4, 2, 3, 5]
-                                               )
+
+        # no guarantee that the amount of data is correct returned from Binance. Historical data can be patchy
+        # therefore best to assume we need a certain number of iterations for data gathering based on inter
+        iters = {
+            1: 2,
+            5: 1
+        }
+
+        d = []
+        for i in range(iters[tf]):
+            if len(d) == 0:
+                last_row_gathered = ts_range[0]
+            else:
+                last_row_gathered = d[len(d)-1][0]
+            curr_request = self.get_data(symbol=symbol, interval=tf, start=last_row_gathered, end=ts_range[1]).json()
+            if "msg" in curr_request:
+                raise Exception("error occurred getting Binance data, please review", curr_request["msg"])
+            d.extend(curr_request)
+
+        print(TimeUtil.millis_to_timestamp(d[0][0]))
+        print(TimeUtil.millis_to_timestamp(d[len(d)-1][0]))
+        self.convert_output_to_data_points(data_structure,
+                                           d,
+                                           [0, 4, 2, 3, 5]
+                                           )

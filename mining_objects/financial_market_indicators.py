@@ -2,6 +2,8 @@
 # Copyright © 2023 Taoshi, LLC
 
 from typing import List
+
+import numpy as np
 import pandas as pd
 
 
@@ -10,7 +12,7 @@ class FinancialMarketIndicators:
     @staticmethod
     def calculate_rsi(ds: List[List[float]],
                       period=14):
-        closes = ds[0]
+        closes = ds[1]
         if len(closes) < period:
             raise ValueError("Input list of closes is too short for the given period.")
 
@@ -39,51 +41,101 @@ class FinancialMarketIndicators:
         return rsi_values
 
     @staticmethod
-    def calculate_macd(ds: List[List[float]],
-                       short_period=12,
-                       long_period=26,
-                       signal_period=9):
-        df = pd.DataFrame({'Close': ds[0]})
+    def calculate_macd(ds: List[List[float]], short_window=12, long_window=26, signal_window=9):
+        closes = ds[1]
+        macd_lines = []
+        signal_lines = []
 
-        df['ShortEMA'] = df['Close'].ewm(span=short_period, adjust=False).mean()
-        df['LongEMA'] = df['Close'].ewm(span=long_period, adjust=False).mean()
+        for i in range(len(closes)):
+            if i < max(long_window, signal_window) - 1:
+                macd_lines.append(None)
+                signal_lines.append(None)
+            else:
+                short_ema = np.convolve(closes[:i + 1], np.ones(short_window) / short_window, mode='valid')
+                long_ema = np.convolve(closes[:i + 1], np.ones(long_window) / long_window, mode='valid')
 
-        df['MACD'] = df['ShortEMA'] - df['LongEMA']
+                if len(short_ema) < len(long_ema):
+                    short_ema = np.concatenate((np.full(len(long_ema) - len(short_ema), np.nan), short_ema))
+                elif len(long_ema) < len(short_ema):
+                    long_ema = np.concatenate((np.full(len(short_ema) - len(long_ema), np.nan), long_ema))
 
-        df['Signal'] = df['MACD'].ewm(span=signal_period, adjust=False).mean()
+                macd_line = short_ema - long_ema
+                signal_line = np.convolve(macd_line, np.ones(signal_window) / signal_window, mode='valid')
 
-        return df['MACD'].tolist(), df['Signal'].tolist()
+                macd_lines.append(macd_line[-1])
+                signal_lines.append(signal_line[-1])
 
-    @staticmethod
-    def calculate_bollinger_bands(ds: List[List[float]],
-                                  window=20,
-                                  num_std_dev=2):
-        df = pd.DataFrame({'Close': ds[0]})
-
-        df['Middle'] = df['Close'].rolling(window=window).mean()
-
-        rolling_std = df['Close'].rolling(window=window).std()
-
-        df['Upper'] = df['Middle'] + (num_std_dev * rolling_std)
-        df['Lower'] = df['Middle'] - (num_std_dev * rolling_std)
-
-        return df['Middle'].tolist(), df['Upper'].tolist(), df['Lower'].tolist()
+        return macd_lines, signal_lines
 
     @staticmethod
-    def calculate_ema(ds: List[List[float]], length = 9):
-        closes = ds[0]
+    def calculate_bollinger_bands(ds: List[List[float]], window=20, num_std=2):
+        closes = ds[1]
 
-        alpha = 2 / (length + 1)
+        middle_bands = []
+        upper_bands = []
+        lower_bands = []
 
-        ema = []
+        for i in range(len(closes)):
+            if i < window - 1:
+                middle_bands.append(None)
+                upper_bands.append(None)
+                lower_bands.append(None)
+            else:
+                middle_band = np.mean(closes[i - window + 1:i + 1])
+                rolling_std = np.std(closes[i - window + 1:i + 1], ddof=0)
 
-        for a in range(0, length):
-            ema.append(None)
+                upper_band = middle_band + (num_std * rolling_std)
+                lower_band = middle_band - (num_std * rolling_std)
 
-        ema.append(sum(closes[:length]) / length)
+                middle_bands.append(middle_band)
+                upper_bands.append(upper_band)
+                lower_bands.append(lower_band)
 
-        for i in range(length+1, len(closes)):
+        return middle_bands, upper_bands, lower_bands
+
+    @staticmethod
+    def calculate_ema(ds: List[List[float]], window=9):
+        closes = ds[1]
+        alpha = 2 / (window + 1)
+
+        ema = np.full(window, np.nan)
+        ema = np.concatenate((ema, [np.mean(closes[:window])]))
+
+        for i in range(window + 1, len(closes)):
             ema_value = alpha * closes[i] + (1 - alpha) * ema[i - 1]
-            ema.append(ema_value)
+            ema = np.append(ema, ema_value)
 
         return ema
+
+    @staticmethod
+    def calculate_sma(ds: List[List[float]], window=9):
+        closes = ds[1]
+        sma_values = []
+
+        for i in range(len(closes)):
+            if i < window - 1:
+                sma_values.append(None)
+            else:
+                sma_value = np.mean(closes[i - window + 1:i + 1])
+                sma_values.append(sma_value)
+
+        return sma_values
+
+    @staticmethod
+    def calculate_stochastic_rsi(ds: List[List[float]], window=14, smooth_k=3, smooth_d=3):
+        rsi_values = FinancialMarketIndicators.calculate_rsi(ds, period=window)
+        if len(rsi_values) < window:
+            return [None] * len(rsi_values)
+
+        valid_rsi_values = [value for value in rsi_values if value is not None]
+        rsi_values_np = np.array(valid_rsi_values)
+
+        normalized_rsi = (rsi_values_np - np.min(rsi_values_np)) / (np.max(rsi_values_np) - np.min(rsi_values_np)) * 100
+
+        stoch_rsi_k = np.convolve(normalized_rsi, np.ones(smooth_k) / smooth_k, mode='valid')
+        stoch_rsi_d = np.convolve(stoch_rsi_k, np.ones(smooth_d) / smooth_d, mode='valid')
+
+        stoch_rsi_k = np.concatenate((np.full(window + smooth_k - 2, np.nan), stoch_rsi_k))
+        stoch_rsi_d = np.concatenate((np.full(window + smooth_k + smooth_d - 3, np.nan), stoch_rsi_d))
+
+        return stoch_rsi_k, stoch_rsi_d
