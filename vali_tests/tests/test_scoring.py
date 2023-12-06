@@ -7,9 +7,9 @@ import math
 import numpy as np
 
 from data_generator.data_generator_handler import DataGeneratorHandler
-from vali_tests.vali_tests.samples.testing_data import TestingData
-from vali_tests.vali_tests.base_objects.test_base import TestBase
-from vali_tests.vali_tests.test_exchange_data import TestExchangeData
+from vali_tests.tests.samples.testing_data import TestingData
+from vali_tests.tests.base_objects.test_base import TestBase
+from vali_tests.tests.test_exchange_data import TestExchangeData
 from time_util.time_util import TimeUtil
 from vali_config import ValiConfig
 from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError

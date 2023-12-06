@@ -10,7 +10,7 @@ from sklearn.preprocessing import MinMaxScaler
 from data_generator.data_generator_handler import DataGeneratorHandler
 from data_generator.financial_markets_generator.binance_data import BinanceData
 from mining_objects.base_mining_model import BaseMiningModel
-from vali_tests.vali_tests.test_exchange_data import TestExchangeData
+from vali_tests.tests.test_exchange_data import TestExchangeData
 from time_util.time_util import TimeUtil
 from vali_config import ValiConfig
 from vali_objects.dataclasses.client_request import ClientRequest
