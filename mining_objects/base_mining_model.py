@@ -5,6 +5,8 @@ import numpy as np
 import tensorflow
 from numpy import ndarray
 
+from vali_config import ValiConfig
+
 
 class BaseMiningModel:
     def __init__(self, features):
@@ -24,13 +26,8 @@ class BaseMiningModel:
         self.window_size = window_size
         return self
 
-    def set_model_dir(self, model, stream_id=None):
-        if model is None and stream_id is not None:
-            self.model_dir = f'mining_models/{stream_id}.keras'
-        elif model is not None:
-            self.model_dir = model
-        else:
-            raise Exception("stream_id is not provided to define model")
+    def set_model_dir(self, model):
+        self.model_dir = f'{ValiConfig.BASE_DIR}/mining_models/{model}'
         return self
 
     def set_batch_size(self, batch_size):

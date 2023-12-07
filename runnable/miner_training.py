@@ -67,6 +67,6 @@ if __name__ == "__main__":
             .set_window_size(100) \
             .set_learning_rate(0.0001) \
             .set_batch_size(iter_add) \
-            .set_model_dir(f'mining_models/model1.h5')
+            .set_model_dir('model1.h5')
         base_mining_model.train(prep_dataset, epochs=25)
 
