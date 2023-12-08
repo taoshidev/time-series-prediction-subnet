@@ -65,6 +65,7 @@ if __name__ == "__main__":
     window size - based on training the lookback used by the model
     id - a unique identifier for the model
     features - the feature dataset used to train the model
+    prediction fx - the function you want to leverage to generate your prediction
     rows - the number of rows used to scale the data (similar to training)
     
     ==========================================================================================
@@ -76,6 +77,7 @@ if __name__ == "__main__":
             "window_size": 100,
             "id": 1,
             "features": BaseMiningModel.base_model_dataset,
+            "prediction_fx": MiningUtils.open_model_v4_prediction_generation,
             "rows": 601
         },
         "2": {
@@ -83,6 +85,7 @@ if __name__ == "__main__":
             "window_size": 500,
             "id": 2,
             "features": BaseMiningModel.base_model_dataset,
+            "prediction_fx": MiningUtils.open_model_v4_prediction_generation,
             "rows": 601
         },
         "3": {
@@ -90,6 +93,7 @@ if __name__ == "__main__":
             "window_size": 100,
             "id": 3,
             "features": BaseMiningModel.base_model_dataset,
+            "prediction_fx": MiningUtils.open_model_v4_prediction_generation,
             "rows": 601
         },
         "4": {
@@ -97,6 +101,7 @@ if __name__ == "__main__":
             "window_size": 100,
             "id": 4,
             "features": BaseMiningModel.base_model_dataset,
+            "prediction_fx": MiningUtils.open_model_v4_prediction_generation,
             "rows": 601
         },
         "5": {
@@ -104,6 +109,7 @@ if __name__ == "__main__":
             "window_size": 100,
             "id": 5,
             "features": BaseMiningModel.base_model_dataset,
+            "prediction_fx": MiningUtils.open_model_v4_prediction_generation,
             "rows": 601
         },
         "6": {
@@ -111,6 +117,7 @@ if __name__ == "__main__":
             "window_size": 100,
             "id": 6,
             "features": BaseMiningModel.base_model_dataset,
+            "prediction_fx": MiningUtils.open_model_v4_prediction_generation,
             "rows": 601
         },
     }
@@ -168,30 +175,18 @@ if __name__ == "__main__":
             print("----- all miners making predictions on closes -----")
 
             for model_name, mining_details in mining_models.items():
-                model_samples = ValiUtils.get_standardized_ds()
-                # trim the samples to the number of rows thats supposed to be for the current model
-                for i in range(len(samples)):
-                    model_samples[i] = samples[i][-mining_details["rows"]:]
-
-                model_samples = np.array(model_samples)
-                prep_dataset = mining_details["features"](model_samples)
-                # leverage base mining model class to generate predictions
-                base_mining_model = BaseMiningModel(len(prep_dataset.T)) \
-                    .set_window_size(mining_details["window_size"]) \
-                    .set_model_dir(mining_details["model_dir"]) \
-                    .load_model()
 
                 '''
                 ==========================================================================================
                 
-                define your function for how you want to predict closes. This is the current v4 standard method
-                provided by the open source model.
+                leveraging your defined function for how you want to predict closes, defined in 
+                prediction_fx
 
                 ==========================================================================================
                 '''
-                
-                predicted_closes = MiningUtils.open_model_v4_prediction_generation(model_samples,
-                                                                base_mining_model,
+
+                predicted_closes = mining_details["prediction_fx"](samples,
+                                                                mining_details,
                                                                 client_request.prediction_size)
 
                 output_uuid = str(uuid.uuid4())

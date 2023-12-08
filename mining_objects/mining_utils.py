@@ -7,6 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 from mining_objects.base_mining_model import BaseMiningModel
 from vali_config import ValiConfig
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
+from vali_objects.utils.vali_utils import ValiUtils
 
 
 class MiningUtils:
@@ -61,7 +62,20 @@ class MiningUtils:
         plt.show()
 
     @staticmethod
-    def open_model_v4_prediction_generation(samples, base_mining_model, prediction_size):
+    def open_model_v4_prediction_generation(samples, mining_details, prediction_size):
+        model_samples = ValiUtils.get_standardized_ds()
+        # trim the samples to the number of rows thats supposed to be for the current model
+        for i in range(len(samples)):
+            model_samples[i] = samples[i][-mining_details["rows"]:]
+
+        model_samples = np.array(model_samples)
+        prep_dataset = mining_details["features"](model_samples)
+        # leverage base mining model class to generate predictions
+        base_mining_model = BaseMiningModel(len(prep_dataset.T)) \
+            .set_window_size(mining_details["window_size"]) \
+            .set_model_dir(mining_details["model_dir"]) \
+            .load_model()
+
         # scale the data to 0 - 1
         sds_ndarray = samples.T
         scaler = MinMaxScaler(feature_range=(0, 1))
