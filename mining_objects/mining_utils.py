@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
+from mining_objects.base_mining_model import BaseMiningModel
 from vali_config import ValiConfig
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 
@@ -22,17 +23,19 @@ class MiningUtils:
             return pickle.load(f) if is_pickle else f.read()
 
     @staticmethod
-    def scale_ds(data_structure, scale_min, scale_max):
-        sds_ndarray = data_structure.T
+    def scale_values(data_structure, scale_min, scale_max):
+        s_ndarray = data_structure.T
         scaler = MinMaxScaler(feature_range=(scale_min, scale_max))
 
-        scaled_data = scaler.fit_transform(sds_ndarray)
+        if s_ndarray.ndim == 1:
+            s_ndarray = s_ndarray.reshape(-1, 1)
+        scaled_data = scaler.fit_transform(s_ndarray)
         scaled_data = scaled_data.T
         return scaled_data
 
     @staticmethod
     def scale_ds_0_100(data_structure):
-        return MiningUtils.scale_ds(np.array(data_structure), 0, 100)
+        return MiningUtils.scale_values(np.array(data_structure), 0, 100)
 
     @staticmethod
     def trim_min_size(features):
@@ -56,3 +59,37 @@ class MiningUtils:
             color_chosen += 1
         plt.legend()
         plt.show()
+
+    @staticmethod
+    def open_model_v4_prediction_generation(samples, base_mining_model, prediction_size):
+        # scale the data to 0 - 1
+        sds_ndarray = samples.T
+        scaler = MinMaxScaler(feature_range=(0, 1))
+
+        scaled_data = scaler.fit_transform(sds_ndarray)
+        scaled_data = scaled_data.T
+        prep_dataset_cp = BaseMiningModel.base_model_dataset(scaled_data)
+
+        # generate equally sloped line between last close and predicted end close
+        last_close = prep_dataset_cp.T[0][len(prep_dataset_cp) - 1]
+        predicted_close = base_mining_model.predict(prep_dataset_cp, )[0].tolist()[0]
+        total_movement = predicted_close - last_close
+        total_movement_increment = total_movement / prediction_size
+
+        predicted_closes = []
+        curr_price = last_close
+        for x in range(prediction_size):
+            curr_price += total_movement_increment
+            predicted_closes.append(curr_price[0])
+
+        close_column = samples[1].reshape(-1, 1)
+
+        scaler = MinMaxScaler()
+        scaler.fit(close_column)
+
+        # inverse the scale back to raw closing price scale
+        reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
+        predicted_closes = scaler.inverse_transform(reshaped_predicted_closes)
+
+        predicted_closes = predicted_closes.T.tolist()[0]
+        return predicted_closes

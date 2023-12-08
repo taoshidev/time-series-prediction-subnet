@@ -181,38 +181,18 @@ if __name__ == "__main__":
                     .set_model_dir(mining_details["model_dir"]) \
                     .load_model()
 
-                # scale the data to 0 - 1
-                sds_ndarray = model_samples.T
-                scaler = MinMaxScaler(feature_range=(0, 1))
+                '''
+                ==========================================================================================
+                
+                define your function for how you want to predict closes. This is the current v4 standard method
+                provided by the open source model.
 
-                scaled_data = scaler.fit_transform(sds_ndarray)
-                scaled_data = scaled_data.T
-                prep_dataset_cp = BaseMiningModel.base_model_dataset(scaled_data)
-
-                # generate equally sloped line between last close and predicted end close
-                last_close = prep_dataset_cp.T[0][len(prep_dataset_cp)-1]
-                predicted_close = base_mining_model.predict(prep_dataset_cp, )[0].tolist()[0]
-                total_movement = predicted_close - last_close
-                total_movement_increment = total_movement / client_request.prediction_size
-
-                predicted_closes = []
-                curr_price = last_close
-                for x in range(client_request.prediction_size):
-                    curr_price += total_movement_increment
-                    predicted_closes.append(curr_price[0])
-
-                plot_length = range(len(predicted_closes))
-
-                close_column = data_structure[1].reshape(-1, 1)
-
-                scaler = MinMaxScaler()
-                scaler.fit(close_column)
-
-                # inverse the scale back to raw closing price scale
-                reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
-                predicted_closes = scaler.inverse_transform(reshaped_predicted_closes)
-
-                predicted_closes = predicted_closes.T.tolist()[0]
+                ==========================================================================================
+                '''
+                
+                predicted_closes = MiningUtils.open_model_v4_prediction_generation(model_samples,
+                                                                base_mining_model,
+                                                                client_request.prediction_size)
 
                 output_uuid = str(uuid.uuid4())
                 miner_uuid = "miner" + str(mining_details["id"])
