@@ -260,8 +260,6 @@ if __name__ == "__main__":
 
             print("request time done!")
 
-            updated_vm = ValiUtils.get_vali_records()
-
             # logic to gather and score predictions
             for request_details in predictions_to_complete:
                 request_df = request_details.df
@@ -299,7 +297,6 @@ if __name__ == "__main__":
                     plt.show()
 
                 scaled_scores = Scoring.simple_scale_scores(scores)
-                stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
 
                 sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
                 winning_scores = sorted_scores
