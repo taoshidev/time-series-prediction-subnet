@@ -66,7 +66,7 @@ def get_config():
 
 
 def get_model_dir(model):
-    return ValiConfig.BASE_DIR + model
+    return model
 
 
 # Main takes the config and starts the miner.
@@ -74,32 +74,32 @@ def main( config ):
     base_mining_models = {
         "model_v4_1": {
             "creation_id": "model2308",
-            "model_dir": "/mining_models/model_v4_1.h5",
+            "model_dir": "model_v4_1.h5",
             "window_size": 100
         },
         "model_v4_2": {
             "creation_id": "model3005",
-            "model_dir": "/mining_models/model_v4_2.h5",
+            "model_dir": "model_v4_2.h5",
             "window_size": 500
         },
         "model_v4_3": {
             "creation_id": "model3103",
-            "model_dir": "/mining_models/model_v4_3.h5",
+            "model_dir": "model_v4_3.h5",
             "window_size": 100
         },
         "model_v4_4": {
             "creation_id": "model3104",
-            "model_dir": "/mining_models/model_v4_4.h5",
+            "model_dir": "model_v4_4.h5",
             "window_size": 100
         },
         "model_v4_5": {
              "creation_id": "model3105",
-             "model_dir": "/mining_models/model_v4_5.h5",
+             "model_dir": "model_v4_5.h5",
              "window_size": 100
         },
         "model_v4_6": {
             "creation_id": "model3106",
-            "model_dir": "/mining_models/model_v4_6.h5",
+            "model_dir": "model_v4_6.h5",
             "window_size": 100
         },
     }

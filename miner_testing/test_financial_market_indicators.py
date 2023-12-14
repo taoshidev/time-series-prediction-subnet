@@ -112,4 +112,6 @@ class TestFinancialMarketIndicators(TestBase):
         plt.plot(s_vrvp_values.T.tolist(), closes, label="vrvp")
         plt.plot(range(len(ds[0])), ds[1], label="closes")
 
+        plt.title("VRVP on Closing Data")
+
         plt.show()
