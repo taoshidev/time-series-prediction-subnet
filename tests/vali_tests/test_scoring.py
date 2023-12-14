@@ -138,7 +138,8 @@ class TestScoring(TestBase):
         set_vweights = ValiUtils.get_vali_weights_json()
         self.assertEqual(vweights, set_vweights)
 
-        ds = [[], [30000, 30100, 30150, 30200]]
+        scores.pop()
+        ds = [[], [30000, 30100, 30150]]
 
         vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
         os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())

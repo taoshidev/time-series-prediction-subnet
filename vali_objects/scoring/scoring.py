@@ -120,6 +120,14 @@ class Scoring:
         vweights = ValiUtils.get_vali_weights_json()
         geometric_mean_of_percentile = Scoring.get_geometric_mean_of_percentile(ds)
 
+        score_miner_uids = [score[0] for score in scores]
+
+        for key, value in vweights.items():
+            if key not in score_miner_uids:
+                vweights[key] = Scoring.basic_ema((vweights[key] +
+                                                        (0 * geometric_mean_of_percentile))
+                                                       / (1 + geometric_mean_of_percentile), vweights[key])
+
         for score in scores:
             if score[0] in vweights:
                 vweights[score[0]] = Scoring.basic_ema((vweights[score[0]] +
