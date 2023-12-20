@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 import hashlib
 import os
 import random
@@ -364,9 +364,11 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                     if variance == 0:
                         bt.logging.debug("homogenous dataset, going to equally distribute scores")
-                        weighed_winning_scores = [(miner_uid, 1 / len(scores)) for miner_uid, score in scores.items()]
-                        bt.logging.debug(f"weighed scores [{weighed_winning_scores}]")
-                        weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                        weighed_scores = [(miner_uid, 1 / len(scores)) for miner_uid, score in scores.items()]
+                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
+                        weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(
+                            weighed_scores, data_structure)
+
                     else:
                         scaled_scores = Scoring.simple_scale_scores(scores)
 
@@ -388,13 +390,18 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     weights = []
                     converted_uids = []
 
+                    deregistered_mineruids = []
+
                     for miner_uid, weighed_winning_score in weighed_winning_scores_dict.items():
                         try:
                             converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_uid)])
                             weights.append(weighed_winning_score)
                         except Exception:
+                            deregistered_mineruids.append(miner_uid)
                             bt.logging.info(f"not able to find miner hotkey, "
                                             f"likely deregistered [{miner_uid}]")
+
+                    Scoring.update_weights_remove_deregistrations(deregistered_mineruids)
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
                     bt.logging.debug(f"set weights [{weights}]")

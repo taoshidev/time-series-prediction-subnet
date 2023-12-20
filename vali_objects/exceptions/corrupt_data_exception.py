@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 class ValiMemoryCorruptDataException(Exception):
     def __init__(self, message):

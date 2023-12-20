@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 from dataclasses import dataclass
 from vali_objects.dataclasses.base_objects.new_request_dataclass import NewRequestDataClass

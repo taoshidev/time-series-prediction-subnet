@@ -1,5 +1,5 @@
 # developer: Taoshi
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 import hashlib
 import uuid
 import random
