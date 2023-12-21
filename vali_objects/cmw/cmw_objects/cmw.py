@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 

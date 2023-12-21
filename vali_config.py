@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: Taoshi
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 import os
 

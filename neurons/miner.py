@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 
 # Step 1: Import necessary libraries and modules

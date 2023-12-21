@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 import os
 import unittest
 
@@ -142,6 +142,33 @@ class TestScoring(TestBase):
         ds = [[], [30000, 30100, 30150]]
 
         vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+        os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+
+    def test_update_weights_remove_deregistrations(self):
+        try:
+            os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+        except:
+            pass
+
+        scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
+        ds = [[], [30000, 30100, 30150, 30200]]
+
+        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+
+        gmop = 0.11224972160321824
+
+        self.assertEqual(gmop, geometric_mean_of_percentile)
+
+        deregistered_mineruids = []
+        deregistered_mineruids.append("miner4")
+
+        Scoring.update_weights_remove_deregistrations(deregistered_mineruids)
+
+        set_vweights = ValiUtils.get_vali_weights_json()
+        del vweights["miner4"]
+
+        self.assertEqual(set_vweights, vweights)
+
         os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
 
     def test_update_weights_using_historical_distributions_with_dummy_data(self):

@@ -1,9 +1,9 @@
 # License
-Copyright © 2023 Taoshi, LLC
+Copyright © 2023 Taoshi Inc
 ```text
 Taoshi All rights reserved. 
-Source code produced by Taoshi, LLC may not be reproduced, modified, or distributed 
-without the express permission of Taoshi, LLC.
+Source code produced by Taoshi Inc may not be reproduced, modified, or distributed 
+without the express permission of Taoshi Inc.
 ```
 
 
@@ -57,20 +57,15 @@ live data. Once the future data is known, we compare against the predictions mad
 In order to be a validator you simply need to have a server running in the EU (recommend Ireland, UK). This can be 
 through VPN or a cloud-based server. This is because not all financial data can be accessed inside the US (for crypto). 
 The actual processing power is light, as validators are really only comparing results against what occurs live 
-therefore a relatively small machine can be a validator (will have exact details soon).
+therefore a relatively small machine can be a validator.
 ```
 
 ## What is the expected data input and output as a miner?
 ```text
 For financial markets, the goal will be to predict the next 8 hours of closes on a 5m interval 
 (100 closes). In order to help with the prediction, the subnet will provide the 
-last 25-30 days of 5m data for the trade pair. You can expect the data to be in the format
-[close_timestamp (ms), close, high, low, volume] where close, high, low, and volume are all linearly 
-pre-scaled for you between 0.495 to 0.505. You can convert the linear scale to whatever format you'd like, 
-but you can consistently expect the data to be on this scale.
-
-We linearly pre-scale because future data may come from clients who want the data to remain anonymous and
-we've planned ahead to account for these future cases.
+last 25-30 days of 5m data for the trade pair. Its likely you'll want to incorporate additional data as part of your
+modeling techniques.
 
 Input Features: [close_timestamp (milliseconds), close, high, low, volume]
 Target Feature: [close]
@@ -80,18 +75,20 @@ Target Feature: [close]
 ## Can I be a miner with little knowledge?
 ```text
 Predicting on markets is very hard, but we want to help those who want to contribute to the network by providing 
-a base model that can be used. This base can be used to build upon, or just run yourself to try and compete. You can
-participate by running a pre-built & pre-trained model provided to all miners in mining_models/base_model.h5
+models that can be used. These models can be used to build upon, or just run yourself to try and compete. You can
+participate by running these pre-built & pre-trained models provided to all miners here https://huggingface.co/Taoshi/model_v4
 
-This model is already built into the core logic of neurons/miner.py for you to run and compete as a miner. All you
-need to do is run neurons/miner.py
+These model are already built into the core logic of neurons/miner.py for you to run and compete as a miner. All you
+need to do is run neurons/miner.py and specify the model you want to run as an argument through --base_model:
+
+--base_model model_v4_1
 ```
 
 ## I'm knowledgable about creating a competing prediction model on my own, can I prepare my miner to compete?
 ```text
-Yes, you can start from the base model (neurons/miner.py) in order to prepare for release or you can start from 
+Yes, you can start from the hugging face models in order to prepare for release or you can start from 
 scratch and test on testnet (netuid 3). 
-You can choose to use the training data provided by the subnet on each trade pair or prepare separately using your own 
+You can choose to use the training data provided by the subnet or prepare separately using your own 
 training data (say on BTC to start).
 ```
 
@@ -140,7 +137,7 @@ If you are running into issues please run with --logging.debug and --logging.tra
 analyze why your miner isnt running.
 
 The current flow of information is as follows:
-1. valis request predictions hourly
+1. valis request predictions every 30 minutes
 2. miners make predictions
 3. valis store predictions
 4. valis wait until data is available to compare against (roughly a day and a half for 5m data)
@@ -156,6 +153,9 @@ If you're running a miner you should see two types of requests, LiveForward and 
 your miner performs predictions, LiveBackward will be receiving back the results that occurred live in case you want
 to use them for any updating purposes.
 
+You'll receive rewards for your predictions ~10 hours after making them. Therefore, if you just get started running
+on the network you should expect a lag to receive rewards. Predictions are reviewed and rewarded every 30 minutes.
+
 Short term, it shouldn't be expected to run your miner to be trained on the network (TrainingBackward and TrainingForward
 won't be consistently running). Please train ahead of time as we'll only be using BTC/USD on the 5m to begin which you can prepare for. 
 ```
@@ -164,7 +164,7 @@ won't be consistently running). Please train ahead of time as we'll only be usin
 
 ```text
 Your validator will request predictions hourly based on your randomized interval (to distribute load). Distributing rewards will still 
-happen after live results come in (32 hours after predictions are made)
+happen after live results come in (10 hours after predictions are made)
 
 _Using run script_
 
@@ -215,9 +215,8 @@ Validator
 100 GB balanced persistent disk
 
 Miner
-2 vCPU + 7.5 GB memory
-1 NVIDIA V100
-100 GB balanced persistent disk
+2 vCPU + 8 GB memory
+Run the miner using CPU
 
 Helpful install commands (on linux machine)
 # sudo apt install git-all

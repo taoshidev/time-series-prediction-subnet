@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 import math
 from typing import List, Tuple, Dict
@@ -138,6 +138,14 @@ class Scoring:
 
         ValiUtils.set_vali_weights_bkp(vweights)
         return vweights, geometric_mean_of_percentile
+
+    @staticmethod
+    def update_weights_remove_deregistrations(miner_uids: List[str]):
+        vweights = ValiUtils.get_vali_weights_json()
+        for miner_uid in miner_uids:
+            if miner_uid in vweights:
+                del vweights[miner_uid]
+        ValiUtils.set_vali_weights_bkp(vweights)
 
     @staticmethod
     def basic_ema(current_value, previous_ema, length=24):
