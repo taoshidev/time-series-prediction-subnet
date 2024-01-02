@@ -6,11 +6,11 @@ from vali_objects.dataclasses.base_objects.new_request_dataclass import NewReque
 
 
 @dataclass
-class ClientRequest(NewRequestDataClass):
+class StreamPrediction(NewRequestDataClass):
     pass
 
     @classmethod
-    def init_client_request(cls, new_request_data_class_obj):
+    def init_stream_prediction(cls, new_request_data_class_obj):
         return cls(**vars(new_request_data_class_obj))
 
     def __eq__(self, other):
