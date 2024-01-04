@@ -17,10 +17,9 @@ import bittensor as bt
 # Step 2: Set up the configuration parser
 # This function is responsible for setting up and parsing command-line arguments.
 import numpy as np
-import torch
+from scipy.stats import yeojohnson
 
 from data_generator.data_generator_handler import DataGeneratorHandler
-from data_generator.financial_markets_generator.binance_data import BinanceData
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
@@ -385,6 +384,26 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         bt.logging.debug(f"scaled scores: [{scaled_scores}]")
                         bt.logging.debug(f"weighed winning scores: [{weighed_winning_scores_dict}]")
 
+                    values_list = np.array([v for k, v in weighed_winning_scores_dict.items()])
+
+                    mean = np.mean(values_list)
+                    std_dev = np.std(values_list)
+
+                    lower_bound = mean - 3 * std_dev
+                    bt.logging.debug(f"scores lower bound: [{lower_bound}]")
+
+                    if lower_bound < 0:
+                        lower_bound = 0
+
+                    filtered_results = [(k, v) for k, v in weighed_winning_scores_dict.items() if lower_bound < v]
+                    filtered_scores = np.array([x[1] for x in filtered_results])
+
+                    # Normalize the list using Z-score normalization
+                    transformed_results, _ = yeojohnson(filtered_scores)
+                    filtered_winning_scores_dict = {filtered_results[i][0]: transformed_results[i]
+                                                    for i in range(len(filtered_results))}
+
+                    bt.logging.debug(f"filtered weighed winning scores: [{filtered_winning_scores_dict}]")
 
                     # bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = []
@@ -392,7 +411,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                     deregistered_mineruids = []
 
-                    for miner_uid, weighed_winning_score in weighed_winning_scores_dict.items():
+                    for miner_uid, weighed_winning_score in filtered_winning_scores_dict.items():
                         try:
                             converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_uid)])
                             weights.append(weighed_winning_score)
@@ -404,7 +423,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     Scoring.update_weights_remove_deregistrations(deregistered_mineruids)
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
-                    bt.logging.debug(f"set weights [{weights}]")
+                    bt.logging.debug(f"weights gathered [{weights}]")
 
                     result = subtensor.set_weights(
                         netuid=config.netuid,  # Subnet to set weights on.
@@ -535,33 +554,33 @@ if __name__ == "__main__":
     bt.logging.info("sleep time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
-        if current_time.minute in [0, 30]:
-            time.sleep(time_interval)
-            # updating metagraph before run
-            metagraph.sync(subtensor = subtensor)
-            bt.logging.info(f"Metagraph: {metagraph}")
+        # if current_time.minute in [0, 30]:
+            # time.sleep(time_interval)
+        # updating metagraph before run
+        metagraph.sync(subtensor = subtensor)
+        bt.logging.info(f"Metagraph: {metagraph}")
 
-            requests = []
-            # see if any files exist, if not then generate a client request (a live prediction)
-            all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
-            # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
+        requests = []
+        # see if any files exist, if not then generate a client request (a live prediction)
+        all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
+        # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
 
-            # standardizing getting request
-            requests.append(ValiUtils.generate_standard_request(ClientRequest))
+        # standardizing getting request
+        requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
-            predictions_to_complete = ValiUtils.get_predictions_to_complete()
+        predictions_to_complete = ValiUtils.get_predictions_to_complete()
 
-            bt.logging.info(f"Have [{len(predictions_to_complete)}] requests prepared to have weights set for")
+        bt.logging.info(f"Have [{len(predictions_to_complete)}] requests prepared to have weights set for")
 
-            if len(predictions_to_complete) > 0:
-                # add one request of predictions to complete
-                requests.append(predictions_to_complete[0])
+        if len(predictions_to_complete) > 0:
+            # add one request of predictions to complete
+            requests.append(predictions_to_complete[0])
 
-            # if no requests to fill, randomly send in a training request to help them train
-            # randomize to not have all validators sending in training data requests simultaneously to assist with load
-            if len(requests) == 0:
-                requests.append(ValiUtils.generate_standard_request(TrainingRequest))
+        # if no requests to fill, randomly send in a training request to help them train
+        # randomize to not have all validators sending in training data requests simultaneously to assist with load
+        if len(requests) == 0:
+            requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
-            bt.logging.info(f"Number of requests being handled [{len(requests)}]")
-            run_time_series_validation(wallet, config, metagraph, requests)
-            time.sleep(60)
+        bt.logging.info(f"Number of requests being handled [{len(requests)}]")
+        run_time_series_validation(wallet, config, metagraph, requests)
+        time.sleep(60)
