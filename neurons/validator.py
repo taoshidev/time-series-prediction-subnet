@@ -17,10 +17,9 @@ import bittensor as bt
 # Step 2: Set up the configuration parser
 # This function is responsible for setting up and parsing command-line arguments.
 import numpy as np
-import torch
+from scipy.stats import yeojohnson
 
 from data_generator.data_generator_handler import DataGeneratorHandler
-from data_generator.financial_markets_generator.binance_data import BinanceData
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
@@ -385,6 +384,27 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                         bt.logging.debug(f"scaled scores: [{scaled_scores}]")
                         bt.logging.debug(f"weighed winning scores: [{weighed_winning_scores_dict}]")
 
+                    values_list = np.array([v for k, v in weighed_winning_scores_dict.items()])
+
+                    mean = np.mean(values_list)
+                    std_dev = np.std(values_list)
+
+                    lower_bound = mean - 3 * std_dev
+                    bt.logging.debug(f"scores lower bound: [{lower_bound}]")
+
+                    if lower_bound < 0:
+                        lower_bound = 0
+
+                    filtered_results = [(k, v) for k, v in weighed_winning_scores_dict.items() if lower_bound < v]
+                    filtered_scores = np.array([x[1] for x in filtered_results])
+
+                    # Normalize the list using Z-score normalization
+                    transformed_results = yeojohnson(filtered_scores, lmbda=200)
+                    scaled_transformed_list = Scaling.min_max_scalar_list(transformed_results)
+                    filtered_winning_scores_dict = {filtered_results[i][0]: scaled_transformed_list[i]
+                                                    for i in range(len(filtered_results))}
+
+                    bt.logging.debug(f"filtered weighed winning scores: [{filtered_winning_scores_dict}]")
 
                     # bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = []
@@ -392,7 +412,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                     deregistered_mineruids = []
 
-                    for miner_uid, weighed_winning_score in weighed_winning_scores_dict.items():
+                    for miner_uid, weighed_winning_score in filtered_winning_scores_dict.items():
                         try:
                             converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_uid)])
                             weights.append(weighed_winning_score)
@@ -404,7 +424,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     Scoring.update_weights_remove_deregistrations(deregistered_mineruids)
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
-                    bt.logging.debug(f"set weights [{weights}]")
+                    bt.logging.debug(f"weights gathered [{weights}]")
 
                     result = subtensor.set_weights(
                         netuid=config.netuid,  # Subnet to set weights on.
