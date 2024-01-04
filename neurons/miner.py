@@ -79,7 +79,7 @@ def get_model_dir(model):
     return ValiConfig.BASE_DIR + model
 
 
-def is_valid_validator(metagraph, hotkey):
+def is_invalid_validator(metagraph, hotkey):
     """
     - step 1: check to see if the vali is in the metagraph
     - step 2: check to see if the vali has min threshold
@@ -89,9 +89,9 @@ def is_valid_validator(metagraph, hotkey):
     # step 1 - check to see if the vali is in the metagraph
     if hotkey not in metagraph.hotkeys:
         bt.logging.trace(f'Hotkey does not exist in metagraph [{hotkey}]')
-        return False
+        return True
 
-    bt.logging.trace(f'Valid hotkey [{hotkey}]')
+    bt.logging.info(f'Valid hotkey [{hotkey}]')
 
     # step 2: check to see if the vali has min threshold
     uid = None
@@ -104,8 +104,8 @@ def is_valid_validator(metagraph, hotkey):
     bt.logging.debug(f"stake of [{hotkey}]: [{stake}]")
 
     if stake < MinerConfig.MIN_VALI_SIZE:
-        bt.logging.trace(f"Denied due to low stake. Min threshold [{MinerConfig.MIN_VALI_SIZE}]")
-        return False
+        bt.logging.info(f"Denied due to low stake. Min threshold [{MinerConfig.MIN_VALI_SIZE}]")
+        return True
 
     # step 3: ensure the request is in the required time window
     current_time = datetime.datetime.now()
@@ -113,52 +113,52 @@ def is_valid_validator(metagraph, hotkey):
     bt.logging.debug(f"Acceptable intervals for requests [{MinerConfig.ACCEPTABLE_INTERVALS}]")
 
     if current_time.minute not in MinerConfig.ACCEPTABLE_INTERVALS:
-        bt.logging.trace(f"Denied due to incorrect interval [{current_time.minute}m]")
-        return False
+        bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
+        return True
 
-    return True
+    return False
 
 
 # Main takes the config and starts the miner.
 def main( config ):
     base_mining_models = {
-        "1": {
-            "model_dir": "model_v4_1.h5",
+        "model_v4_1": {
+            "model_dir": get_model_dir("/mining_models/model_v4_1.h5"),
             "window_size": 100,
             "id": "model2308",
             "features": BaseMiningModel.base_model_dataset,
             "rows": 601
         },
-        "2": {
-            "model_dir": "model_v4_2.h5",
+        "model_v4_2": {
+            "model_dir": get_model_dir("/mining_models/model_v4_2.h5"),
             "window_size": 500,
             "id": "model3005",
             "features": BaseMiningModel.base_model_dataset,
             "rows": 601
         },
-        "3": {
-            "model_dir": "model_v4_3.h5",
+        "model_v4_3": {
+            "model_dir": get_model_dir("/mining_models/model_v4_3.h5"),
             "window_size": 100,
             "id": "model3103",
             "features": BaseMiningModel.base_model_dataset,
             "rows": 601
         },
-        "4": {
-            "model_dir": "model_v4_4.h5",
+        "model_v4_4": {
+            "model_dir": get_model_dir("/mining_models/model_v4_4.h5"),
             "window_size": 100,
             "id": "model3104",
             "features": BaseMiningModel.base_model_dataset,
             "rows": 601
         },
-        "5": {
-            "model_dir": "model_v4_5.h5",
+        "model_v4_5": {
+            "model_dir": get_model_dir("/mining_models/model_v4_5.h5"),
             "window_size": 100,
             "id": "model3105",
             "features": BaseMiningModel.base_model_dataset,
             "rows": 601
         },
-        "6": {
-            "model_dir": "model_v4_6.h5",
+        "model_v4_6": {
+            "model_dir": get_model_dir("/mining_models/model_v4_6.h5"),
             "window_size": 100,
             "id": "model3106",
             "features": BaseMiningModel.base_model_dataset,
@@ -186,7 +186,7 @@ def main( config ):
 
         base_mining_model = BaseMiningModel(4) \
             .set_window_size(model_chosen["window_size"]) \
-            .set_model_dir(get_model_dir(model_chosen["model_dir"])) \
+            .set_model_dir(model_chosen["model_dir"]) \
             .load_model()
     else:
         bt.logging.debug("base model not chosen.")
@@ -253,8 +253,8 @@ def main( config ):
     #     return synapse
 
     def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
-        _is_valid_validator = is_valid_validator(metagraph, synapse.dendrite.hotkey)
-        return _is_valid_validator, synapse.dendrite.hotkey
+        _is_invalid_validator = is_invalid_validator(metagraph, synapse.dendrite.hotkey)
+        return _is_invalid_validator, synapse.dendrite.hotkey
 
     def lf_priority_fn(synapse: template.protocol.LiveForward) -> float:
         caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey )
@@ -272,7 +272,7 @@ def main( config ):
             stream_preds = literal_eval(stream_preds_str)
             synapse.predictions = bt.tensor(np.array(stream_preds))
 
-            bt.logging.debug(f'sending tf with length {len(stream_preds)}')
+            bt.logging.debug(f'sending tf with length [{len(stream_preds)}]')
             return synapse
         except (ValueError, SyntaxError) as e:
             bt.logging.error(f"error converting predictions back to list: {e}")
@@ -354,11 +354,13 @@ def main( config ):
                 data_generator_handler = DataGeneratorHandler()
                 # for each template
                 for stream_prediction in stream_predictions:
+                    bt.logging.debug(
+                        f"current predicted closes in memory [{MiningUtils.get_miner_preds(stream_prediction.stream_type)}]")
                     bt.logging.info(f"setting predictions for [{stream_prediction.stream_type}]")
                     # get lookback data
                     ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
                         TimeUtil.generate_range_timestamps(
-                            TimeUtil.generate_start_timestamp(0), MinerConfig.STD_LOOKBACK))
+                            TimeUtil.generate_start_timestamp(MinerConfig.STD_LOOKBACK), MinerConfig.STD_LOOKBACK))
                     ds = ValiUtils.get_standardized_ds()
                     for ts_range in ts_ranges:
                         data_generator_handler.data_generator_handler(stream_prediction.topic_id,
@@ -370,14 +372,14 @@ def main( config ):
 
                     # generate stream predictions
                     predicted_closes = MiningUtils.open_model_prediction_generation(np_ds, model_chosen, stream_prediction.prediction_size)
+                    bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
                     # set preds in memory
                     MiningUtils.set_miner_preds(stream_prediction.stream_type, str(predicted_closes))
                     bt.logging.info(f"done setting predictions for [{stream_prediction.stream_type}] in memory "
                                     f"with length [{len(predicted_closes)}]")
-
-
-
+                    # sleep for 60 mins to rerun the next min
+                    time.sleep(60)
             # Below: Periodically update our knowledge of the network graph.
             if step % 5 == 0:
                 metagraph = subtensor.metagraph(config.netuid)
