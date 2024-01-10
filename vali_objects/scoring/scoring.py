@@ -148,7 +148,7 @@ class Scoring:
         ValiUtils.set_vali_weights_bkp(vweights)
 
     @staticmethod
-    def basic_ema(current_value, previous_ema, length=24):
+    def basic_ema(current_value, previous_ema, length=48):
         alpha = 2 / (length + 1)
         ema = alpha * current_value + (1 - alpha) * previous_ema
         return ema
