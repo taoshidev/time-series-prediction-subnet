@@ -5,6 +5,7 @@ from typing import List
 
 import numpy as np
 from numpy import ndarray
+from sklearn.preprocessing import MinMaxScaler
 
 from vali_config import ValiConfig
 
@@ -77,3 +78,12 @@ class Scaling:
         sds_list.insert(0, ds_ts)
         return vmins, vmaxs, dp_decimal_places, np.array(sds_list)
 
+    @staticmethod
+    def min_max_scalar_list(l):
+        original_values_2d = [[val] for val in l]
+        scaler = MinMaxScaler()
+
+        scaled_values_2d = scaler.fit_transform(original_values_2d)
+        scaled_values = [val[0] for val in scaled_values_2d]
+
+        return scaled_values
