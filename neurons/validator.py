@@ -399,7 +399,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     filtered_scores = np.array([x[1] for x in filtered_results])
 
                     # Normalize the list using Z-score normalization
-                    transformed_results = yeojohnson(filtered_scores, lmbda=200)
+                    transformed_results = yeojohnson(filtered_scores, lmbda=500)
                     scaled_transformed_list = Scaling.min_max_scalar_list(transformed_results)
                     filtered_winning_scores_dict = {filtered_results[i][0]: scaled_transformed_list[i]
                                                     for i in range(len(filtered_results))}
