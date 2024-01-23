@@ -1,5 +1,11 @@
 bittensor
-torch
-tensorflow
-scikit-learn
+coinmetrics-api-client
+keras==2.13.1
+matplotlib
+numpy
 pandas
+pendulum
+requests
+scikit-learn
+tensorflow==2.13.1
+torch

@@ -1,0 +1,13 @@
+# Known compatibile packages needed for stable cuDNN LSTM support in TensorFlow on WSL2 with CUDA 11.8
+nvidia-cublas-cu11
+nvidia-cuda-cupti-cu11
+nvidia-cuda-nvcc-cu11
+nvidia-cuda-nvrtc-cu11
+nvidia-cuda-runtime-cu11
+nvidia-cudnn-cu11
+nvidia-cufft-cu11
+nvidia-curand-cu11
+nvidia-cusolver-cu11
+nvidia-cusparse-cu11
+nvidia-nccl-cu11
+tensorflow==2.13.1
