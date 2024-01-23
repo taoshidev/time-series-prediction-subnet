@@ -1,0 +1,23 @@
+# Packages used in PyCharm
+#
+# 1. Import these requirements
+# 2. Select the "File/Settings..." menu item.
+# 3. In "Settings" Select "Tools/File Watchers"
+# 4. Using the "+" button, add a new "<custom>" watcher with the following properties:
+#
+#   Name: Black
+#
+#   Files to Watch:
+#     File type: Python
+#     Scope: Project Files
+#
+#   Tool to Run on Changes:
+#     Program: $PyInterpreterDirectory$\black (or just "black" if it is on your path)
+#     Arguments: $FilePath$
+#     Output paths to refresh: $FilePath$
+#     Working directory: $ProjectFileDir$
+#
+#   Advanced Options:
+#     Uncheck "Auto-save edited files to trigger the watcher"
+#     Uncheck "Trigger the watcher on external changes"
+black

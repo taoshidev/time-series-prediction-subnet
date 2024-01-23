@@ -1,0 +1,24 @@
+# developer: taoshi-mbrown
+# Copyright © 2024 Taoshi Inc
+from abc import abstractmethod
+from numpy import ndarray
+from features import FeatureID, FeatureSource
+
+
+class FeatureStorage(FeatureSource):
+    @abstractmethod
+    def set_feature_samples(
+        self,
+        start_time_ms: int,
+        interval_ms: int,
+        feature_samples: dict[FeatureID, ndarray],
+    ):
+        pass
+
+    @abstractmethod
+    def get_start_time_ms(self) -> int:
+        pass
+
+    @abstractmethod
+    def get_sample_count(self) -> int:
+        pass

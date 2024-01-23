@@ -1,20 +1,31 @@
-
-# developer: Taoshidev
-# Copyright © 2023 Taoshi Inc
-
+# developer: taoshi-mbrown
+# Copyright © 2024 Taoshi Inc
 import hashlib
-import os
-import uuid
-import random
-import time
-
-import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-
-from data_generator.data_generator_handler import DataGeneratorHandler
+from features import FeatureCollector
+import matplotlib.pyplot as plt
+from matplotlib.colors import TABLEAU_COLORS
 from mining_objects.base_mining_model import BaseMiningModel
-from mining_objects.mining_utils import MiningUtils
+from neurons.miner import get_predictions
+import os
+from streams.btcusd_5m import (
+    INTERVAL_MS,
+    model_feature_sources,
+    prediction_feature_ids,
+    PREDICTION_COUNT,
+    PREDICTION_LENGTH,
+    SAMPLE_COUNT,
+    legacy_model_feature_scaler,
+    legacy_model_feature_sources,
+    legacy_model_feature_ids,
+    validator_feature_source,
+)
+from streams.btcusd_5m import model_feature_scaler as new_model_feature_scaler
+from streams.btcusd_5m import model_feature_ids as new_model_feature_ids
+import time
+from time_util import datetime, time_span_ms
 from time_util.time_util import TimeUtil
+import uuid
+from vali_config import ValiConfig
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
 from vali_objects.cmw.cmw_util import CMWUtil
@@ -25,13 +36,33 @@ from vali_objects.utils.vali_utils import ValiUtils
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.scoring.scoring import Scoring
 
-# import bittensor as bt
-import matplotlib.pyplot as plt
+
+_PLOT_COLORS = list(TABLEAU_COLORS.values())
+_PLOT_COLORS_COUNT = len(_PLOT_COLORS)
+_PLOT_LINE_STYLES = ("solid", "dotted", "dashed", "dashdot")
+_PLOT_LINE_STYLES_COUNT = len(_PLOT_LINE_STYLES)
+
+
+def get_plot_color_line_style(series_index: int) -> (str, str):
+    color_index = series_index % _PLOT_COLORS_COUNT
+    line_style_index = int(series_index / _PLOT_COLORS_COUNT) % _PLOT_LINE_STYLES_COUNT
+    return _PLOT_COLORS[color_index], _PLOT_LINE_STYLES[line_style_index]
+
 
 if __name__ == "__main__":
+    TESTING_LOOKBACK_DAYS = 30
+    PREDICTION_LENGTH_MS = INTERVAL_MS * PREDICTION_LENGTH
+
+    PLOT_WEIGHT_ITERATIONS = 20
+
+    now = datetime.now()
+    now_time_ms = now.timestamp_ms()
+
+    testing_start_time_ms = now_time_ms - time_span_ms(days=TESTING_LOOKBACK_DAYS)
+    testing_end_time_ms = now_time_ms - PREDICTION_LENGTH_MS
 
     # if you'd like to view the output plotted
-    plot_predictions = False
+    plot_predictions = True
 
     # if you'd like to view weights over time being set
     plot_weights = True
@@ -39,14 +70,113 @@ if __name__ == "__main__":
     historical_weights = {}
 
     days_processed = []
-    curr_iter = 0
+    plot_weight_iteration = 0
 
     start_iter = []
 
     totals = {}
     total_weights = {}
 
-    while True:
+    legacy_feature_source = FeatureCollector(
+        sources=legacy_model_feature_sources,
+        feature_ids=legacy_model_feature_ids,
+    )
+
+    new_feature_source = FeatureCollector(
+        sources=model_feature_sources,
+        feature_ids=new_model_feature_ids,
+    )
+
+    """
+    ========================================================================
+    Fill in the mining model you want to test here
+    ========================================================================
+    """
+
+    base_mining_models = {
+        "model_v4_1": {
+            "filename": "model_v4_1.h5",
+            "sample_count": 100,
+            "id": "model2308",
+            "prediction_count": 1,
+        },
+        "model_v4_2": {
+            "filename": "model_v4_2.h5",
+            "sample_count": 500,
+            "id": "model3005",
+            "prediction_count": 1,
+        },
+        "model_v4_3": {
+            "filename": "model_v4_3.h5",
+            "sample_count": 100,
+            "id": "model3103",
+            "prediction_count": 1,
+        },
+        "model_v4_4": {
+            "filename": "model_v4_4.h5",
+            "sample_count": 100,
+            "id": "model3104",
+            "prediction_count": 1,
+        },
+        "model_v4_5": {
+            "filename": "model_v4_5.h5",
+            "sample_count": 100,
+            "id": "model3105",
+            "prediction_count": 1,
+        },
+        "model_v4_6": {
+            "id": "model3106",
+            "filename": "model_v4_6.h5",
+            "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v5_1": {
+            "id": "model5000",
+            "filename": "model_v5_1.h5",
+            "sample_count": SAMPLE_COUNT,
+            "prediction_count": PREDICTION_COUNT,
+            "legacy_model": False,
+        },
+    }
+
+    stream_mining_solutions = []
+
+    for model_name, mining_details in base_mining_models.items():
+        legacy = mining_details.get("legacy_model", True)
+        if legacy:
+            model_feature_ids = legacy_model_feature_ids
+            model_feature_source = legacy_feature_source
+            model_feature_scaler = legacy_model_feature_scaler
+        else:
+            model_feature_ids = new_model_feature_ids
+            model_feature_source = new_feature_source
+            model_feature_scaler = new_model_feature_scaler
+
+        model_filename = (
+            ValiConfig.BASE_DIR + "/mining_models/" + mining_details["filename"]
+        )
+
+        model = BaseMiningModel(
+            filename=model_filename,
+            mode="r",
+            feature_count=len(model_feature_ids),
+            sample_count=mining_details["sample_count"],
+            prediction_feature_count=len(prediction_feature_ids),
+            prediction_count=mining_details["prediction_count"],
+            prediction_length=PREDICTION_LENGTH,
+        )
+
+        stream_mining_solutions.append(
+            {
+                "id": mining_details["id"],
+                "model": model,
+                "feature_source": model_feature_source,
+                "feature_scaler": model_feature_scaler,
+            }
+        )
+
+    start_time_ms = testing_start_time_ms
+    while start_time_ms < testing_end_time_ms:
         try:
             client_request = ClientRequest(
                 client_uuid="test_client_uuid",
@@ -55,162 +185,63 @@ if __name__ == "__main__":
                 schema_id=1,
                 feature_ids=[0.001, 0.002, 0.003, 0.004],
                 prediction_size=100,
-                additional_details={
-                    "tf": 5,
-                    "trade_pair": "BTCUSD"
-                }
+                additional_details={"tf": 5, "trade_pair": "BTCUSD"},
             )
 
-            iter_add = 601
-
-            data_structure = MiningUtils.get_file(
-                "/runnable/historical_financial_data/data.pickle", True)
-            data_structure = [data_structure[0][curr_iter:curr_iter + iter_add],
-                              data_structure[1][curr_iter:curr_iter + iter_add],
-                              data_structure[2][curr_iter:curr_iter + iter_add],
-                              data_structure[3][curr_iter:curr_iter + iter_add],
-                              data_structure[4][curr_iter:curr_iter + iter_add]]
-            print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
-            print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
-            start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
-            end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
-            curr_iter += iter_add
-
-            data_structure = np.array(data_structure)
-            samples = data_structure
-
-            '''
+            """
             ========================================================================
             RECOMMEND: define the timestamps you want to test 
             against using the start_dt & end_dt. In this logic I dont use
             the historical BTC data file but you can certainly choose to
             reference it rather than pull historical data from APIs.
             ========================================================================
-            '''
+            """
 
             request_uuid = str(uuid.uuid4())
             test_vali_hotkey = str(uuid.uuid4())
             # should be a hash of the vali hotkey & stream type (1 is fine)
             hash_object = hashlib.sha256(client_request.stream_type.encode())
             stream_id = hash_object.hexdigest()
-            ts = TimeUtil.minute_in_millis(client_request.prediction_size * 5)
-
-            # data_structure = ValiUtils.get_standardized_ds()
-            # data_structure_orig = ValiUtils.get_standardized_ds()
-            #
-            # data_generator_handler = DataGeneratorHandler()
-            # for ts_range in ts_ranges:
-            #     data_generator_handler.data_generator_handler(client_request.topic_id, 0,
-            #                                                   client_request.additional_details, data_structure, ts_range)
-            #
-            # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
-
-            # samples = scaled_data_structure
-
-            # forward_proto = Forward(
-            #     request_uuid=request_uuid,
-            #     stream_id=stream_id,
-            #     samples=samples,
-            #     topic_id=client_request.topic_id,
-            #     feature_ids=client_request.feature_ids,
-            #     schema_id=client_request.schema_id,
-            #     prediction_size=client_request.prediction_size
-            # )
 
             vm = ValiUtils.get_vali_records()
             client = vm.get_client(client_request.client_uuid)
             if client is None:
                 print("client doesnt exist")
                 cmw_client = CMWClient().set_client_uuid(client_request.client_uuid)
-                cmw_client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(client_request.topic_id))
+                cmw_client.add_stream(
+                    CMWStreamType()
+                    .set_stream_id(stream_id)
+                    .set_topic_id(client_request.topic_id)
+                )
                 vm.add_client(cmw_client)
             else:
                 client_stream_type = client.get_stream(stream_id)
                 if client_stream_type is None:
-                    client.add_stream(CMWStreamType().set_stream_id(stream_id).set_topic_id(client_request.topic_id))
+                    client.add_stream(
+                        CMWStreamType()
+                        .set_stream_id(stream_id)
+                        .set_topic_id(client_request.topic_id)
+                    )
             ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
 
             print("number of predictions needed", client_request.prediction_size)
 
-            '''
-            ========================================================================
-            Fill in the mining model you want to test here & how it can create
-            its dataset for testing.
-            ========================================================================
-            '''
+            for stream_mining_solution in stream_mining_solutions:
+                model = stream_mining_solution["model"]
+                feature_source = stream_mining_solution["feature_source"]
+                feature_scaler = stream_mining_solution["feature_scaler"]
 
-            mining_models = {
-                "1": {
-                    "model_dir": "mining_models/model_v4_1.h5",
-                    "window_size": 100,
-                    "id": 1,
-                    "mining_model": BaseMiningModel.base_model_dataset(samples),
-                },
-                "2": {
-                    "model_dir": "mining_models/model_v4_2.h5",
-                    "window_size": 500,
-                    "id": 2,
-                    "mining_model": BaseMiningModel.base_model_dataset(samples),
-                },
-                "3": {
-                    "model_dir": "mining_models/model_v4_3.h5",
-                    "window_size": 100,
-                    "id": 3,
-                    "mining_model": BaseMiningModel.base_model_dataset(samples),
-                },
-                "4": {
-                    "model_dir": "mining_models/model_v4_4.h5",
-                    "window_size": 100,
-                    "id": 4,
-                    "mining_model": BaseMiningModel.base_model_dataset(samples),
-                },
-                "5": {
-                    "model_dir": "mining_models/model_v4_5.h5",
-                    "window_size": 100,
-                    "id": 5,
-                    "mining_model": BaseMiningModel.base_model_dataset(samples),
-                },
-            }
+                prediction_array = get_predictions(
+                    start_time_ms,
+                    feature_source,
+                    feature_scaler,
+                    model,
+                )
 
-            for model_name, mining_details in mining_models.items():
-                prep_dataset = mining_details["mining_model"]
-                base_mining_model = BaseMiningModel(len(prep_dataset.T)) \
-                    .set_window_size(mining_details["window_size"]) \
-                    .set_model_dir(mining_details["model_dir"]) \
-                    .load_model()
-
-                sds_ndarray = data_structure.T
-                scaler = MinMaxScaler(feature_range=(0, 1))
-
-                scaled_data = scaler.fit_transform(sds_ndarray)
-                scaled_data = scaled_data.T
-                prep_dataset_cp = BaseMiningModel.base_model_dataset(scaled_data)
-
-                last_close = prep_dataset_cp.T[0][len(prep_dataset_cp)-1]
-                predicted_close = base_mining_model.predict(prep_dataset_cp, )[0].tolist()[0]
-                total_movement = predicted_close - last_close
-                total_movement_increment = total_movement / client_request.prediction_size
-
-                predicted_closes = []
-                curr_price = last_close
-                for x in range(client_request.prediction_size):
-                    curr_price += total_movement_increment
-                    predicted_closes.append(curr_price[0])
-
-                plot_length = range(len(predicted_closes))
-
-                close_column = data_structure[1].reshape(-1, 1)
-
-                scaler = MinMaxScaler()
-                scaler.fit(close_column)
-
-                reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
-                predicted_closes = scaler.inverse_transform(reshaped_predicted_closes)
-
-                predicted_closes = predicted_closes.T.tolist()[0]
+                predicted_closes = prediction_array.flatten()
 
                 output_uuid = str(uuid.uuid4())
-                miner_uuid = "miner" + str(mining_details["id"])
+                miner_uuid = "miner" + str(stream_mining_solution["id"])
                 # just the vali hotkey for now
 
                 pdf = PredictionDataFile(
@@ -220,40 +251,13 @@ if __name__ == "__main__":
                     topic_id=client_request.topic_id,
                     request_uuid=request_uuid,
                     miner_uid=miner_uuid,
-                    start=TimeUtil.timestamp_to_millis(end_dt),
-                    end=TimeUtil.timestamp_to_millis(end_dt) + ts,
-                    predictions=np.array(predicted_closes),
+                    start=start_time_ms,
+                    end=start_time_ms + PREDICTION_LENGTH_MS,
+                    predictions=predicted_closes,
                     prediction_size=client_request.prediction_size,
-                    additional_details=client_request.additional_details
+                    additional_details=client_request.additional_details,
                 )
-                ValiUtils.save_predictions_request(output_uuid, pdf)
 
-            # creating some additional miners who generate noise to compare against
-            for a in range(0, 5):
-                last_close = samples[1][len(samples[1]) - 1]
-                s_predictions = np.array(
-                    [random.uniform(last_close - .0001 * last_close,
-                                    last_close + .0001 * last_close) for i in
-                     range(0, client_request.prediction_size)])
-
-                predictions = s_predictions
-
-                output_uuid = str(uuid.uuid4())
-                miner_uuid = str(a)
-
-                pdf = PredictionDataFile(
-                    client_uuid=client_request.client_uuid,
-                    stream_type=client_request.stream_type,
-                    stream_id=stream_id,
-                    topic_id=client_request.topic_id,
-                    request_uuid=request_uuid,
-                    miner_uid=miner_uuid,
-                    start=TimeUtil.timestamp_to_millis(end_dt),
-                    end=TimeUtil.timestamp_to_millis(end_dt) + ts,
-                    predictions=np.array(predictions),
-                    prediction_size=client_request.prediction_size,
-                    additional_details=client_request.additional_details
-                )
                 ValiUtils.save_predictions_request(output_uuid, pdf)
 
             print("remove stale files")
@@ -278,53 +282,62 @@ if __name__ == "__main__":
             # logic to gather and score predictions
             for request_details in predictions_to_complete:
                 request_df = request_details.df
-                data_structure = ValiUtils.get_standardized_ds()
-                data_generator_handler = DataGeneratorHandler()
 
-                data_structure = MiningUtils.get_file(
-                    "/runnable/historical_financial_data/data.pickle", True)
-                data_structure = [data_structure[0][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[1][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[2][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[3][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[4][curr_iter:curr_iter + client_request.prediction_size]]
-                print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
-                print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
-                start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
-                end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
-                # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
+                feature_samples = validator_feature_source.get_feature_samples(
+                    request_df.start, INTERVAL_MS, PREDICTION_LENGTH
+                )
 
-                print("number of results gathered: ", len(data_structure[1]))
+                validation_array = validator_feature_source.feature_samples_to_array(
+                    feature_samples, prediction_feature_ids
+                )
+
+                validation_array = validation_array.flatten()
 
                 scores = {}
 
-                NUM_COLORS = 10
-                cm = plt.get_cmap('gist_rainbow')
-                colors = [cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)]
-                x_values = range(len(data_structure[1]))
-
-                color_chosen = 0
+                x_values = range(len(validation_array))
+                plot_series_index = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
                     if plot_predictions and "miner" in miner_uid:
-                        plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
-                        color_chosen += 1
-                    scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
+                        plot_color, plot_style = get_plot_color_line_style(
+                            plot_series_index
+                        )
+                        plt.plot(
+                            x_values,
+                            miner_preds,
+                            label=miner_uid,
+                            color=plot_color,
+                            linestyle=plot_style,
+                        )
+                        plot_series_index += 1
+                    scores[miner_uid] = Scoring.score_response(
+                        miner_preds, validation_array
+                    )
 
                 print("scores ", scores)
                 if plot_predictions:
-                    plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
+                    plt.plot(x_values, validation_array, label="results", color="k")
 
                     plt.legend()
                     plt.show()
 
                 scaled_scores = Scoring.simple_scale_scores(scores)
-                stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+                stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(
+                    request_df.stream_id
+                )
 
-                sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+                sorted_scores = sorted(
+                    scaled_scores.items(), key=lambda x: x[1], reverse=True
+                )
                 winning_scores = sorted_scores
 
                 weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(weighed_scores, data_structure)
+                (
+                    weighed_winning_scores_dict,
+                    weight,
+                ) = Scoring.update_weights_using_historical_distributions(
+                    weighed_scores, validation_array
+                )
                 # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
                 for key, score in scores.items():
@@ -333,6 +346,8 @@ if __name__ == "__main__":
                     totals[key] += score
 
                 if plot_weights:
+                    plot_weight_iteration += 1
+
                     for key, value in weighed_winning_scores_dict.items():
                         if key not in historical_weights:
                             historical_weights[key] = []
@@ -340,13 +355,22 @@ if __name__ == "__main__":
 
                     weights.append(weight)
 
-                    print("curr iter", curr_iter)
-                    if (curr_iter-1) % 10000 == 0:
+                    if (plot_weight_iteration % PLOT_WEIGHT_ITERATIONS) == 0:
                         x_values = range(len(weights))
+                        plot_series_index = 0
                         for key, value in historical_weights.items():
                             print(key, sum(value))
-                            plt.plot(x_values, value, label=key, color=colors[color_chosen])
-                            color_chosen += 1
+                            plot_color, plot_style = get_plot_color_line_style(
+                                plot_series_index
+                            )
+                            plt.plot(
+                                x_values,
+                                value,
+                                label=key,
+                                color=plot_color,
+                                linestyle=plot_style,
+                            )
+                            plot_series_index += 1
                         plt.legend()
                         plt.show()
 
@@ -365,12 +389,14 @@ if __name__ == "__main__":
                 for file in request_details.files:
                     os.remove(file)
 
-                curr_iter -= 501
+                start_time_ms += INTERVAL_MS
 
             # end results are stored in the path validation/backups/valiconfig.json (same as it goes on the subnet)
             # ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))
         except MinResponsesException as e:
             print(e)
             print("removing files in validation/predictions")
-            for file in ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir()):
+            for file in ValiBkpUtils.get_all_files_in_dir(
+                ValiBkpUtils.get_vali_predictions_dir()
+            ):
                 os.remove(file)
