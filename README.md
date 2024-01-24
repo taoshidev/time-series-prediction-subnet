@@ -5,6 +5,13 @@
     
 </p>
 
+<div align='center'>
+
+[![Discord Chat](https://img.shields.io/discord/308323056592486420.svg)](https://discord.com/channels/799672011265015819/1162384774170677318)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+</div>
+
 <p align="center">
   <a href="https://taoshi.io">Website</a>
   ·
@@ -23,27 +30,13 @@
   <summary>Table of contents</summary>
   <ol>
     <li>
-      <a href="#bittensor">Bittensor</a>
-      <ol>
-        <li>
-          <a href="#subnets">Subnets</a>
-        </li>
-        <li>
-          <a href="#miners">Miners</a>
-        </li>
-        <li>
-          <a href="#validators">Validators</a>
-        </li>
-      </ol>
+      <a href="#bittensor">What is Bittensor?</a>
     </li>
     <li><a href="#prediction-subnet">Prediction Subnet</a></li>
-    <li><a href="#features">Featuers</a></li>
+    <li><a href="#features">Features</a></li>
     <li><a href="#prerequisites">Prerequisites</a></li>
     <li>
       <a href="#installation">Installation</a>
-    </li>
-    <li>
-      <a href="#usage">Usage</a>
       <ol>
         <li>
           <a href="#running-a-validator">Running a Validator</a>
@@ -63,11 +56,12 @@
 
 ---
 
-# Bittensor
+<details id='bittensor'>
+  <summary>What is Bittensor?</summary>
 
 Bittensor is a mining network, similar to Bitcoin, that includes built-in incentives designed to encourage computers to provide access to machine learning models in an efficient and censorship-resistant manner. Bittensor is comprised of Subnets, Miners, and Validators.
 
-**Explain Like I'm Five**
+> Explain Like I'm Five
 
 Bittensor is an API that connects machine learning models and incentivizes correctness through the power of the blockchain.
 
@@ -83,6 +77,10 @@ Miners run machine learning models. They fulfill requests from the Validators.
 
 Validators query and prompt the Miners. Validators also validate miner requests. Validators are also storefronts for data.
 
+</details>
+
+---
+
 # Prediction Subnet
 
 This repository contains the code for the Time-Series Prediction Subnet (TSPS) developed by Taoshi.
@@ -91,7 +89,7 @@ Initially, the primary focus of TSPS is to forecast the future trends of financi
 
 As the project evolves, we anticipate that miners will diversify their focus, specializing in different subjects or domains. Some may concentrate on specific areas, while others, particularly those with advanced skills, tackle multiple topics, such as sports betting or various client-requested issues.
 
-# Features
+## Features
 
 🛠️&nbsp;Open Source Modeling<br>
 🫰&nbsp;Intraday Bitcoin Predictions<br>
@@ -100,7 +98,7 @@ As the project evolves, we anticipate that miners will diversify their focus, sp
 💪&nbsp;Superior Cryptocurrency Infrastructure<br>
 ⚡&nbsp;Faster Payouts<br>
 
-# Prerequisites
+## Prerequisites
 
 Below are the prerequisites for validators and miners, you may be able to make miner and validator work off lesser specs.
 
@@ -118,10 +116,12 @@ Requires **Python 3.10 or higher.**
 
 # Installation
 
-On Linux
+To install TSPS, first install the dependencies:
+
+On Linux:
 
 ```bash
-# install git and subpackages
+# install git
 $ sudo apt install git-all
 
 # install pip package manager for python 3
@@ -129,7 +129,20 @@ $ sudo apt install python3-pip
 
 # install venv virtual environment package for python 3
 $ sudo apt-get install python3-venv
+```
 
+On MacOS:
+
+```bash
+# git should already be installed
+
+# install python3 with homebrew
+$ brew install python3
+```
+
+Then, install TSPS:
+
+```bash
 # clone repo
 $ git clone https://github.com/taoshidev/time-series-prediction-subnet.git
 
@@ -149,24 +162,21 @@ $ export PIP_NO_CACHE_DIR=1
 $ pip install -r requirements.txt
 
 # create a local and editable installation
-$ python -m pip install -e .
-
+$ python3 -m pip install -e .
 ```
 
-# Usage
+# Running a Validator
 
-## Running a Validator
+Your validator will request predictions hourly based on your randomized interval to help distribute the load. After live results come `10 hours` after predictions, rewards will be distributed.
 
-Your validator will request predictions hourly based on your randomized interval to help distribute the load. After live results come 10 hours after predictions, rewards will be distributed.
-
-### Using Provided Scripts
+## Using Provided Scripts
 
 These validators run and update themselves automatically.
 
 To run a validator, follow these steps:
 
-1. [Install Prediction Subnet.](#installation)
-2. Install [PM2](https://pm2.io) and the (jq)[https://jqlang.github.io/jq/] package on your system.
+1. [Install TSPS.](#installation)
+2. Install [PM2](https://pm2.io) and the [jq](https://jqlang.github.io/jq/) package on your system.
 
 On Linux:
 
@@ -209,7 +219,7 @@ $ pm2 update
 3. Be sure to install venv for the repo.
 
 ```bash
-# /time-series-prediction-subnet
+# from within the TSPS repo
 
 # create virtual environment
 $ python3 -m venv venv
@@ -233,7 +243,7 @@ This will run two PM2 process:
 2. And a process for the run.sh script (in step 4, we named it tsps). The script will check for updates every 30 minutes,
    if there is an update, it will pull, install, restart tsps, and restart itself.
 
-### Manually
+### Manual Installation
 
 If there are any issues with the run script or you choose not to use it, run a validator manually.
 
@@ -247,30 +257,89 @@ You can also run your script in the background. Logs are stored in `nohup.out`.
 $ nohup python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.hotkey <hotkey> &
 ```
 
-## Running a Miner
+# Running a Miner
 
 If you're running a miner, you should see two types of requests: LiveForward and LiveBackward. LiveForward will be when your miner performs predictions; LiveBackward will receive the results that occurred live if you want to use them for any updating purposes.
 
-You'll receive rewards for your predictions ~10 hours after making them. Therefore, if you start running on the network, you should expect a lag in receiving rewards. Predictions are reviewed and rewarded every 30 minutes.
+You'll receive rewards for your predictions `~10 hours` after making them. Therefore, if you start running on the network, you should expect a lag in receiving rewards. Predictions are reviewed and rewarded every 30 minutes.
 
 In the short term, your miner will not be trained on the network (TrainingBackward and TrainingForward will only run sometimes). Please train beforehand as we'll only be using BTC/USD on the 5m to begin, which you can prepare for.
 
-# Running on mainnet
+## On Mainnet
 
-You can run on mainnet by following the instructions in `docs/running_on_mainnet.md`.
+**IMPORTANT**
 
-If you are running into issues, please run with `--logging.debug` and `--logging.trace` set so you can better
-analyze why your miner isn't running.
+Before attempting to register on mainnet, we strongly recommend that you:
 
-The current flow of information is as follows:
+- First run [Running Subnet Locally](running_on_staging.md).
+- Then run [Running on the Testnet](running_on_testnet.md).
 
-1. Validators request predictions every 30 minutes.
-2. Miners make predictions.
-3. Validators store predictions.
-4. Validators wait until data is available to compare against (roughly a day and a half for 5m data).
-5. Validators compare when data is ready.
+Your incentive mechanisms running on the mainnet are open to anyone. They emit real TAO. Creating these mechanisms incur a `lock_cost` in TAO.
 
-So don't expect emissions on predictions immediately; you will need to wait for the predicted information to occur to be compared against.
+**DANGER**
+
+- Do not expose your private keys.
+- Only use your testnet wallet.
+- Do not reuse the password of your mainnet wallet.
+- Make sure your incentive mechanism is resistant to abuse.
+
+---
+
+### Steps
+
+1. Clone and [install](#installation) the TSPS source code.
+
+2. (Optional) Register your validator and miner keys to the networks.
+
+   > Note: While not enforced, we recommend owners run a validator and miner on the network to display proper use to the community.
+
+   Register your miner keys to the network, giving them the first two slots.
+
+   ```bash
+   $ btcli subnet register --wallet.name miner --wallet.hotkey default
+   ```
+
+   Follow the below prompts:
+
+   ```bash
+   >> Enter netuid [1] (8): # Enter netuid 8 to specify the network you just created.
+   >> Continue Registration?
+     hotkey:     ...
+     coldkey:    ...
+     network:    finney [y/n]: # Select yes (y)
+   >> ⠦ 📡 Submitting POW...
+   >> ✅ Registered
+   ```
+
+3. Check that your subnet validator key has been registered:
+
+   ```bash
+   $ btcli wallet overview --wallet.name minor
+   ```
+
+   Check that your miner has been registered.
+
+   ```bash
+   COLDKEY  HOTKEY   UID  ACTIVE  STAKE(τ)     RANK    TRUST  CONSENSUS  INCENTIVE  DIVIDENDS  EMISSION(ρ)   VTRUST  VPERMIT  UPDATED  AXON  HOTKEY_SS58
+   miner    default  1      True   0.00000  0.00000  0.00000    0.00000    0.00000    0.00000            0  0.00000                14  none  5GTFrsEQfvTsh3WjiEVFeKzFTc2xcf…
+   1        1        2            τ0.00000  0.00000  0.00000    0.00000    0.00000    0.00000           ρ0  0.00000
+                                                                             Wallet balance: τ0.0
+   ```
+
+4. Edit `template/init.py`
+
+   Edit the default `NETUID=8` and `CHAIN_ENDPOINT=wss://entrypoint-finney.opentensor.ai:443` arguments to match your created subnetwork.
+
+   Or run the miner and validator directly with the `netuid` and `chain_endpoint` arguments.
+
+   ```bash
+   # Run the miner with the netuid and chain_endpoint arguments.
+   $ python neurons/miner.py --netuid 8  --wallet.name miner --wallet.hotkey default --logging.debug
+
+   >> 2023-08-08 16:58:11.223 |       INFO       | Running miner for subnet: 1 on network: wss://entrypoint-finney.opentensor.ai:443 with config: ...
+   ```
+
+5. Profit
 
 # Building a model
 
@@ -378,6 +447,6 @@ For instructions on how to contribute to Taoshi, see CONTRIBUTING.md and Taoshi'
 
 # License
 
-Refer to the <a href='?tab=MIT-1-ov-file'>License</a> page for information about Taoshi's licensing.
+Refer to the [License](?tab=MIT-1-ov-file) page for information about Taoshi's licensing.
 
 Bittensor's source code in this repository is licensed under the MIT License.
