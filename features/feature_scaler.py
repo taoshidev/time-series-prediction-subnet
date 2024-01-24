@@ -37,7 +37,7 @@ class FeatureScaler:
             "Inplace scaling requires copy property of all scalers to be False."
         )
 
-        if not default_scaler.copy:
+        if default_scaler.copy:
             raise ValueError(_SCALER_COPY_ERROR)
 
         if exclude_feature_ids is None:
@@ -58,21 +58,23 @@ class FeatureScaler:
                     )
 
         all_grouped_feature_ids = []
-        for group_feature_ids, scaler in group_scaling_map:
-            if scaler.copy:
-                raise ValueError(_SCALER_COPY_ERROR)
 
-            for feature_id in group_feature_ids:
-                if feature_id in exclude_feature_ids:
-                    raise Exception(
-                        f"Feature {feature_id} in group_scaling_map is also in exclude_feature_ids."
-                    )
-                if feature_id in mapped_feature_ids:
-                    raise Exception(
-                        f"Feature {feature_id} in group_scaling_map has more than one mapping."
-                    )
-            mapped_feature_ids.extend(group_feature_ids)
-            all_grouped_feature_ids.extend(group_feature_ids)
+        if group_scaling_map is not None:
+            for group_feature_ids, scaler in group_scaling_map:
+                if scaler.copy:
+                    raise ValueError(_SCALER_COPY_ERROR)
+
+                for feature_id in group_feature_ids:
+                    if feature_id in exclude_feature_ids:
+                        raise Exception(
+                            f"Feature {feature_id} in group_scaling_map is also in exclude_feature_ids."
+                        )
+                    if feature_id in mapped_feature_ids:
+                        raise Exception(
+                            f"Feature {feature_id} in group_scaling_map has more than one mapping."
+                        )
+                mapped_feature_ids.extend(group_feature_ids)
+                all_grouped_feature_ids.extend(group_feature_ids)
 
         self._default_scalar = default_scaler
         # Exclude grouped scaling from default and individual scaling

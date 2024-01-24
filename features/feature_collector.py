@@ -105,7 +105,7 @@ class FeatureCollector(FeatureSource):
 
                 for future in as_completed(futures, timeout=self._timeout):
                     future_result = future.result()
-                    for feature_id, future_result_samples in future_result.values():
+                    for feature_id, future_result_samples in future_result.items():
                         future_result_sample_count = len(future_result_samples)
                         if future_result_sample_count != uncached_sample_count:
                             future_source = future_sources[future]
