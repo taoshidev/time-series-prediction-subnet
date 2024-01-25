@@ -82,21 +82,26 @@ class FeatureScaler:
         self._scaling_map = scaling_map
         self._group_scaling_map = group_scaling_map
 
-    def scale_samples(self, feature_samples: dict[FeatureID, ndarray]) -> None:
+    def scale_feature_samples(self, feature_samples: dict[FeatureID, ndarray]) -> None:
         for feature_id, samples in feature_samples.items():
             if feature_id not in self._exclude_feature_ids:
                 if self._scaling_map is None:
                     scaler = self._default_scalar
                 else:
                     scaler = self._scaling_map.get(feature_id, self._default_scalar)
-                scaler.fit_transform(samples)
+                reshaped_samples = samples.reshape(-1, 1)
+                scaler.fit_transform(reshaped_samples)
 
         if self._group_scaling_map is not None:
             for group_feature_ids, scaler in self._group_scaling_map:
                 fit = scaler.fit
                 for feature_id in group_feature_ids:
-                    fit(feature_samples[feature_id])
+                    samples = feature_samples[feature_id]
+                    reshaped_samples = samples.reshape(-1, 1)
+                    fit(reshaped_samples)
                     # Subsequent fitting must not clear the existing fitting
                     fit = scaler.partial_fit
                 for feature_id in group_feature_ids:
-                    scaler.transform(feature_samples[feature_id])
+                    samples = feature_samples[feature_id]
+                    reshaped_samples = samples.reshape(-1, 1)
+                    scaler.transform(reshaped_samples)

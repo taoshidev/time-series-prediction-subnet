@@ -241,7 +241,10 @@ class BinanceKlineFeatureSource(FeatureSource):
                     break
                 row_index += 1
 
-            if len(interval_rows) > 1:
+            interval_row_count = len(interval_rows)
+            if interval_row_count == 1:
+                row = interval_rows[0]
+            elif interval_row_count > 1:
                 row = compact_samples(interval_rows)
 
             for feature_index, field in enumerate(self._fields):

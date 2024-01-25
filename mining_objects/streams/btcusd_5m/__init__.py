@@ -7,7 +7,6 @@ from feature_sources import (
     CoinMetricsExchangeMetrics,
     CoinMetricsMarketCandles,
     CoinMetricsMarketFundingRates,
-    CoinMetricsMarketImpliedVolatility,
     CoinMetricsMarketMetrics,
     CoinMetricsMarketOpenInterest,
     TemporalFeatureSource,
@@ -63,22 +62,11 @@ btc_usd_spread_feature_source = CoinMetricsMarketMetrics(
     },
 )
 
-btc_usd_iv_feature_source = CoinMetricsMarketImpliedVolatility(
-    kind=FUTURE_MARKET,
-    interval_ms=time_span_ms(minutes=1),
-    feature_mappings={
-        FeatureID.BTC_USD_IV_BID: CoinMetric.IV_BID,
-        FeatureID.BTC_USD_IV_ASK: CoinMetric.IV_ASK,
-        FeatureID.BTC_USD_IV_MARK: CoinMetric.IV_MARK,
-    },
-)
-
 btc_usd_open_interest_feature_source = CoinMetricsMarketOpenInterest(
     kind=FUTURE_MARKET,
     interval_ms=time_span_ms(minutes=1),
     feature_mappings={
         FeatureID.BTC_USD_FUTURES_OPEN_CONTRACTS: CoinMetric.CONTRACT_COUNT,
-        FeatureID.BTC_USD_FUTURES_OPEN_VALUE_USD: CoinMetric.VALUE_USD,
     },
 )
 
@@ -111,7 +99,7 @@ temporal_feature_ids = [
 temporal_feature_source = TemporalFeatureSource(temporal_feature_ids)
 
 
-def get_feature_ids(feature_sources: list[FeatureSource]) -> list[int]:
+def get_feature_ids(feature_sources: list[FeatureSource]) -> list[FeatureID]:
     results = []
     for feature_source in feature_sources:
         for feature_id in feature_source.feature_ids:
@@ -124,8 +112,6 @@ historical_sources = [
     btc_usd_volatility_feature_source,
     btc_address_count_feature_source,
     btc_usd_spread_feature_source,
-    # TODO: Request additional permissions?
-    # btc_usd_iv_feature_source,
     btc_usd_open_interest_feature_source,
     btc_usd_liquidation_feature_source,
     btc_usd_funding_rate_feature_source,

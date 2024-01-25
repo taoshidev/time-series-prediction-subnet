@@ -51,9 +51,9 @@ class CoinMetric(str, Enum):
     VALUE_USD = "value_usd"
 
     LIQUIDATIONS_BUY_UNITS_5M = "liquidations_reported_future_buy_units_5m"
-    LIQUIDATIONS_BUY_USD_5M = "liquidations_reported_future_buy_units_5m"
-    LIQUIDATIONS_SELL_UNITS_5M = "liquidations_reported_future_buy_units_5m"
-    LIQUIDATIONS_SELL_USD_5M = "liquidations_reported_future_buy_units_5m"
+    LIQUIDATIONS_BUY_USD_5M = "liquidations_reported_future_buy_usd_5m"
+    LIQUIDATIONS_SELL_UNITS_5M = "liquidations_reported_future_sell_units_5m"
+    LIQUIDATIONS_SELL_USD_5M = "liquidations_reported_future_sell_usd_5m"
 
     RATE = "rate"
 
@@ -142,7 +142,10 @@ class CoinMetricsFeatureSource(FeatureSource):
             case _ if "time" in metric:
                 value = datetime.parse(value).timestamp_ms()
             case _:
-                value = float(value)
+                if value is None:
+                    value = 0
+                else:
+                    value = float(value)
         return value
 
     def _convert_sample(self, sample: dict) -> dict:
@@ -258,7 +261,10 @@ class CoinMetricsFeatureSource(FeatureSource):
                     break
                 row_index += 1
 
-            if len(interval_rows) > 1:
+            interval_row_count = len(interval_rows)
+            if interval_row_count == 1:
+                row = interval_rows[0]
+            elif interval_row_count > 1:
                 row = compact_samples(interval_rows)
 
             for feature_index, metric in enumerate(self._metrics):

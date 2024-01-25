@@ -79,10 +79,17 @@ class FeatureSource(ABC):
         pass
 
     def feature_samples_to_array(
-        self, samples: dict[FeatureID, ndarray], dtype: np.dtype = np.float32
+        self, feature_samples: dict[FeatureID, ndarray], dtype: np.dtype = np.float32
     ) -> ndarray:
-        results = np.empty(shape=(self.feature_count, len(samples)), dtype=dtype)
+        sample_count = None
+        for feature_id, samples in feature_samples.items():
+            if sample_count is None:
+                sample_count = len(samples)
+            elif len(samples) != sample_count:
+                raise Exception()  # TODO: Implement
+
+        results = np.empty(shape=(self.feature_count, sample_count), dtype=dtype)
         for i, feature_id in enumerate(self.feature_ids):
-            samples = samples[feature_id]
-            results[i, :] = samples
-        return results
+            samples = feature_samples[feature_id]
+            results[i] = samples
+        return results.T

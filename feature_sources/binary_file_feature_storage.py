@@ -157,7 +157,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
         start_time_ms: int,
         interval_ms: int,
         sample_count: int,
-    ) -> dict[int, ndarray]:
+    ) -> dict[FeatureID, ndarray]:
         if not self._read_mode:
             raise Exception()  # TODO: Implement
 
@@ -203,7 +203,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
         self,
         start_time_ms: int,
         interval_ms: int,
-        samples: dict[int, ndarray],
+        samples: dict[FeatureID, ndarray],
     ):
         if self._read_mode:
             raise Exception()  # TODO: Implement
