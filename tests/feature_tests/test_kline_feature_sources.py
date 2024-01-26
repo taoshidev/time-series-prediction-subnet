@@ -3,6 +3,8 @@
 from feature_sources import (
     BinanceKlineFeatureSource,
     BinanceKlineField,
+    BybitKlineFeatureSource,
+    BybitKlineField,
     CoinbaseKlineFeatureSource,
     CoinbaseKlineField,
     KrakenKlineFeatureSource,
@@ -62,6 +64,68 @@ class TestKlineFeatureSource(unittest.TestCase):
                 FeatureID.BTC_USD_HIGH: 22982.91000000,
                 FeatureID.BTC_USD_LOW: 22897.02000000,
                 FeatureID.BTC_USD_VOLUME: 1445.37762000,
+            },
+        }
+
+        for index, samples in expected_values.items():
+            for feature_id, expected_value in samples.items():
+                self.assertAlmostEqual(
+                    all_feature_samples[feature_id][index], expected_value, places=2
+                )
+
+    def test_bybit_kline_feature_source(self):
+        _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
+        _INTERVAL_MS = time_span_ms(minutes=5)
+        _SAMPLE_COUNT = 2500
+        _ITERATIONS = 3
+
+        test_source = BybitKlineFeatureSource(
+            category="spot",
+            symbol="BTCUSDT",
+            interval_ms=time_span_ms(minutes=5),
+            feature_mappings={
+                FeatureID.BTC_USD_CLOSE: BybitKlineField.PRICE_CLOSE,
+                FeatureID.BTC_USD_HIGH: BybitKlineField.PRICE_HIGH,
+                FeatureID.BTC_USD_LOW: BybitKlineField.PRICE_LOW,
+                FeatureID.BTC_USD_VOLUME: BybitKlineField.VOLUME,
+            },
+        )
+
+        all_feature_samples = {feature_id: [] for feature_id in test_source.feature_ids}
+        start_time_ms = _START_TIME_MS
+        for i in range(_ITERATIONS):
+            feature_samples = test_source.get_feature_samples(
+                start_time_ms, _INTERVAL_MS, _SAMPLE_COUNT
+            )
+            for feature_id, samples in feature_samples.items():
+                all_feature_samples[feature_id].extend(samples)
+            start_time_ms += _INTERVAL_MS * _SAMPLE_COUNT
+
+        expected_values = {
+            # Open time: 1672530900000
+            # start, open, high, low, close, volume, turnover
+            # [["1672530900000","16540.14","16542.97","16534.59","16541.8","8.600131","142234.6940972"]]
+            0: {
+                FeatureID.BTC_USD_CLOSE: 16541.8,
+                FeatureID.BTC_USD_HIGH: 16542.97,
+                FeatureID.BTC_USD_LOW: 16534.59,
+                FeatureID.BTC_USD_VOLUME: 8.600131,
+            },
+            # Open time: 1674405600000
+            # [["1674405600000","22817.37","22829.99","22802.25","22828.44","13.348506","304557.98870126"]]
+            6249: {
+                FeatureID.BTC_USD_CLOSE: 22828.44,
+                FeatureID.BTC_USD_HIGH: 22829.99,
+                FeatureID.BTC_USD_LOW: 22802.25,
+                FeatureID.BTC_USD_VOLUME: 13.348506,
+            },
+            # Open time: 1674780600000
+            # [["1674780600000","22969.91","22979.14","22900.01","22907.61","27.59141","632906.42514824"]]
+            -1: {
+                FeatureID.BTC_USD_CLOSE: 22907.61,
+                FeatureID.BTC_USD_HIGH: 22979.14,
+                FeatureID.BTC_USD_LOW: 22900.01,
+                FeatureID.BTC_USD_VOLUME: 27.59141,
             },
         }
 

@@ -5,6 +5,10 @@ from .binance_kline_feature_source import (
     BinanceKlineFeatureSource,
     BinanceKlineField,
 )
+from .bybit_kline_feature_source import (
+    BybitKlineFeatureSource,
+    BybitKlineField,
+)
 from .coin_metrics_feature_source import (
     CoinMetric,
     CoinMetricsAssetMetrics,
