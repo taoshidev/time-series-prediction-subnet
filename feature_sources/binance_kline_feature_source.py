@@ -80,39 +80,39 @@ class BinanceKlineFeatureSource(FeatureSource):
     def __init__(
         self,
         symbol: str,
+        interval_ms: int,
         feature_mappings: dict[FeatureID, BinanceKlineField],
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
-        allow_empty_response=True,
         retries: int = DEFAULT_RETRIES,
     ):
+        query_interval = self._INTERVALS.get(interval_ms)
+        if query_interval is None:
+            raise ValueError()  # TODO: Implement
+
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
 
         self._symbol = symbol
+        self._interval_ms = interval_ms
+        self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._fields = list(feature_mappings.values())
-        self._allow_empty_response = allow_empty_response
         self._retries = retries
-        self._logger = getLogger("BinanceKlineFeatureSource")
+        self._logger = getLogger(self.__class__.__name__)
 
         convert_fields = set(self._fields) & self._UNCONVERTED_FIELDS
         self._convert_field_indexes = [field for field in convert_fields]
 
     # noinspection PyMethodMayBeStatic
-    def _convert_sample(self, sample: list) -> list:
+    def _convert_sample(self, sample: list) -> None:
         for i in self._convert_field_indexes:
             sample[i] = float(sample[i])
-        return sample
 
-    def _convert_samples(self, data_rows: list[list]) -> list[list]:
-        return [self._convert_sample(row) for row in data_rows]
-
-    # noinspection PyMethodMayBeStatic
-    def _get_empty_converted_samples(self, open_time_ms: int, interval_ms: int) -> list:
-        close_time_ms = open_time_ms + interval_ms - 1
-        return [open_time_ms, 0, 0, 0, 0, 0, close_time_ms, 0, 0, 0, 0]
+    def _convert_samples(self, data_rows: list[list]) -> None:
+        for row in data_rows:
+            self._convert_sample(row)
 
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
@@ -146,19 +146,12 @@ class BinanceKlineFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        query_interval_ms = 0
-        for supported_interval_ms in self._INTERVALS.keys():
-            if (query_interval_ms == 0) or (supported_interval_ms <= interval_ms):
-                query_interval_ms = supported_interval_ms
-            else:
-                break
-
-        query_interval = self._INTERVALS[query_interval_ms]
+        _OPEN_TIME = BinanceKlineField.OPEN_TIME
 
         # Binance uses open time for queries
         open_start_time_ms = start_time_ms - interval_ms
-        if interval_ms < query_interval_ms:
-            open_start_time_ms -= query_interval_ms
+        if interval_ms < self._interval_ms:
+            open_start_time_ms -= self._interval_ms
 
         open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
 
@@ -168,8 +161,9 @@ class BinanceKlineFeatureSource(FeatureSource):
         while True:
             url = (
                 "https://api.binance.com/api/v3/klines"
-                f"?symbol={self._symbol}&interval={query_interval}&startTime={open_start_time_ms}"
-                f"&endTime={open_end_time_ms}&limit={self._QUERY_LIMIT}"
+                f"?symbol={self._symbol}&interval={self._query_interval}"
+                f"&startTime={open_start_time_ms}&endTime={open_end_time_ms}"
+                f"&limit={self._QUERY_LIMIT}"
             )
 
             success = False
@@ -210,19 +204,13 @@ class BinanceKlineFeatureSource(FeatureSource):
             if response_row_count != self._QUERY_LIMIT:
                 break
 
-            open_start_time_ms = data_rows[-1][BinanceKlineField.CLOSE_TIME] + 1
+            open_start_time_ms = data_rows[-1][_OPEN_TIME] + self._interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:
-            if self._allow_empty_response:
-                converted_samples = self._get_empty_converted_samples(
-                    open_start_time_ms, interval_ms
-                )
-                row_count = len(converted_samples)
-            else:
-                raise Exception()  # TODO: Implement
-        else:
-            converted_samples = self._convert_samples(data_rows)
+            raise Exception()  # TODO: Implement
+
+        self._convert_samples(data_rows)
         feature_samples = self._create_feature_samples(sample_count)
 
         sample_time_ms = start_time_ms
@@ -232,8 +220,8 @@ class BinanceKlineFeatureSource(FeatureSource):
         compact_samples = self._compact_samples
         for sample_index in range(sample_count):
             while True:
-                row = converted_samples[row_index]
-                row_time_ms = row[BinanceKlineField.OPEN_TIME] + query_interval_ms
+                row = data_rows[row_index]
+                row_time_ms = row[_OPEN_TIME] + self._interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)
