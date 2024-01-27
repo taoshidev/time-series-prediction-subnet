@@ -33,11 +33,11 @@ class BinaryFileFeatureStorage(FeatureStorage):
     ):
         # TODO: Allow more modes when compresslevel is 0
         if ("r" in mode) and ("w" in mode):
-            raise ValueError("mode cannot include r and w.")
+            raise ValueError("mode cannot include r and w (reading and writing).")
         if "a" in mode:
-            raise Exception()  # TODO: Implement
+            raise ValueError("mode cannot include a (appending).")
         if "t" in mode:
-            raise Exception()  # TODO: Implement
+            raise ValueError("mode cannot include t (text).")
 
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
@@ -91,17 +91,17 @@ class BinaryFileFeatureStorage(FeatureStorage):
 
         magic = read(self._MAGIC_SIZE)
         if magic != self._MAGIC:
-            raise Exception("Bad header.")
+            raise RuntimeError("Bad header.")
 
         buffer = read(self._VERSION_SIZE)
         version = int_from_bytes(buffer)
         if version != self._VERSION:
-            raise Exception(f"Version {version} not supported.")
+            raise RuntimeError(f"Version {version} not supported.")
 
         buffer = read(self._FEATURE_COUNT_SIZE)
         feature_count = int_from_bytes(buffer)
         if feature_count != self.feature_count:
-            raise Exception(
+            raise RuntimeError(
                 f"Feature count {self.feature_count} does not match {feature_count} "
                 "value in file."
             )
@@ -115,13 +115,17 @@ class BinaryFileFeatureStorage(FeatureStorage):
             feature_id = self.feature_ids[feature_index]
             feature_dtype = self.feature_dtypes[feature_index]
 
-            if header_feature_id != feature_id.value:
-                raise Exception(
-                    f"Feature index {feature_index} id {header_feature_id} mismatch with {feature_id.value}."
+            if header_feature_id != feature_id:
+                raise RuntimeError(
+                    f"Feature index {feature_index} id {header_feature_id} "
+                    f"mismatch with {feature_id}."
                 )
 
             if header_dtype_num != feature_dtype.num:
-                raise Exception()  # TODO: Implement
+                raise RuntimeError(
+                    f"Feature {header_feature_id} dtype {header_dtype_num} "
+                    f"mismatch with {feature_dtype.num}."
+                )
 
         buffer = read(self._START_TIME_SIZE)
         self._start_time_ms = int_from_bytes(buffer)
@@ -142,7 +146,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
         for feature_index in range(self.feature_count):
             feature_id = self.feature_ids[feature_index]
             feature_dtype = self.feature_dtypes[feature_index]
-            buffer = int_to_bytes(feature_id.value, self._FEATURE_ID_SIZE)
+            buffer = int_to_bytes(feature_id, self._FEATURE_ID_SIZE)
             write(buffer)
             buffer = int_to_bytes(feature_dtype.num, self._DTYPE_NUM_SIZE)
             write(buffer)
@@ -159,10 +163,13 @@ class BinaryFileFeatureStorage(FeatureStorage):
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
         if not self._read_mode:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("Reading not supported in write mode.")
 
         if interval_ms != self._interval_ms:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError(
+                f"Interval mismatch between file {self._interval_ms} "
+                f"and request {interval_ms}."
+            )
 
         feature_count = self.feature_count
         file_dtypes = self._file_dtypes
@@ -186,7 +193,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
                 itemsize = file_dtype.itemsize
                 buffer = read(itemsize)
                 if len(buffer) != itemsize:
-                    raise Exception()  # TODO: Implement
+                    raise RuntimeError("Unexpected end of file.")
                 sample = np.frombuffer(buffer=buffer, dtype=file_dtype, count=1)
                 feature_samples[feature_index][sample_index] = sample
 
@@ -203,10 +210,10 @@ class BinaryFileFeatureStorage(FeatureStorage):
         self,
         start_time_ms: int,
         interval_ms: int,
-        samples: dict[FeatureID, ndarray],
+        feature_samples: dict[FeatureID, ndarray],
     ):
         if self._read_mode:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("Writing not supported in read mode.")
 
         feature_count = self.feature_count
         write = self._file.write
@@ -219,25 +226,32 @@ class BinaryFileFeatureStorage(FeatureStorage):
             self._write_header()
 
         if start_time_ms != self._next_start_time_ms:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError(
+                f"Expected start time of {self._next_start_time_ms} "
+                f"but {start_time_ms} requested."
+            )
 
         sample_count = None
-        feature_samples = []
+        write_samples = []
         for feature_index, feature_id in enumerate(self.feature_ids):
-            feature_sample = samples.get(feature_id, None)
+            feature_sample = feature_samples.get(feature_id, None)
             if feature_sample is None:
-                raise Exception()  # TODO: Implement
+                RuntimeError(f"Feature {feature_id} missing from feature_samples.")
+            feature_sample_count = len(feature_sample)
             if sample_count is None:
-                sample_count = len(feature_sample)
-            elif sample_count != len(feature_sample):
-                raise Exception()  # TODO: Implement
+                sample_count = feature_sample_count
+            elif feature_sample_count != sample_count:
+                raise RuntimeError(
+                    f"Feature {feature_id} has {feature_sample_count}"
+                    f" samples when {sample_count} expected."
+                )
             file_dtype = self.feature_dtypes[feature_index]
             feature_sample = feature_sample.astype(file_dtype)
-            feature_samples.append(feature_sample)
+            write_samples.append(feature_sample)
 
         for sample_index in range(sample_count):
             for feature_index in range(feature_count):
-                write(feature_samples[feature_index][sample_index].tobytes())
+                write(write_samples[feature_index][sample_index].tobytes())
 
         self._sample_count += sample_count
         self._next_start_time_ms += interval_ms * sample_count

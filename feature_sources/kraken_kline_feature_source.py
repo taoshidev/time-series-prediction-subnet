@@ -25,6 +25,8 @@ class KrakenKlineField(IntEnum):
     TRADES_COUNT = 7
 
 
+# Kraken is only useful for recent historical samples
+# (within the last 720 samples of the interval specified)
 class KrakenKlineFeatureSource(FeatureSource):
     SOURCE_NAME = "KrakenKline"
 
@@ -75,7 +77,7 @@ class KrakenKlineFeatureSource(FeatureSource):
         retries: int = DEFAULT_RETRIES,
     ):
         if interval_ms not in self._INTERVALS:
-            raise ValueError()  # TODO: Implement
+            raise ValueError(f"interval_ms {interval_ms} is not supported.")
         query_interval = int(interval_ms / time_span_ms(minutes=1))
 
         feature_ids = list(feature_mappings.keys())
@@ -140,7 +142,10 @@ class KrakenKlineFeatureSource(FeatureSource):
         _OPEN_TIME = KrakenKlineField.OPEN_TIME
 
         if sample_count > self._QUERY_LIMIT:
-            raise Exception()  # TODO: Implement
+            raise ValueError(
+                f"sample_count {interval_ms} is greater than the "
+                f"maximum of {self._QUERY_LIMIT}."
+            )
 
         # Kraken uses open time for queries
         open_start_time_ms = start_time_ms - interval_ms
@@ -179,9 +184,10 @@ class KrakenKlineFeatureSource(FeatureSource):
                         self._logger.error(
                             f"Kraken error: {response_error}",
                         )
-            except:
-                # TODO: Logging
-                pass
+            except Exception as e:
+                self._logger.warning(
+                    f"Exception occurred requesting feature samples using {url}: {e}"
+                )
 
             if success or (retries == 0):
                 break
@@ -191,12 +197,12 @@ class KrakenKlineFeatureSource(FeatureSource):
 
         row_count = len(data_rows)
         if row_count == 0:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("No samples received.")
 
         first_row = data_rows[0]
         first_open_time_ms = first_row[_OPEN_TIME] * time_span_ms(seconds=1)
         if first_open_time_ms > open_end_time_ms:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("Requested timeframe is too far in the past.")
 
         self._convert_samples(data_rows)
         feature_samples = self._create_feature_samples(sample_count)

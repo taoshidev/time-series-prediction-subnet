@@ -59,7 +59,7 @@ class CoinbaseKlineFeatureSource(FeatureSource):
         retries: int = DEFAULT_RETRIES,
     ):
         if interval_ms not in self._INTERVALS:
-            raise ValueError()  # TODO: Implement
+            raise ValueError(f"interval_ms {interval_ms} is not supported.")
         query_interval = int(interval_ms / time_span_ms(seconds=1))
 
         feature_ids = list(feature_mappings.keys())
@@ -161,9 +161,11 @@ class CoinbaseKlineFeatureSource(FeatureSource):
                         data_rows.extend(response_rows)
                         success = True
 
-                except:
-                    # TODO: Logging
-                    pass
+                except Exception as e:
+                    self._logger.warning(
+                        "Exception occurred requesting feature samples using "
+                        f"{url}: {e}"
+                    )
 
                 if success or (retries == 0):
                     break
@@ -181,7 +183,7 @@ class CoinbaseKlineFeatureSource(FeatureSource):
 
         row_count = len(data_rows)
         if row_count == 0:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("No samples received.")
 
         self._convert_samples(data_rows)
         feature_samples = self._create_feature_samples(sample_count)

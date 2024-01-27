@@ -110,7 +110,7 @@ class CoinMetricsFeatureSource(FeatureSource):
     ):
         frequency = self._FREQUENCIES.get(interval_ms)
         if frequency is None:
-            raise ValueError()  # TODO: Implement
+            raise ValueError(f"interval_ms {interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
@@ -230,7 +230,7 @@ class CoinMetricsFeatureSource(FeatureSource):
 
         row_count = len(data_rows)
         if row_count == 0:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("No samples received.")
 
         # TODO: Change to inplace conversion?
         converted_samples = self._convert_samples(data_rows)
@@ -274,7 +274,7 @@ class CoinMetricsFeatureSource(FeatureSource):
 
 
 class CoinMetricsAssetMetrics(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsAssetMetrics"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_asset_metrics(
@@ -290,7 +290,7 @@ class CoinMetricsAssetMetrics(CoinMetricsFeatureSource):
 
 
 class CoinMetricsExchangeMetrics(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsExchangeMetrics"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_exchange_metrics(
@@ -306,7 +306,7 @@ class CoinMetricsExchangeMetrics(CoinMetricsFeatureSource):
 
 
 class CoinMetricsExchangeAssetMetrics(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsExchangeAssetMetrics"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_exchange_asset_metrics(
@@ -322,7 +322,7 @@ class CoinMetricsExchangeAssetMetrics(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketMetrics(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketMetrics"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_metrics(
@@ -338,7 +338,7 @@ class CoinMetricsMarketMetrics(CoinMetricsFeatureSource):
 
 
 class CoinMetricsPairMetrics(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsPairMetrics"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_pair_metrics(
@@ -354,7 +354,7 @@ class CoinMetricsPairMetrics(CoinMetricsFeatureSource):
 
 
 class CoinMetricsPairCandles(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsPairCandles"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_pair_candles(
@@ -369,7 +369,7 @@ class CoinMetricsPairCandles(CoinMetricsFeatureSource):
 
 
 class CoinMetricsInstitutionMetrics(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsInstitutionMetrics"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_institution_metrics(
@@ -385,7 +385,7 @@ class CoinMetricsInstitutionMetrics(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketTrades(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketTrades"
 
     def _compact_samples(self, samples: list[dict]) -> dict:
         return self._compact_samples_trades(samples)
@@ -402,7 +402,7 @@ class CoinMetricsMarketTrades(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketOpenInterest(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketOpenInterest"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_open_interest(
@@ -417,7 +417,7 @@ class CoinMetricsMarketOpenInterest(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketLiquidations(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketLiquidations"
 
     def _compact_samples(self, samples: list[dict]) -> dict:
         return self._compact_samples_trades(samples)
@@ -434,7 +434,7 @@ class CoinMetricsMarketLiquidations(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketFundingRates(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketFundingRates"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_funding_rates(
@@ -448,7 +448,7 @@ class CoinMetricsMarketFundingRates(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketQuotes(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketQuotes"
 
     def _compact_samples(self, samples: list[dict]) -> dict:
         result = samples[-1]
@@ -480,7 +480,7 @@ class CoinMetricsMarketQuotes(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketCandles(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketCandles"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_candles(
@@ -495,7 +495,7 @@ class CoinMetricsMarketCandles(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketContractPrices(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketContractPrices"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_contract_prices(
@@ -510,7 +510,7 @@ class CoinMetricsMarketContractPrices(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketImpliedVolatility(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketImpliedVolatility"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_implied_volatility(
@@ -525,7 +525,7 @@ class CoinMetricsMarketImpliedVolatility(CoinMetricsFeatureSource):
 
 
 class CoinMetricsMarketGreeks(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsMarketGreeks"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_market_greeks(
@@ -540,7 +540,7 @@ class CoinMetricsMarketGreeks(CoinMetricsFeatureSource):
 
 
 class CoinMetricsIndexCandles(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsIndexCandles"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_index_candles(
@@ -555,7 +555,7 @@ class CoinMetricsIndexCandles(CoinMetricsFeatureSource):
 
 
 class CoinMetricsIndexLevels(CoinMetricsFeatureSource):
-    SOURCE_NAME = __name__
+    SOURCE_NAME = "CoinMetricsIndexLevels"
 
     def _query(self, start_time: str, end_time: str) -> DataCollection:
         return self._client.get_index_levels(

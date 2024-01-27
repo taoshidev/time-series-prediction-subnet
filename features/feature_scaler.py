@@ -54,7 +54,8 @@ class FeatureScaler:
             for feature_id in mapped_feature_ids:
                 if feature_id in exclude_feature_ids:
                     raise ValueError(
-                        f"Feature {feature_id} in scaling_map is also in exclude_feature_ids."
+                        f"Feature {feature_id} in scaling_map is also in "
+                        "exclude_feature_ids."
                     )
 
         all_grouped_feature_ids = []
@@ -66,12 +67,14 @@ class FeatureScaler:
 
                 for feature_id in group_feature_ids:
                     if feature_id in exclude_feature_ids:
-                        raise Exception(
-                            f"Feature {feature_id} in group_scaling_map is also in exclude_feature_ids."
+                        raise ValueError(
+                            f"Feature {feature_id} in group_scaling_map is also in "
+                            "exclude_feature_ids."
                         )
                     if feature_id in mapped_feature_ids:
-                        raise Exception(
-                            f"Feature {feature_id} in group_scaling_map has more than one mapping."
+                        raise ValueError(
+                            f"Feature {feature_id} in group_scaling_map has more "
+                            "than one mapping."
                         )
                 mapped_feature_ids.extend(group_feature_ids)
                 all_grouped_feature_ids.extend(group_feature_ids)

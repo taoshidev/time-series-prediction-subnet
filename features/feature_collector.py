@@ -45,7 +45,7 @@ class FeatureCollector(FeatureSource):
             for source in sources:
                 feature_overlap = set(feature_ids) & set(source.feature_ids)
                 if feature_overlap:
-                    raise Exception(
+                    raise RuntimeError(
                         f"Overlap of features {feature_overlap} with "
                         f"{source.SOURCE_NAME}."
                     )
@@ -109,7 +109,7 @@ class FeatureCollector(FeatureSource):
                         future_result_sample_count = len(future_result_samples)
                         if future_result_sample_count != uncached_sample_count:
                             future_source = future_sources[future]
-                            raise Exception(
+                            raise RuntimeError(
                                 f"Expected {uncached_sample_count} samples from "
                                 f"{future_source.SOURCE_NAME} for feature {feature_id}, "
                                 f"but {future_result_sample_count} samples returned."
@@ -118,12 +118,16 @@ class FeatureCollector(FeatureSource):
                     feature_overlap = uncached_samples.keys() & future_result.keys()
                     if feature_overlap:
                         future_source = future_sources[future]
-                        raise Exception(
+                        raise RuntimeError(
                             f"Collection overlap of features {feature_overlap} with "
                             f"{future_source.SOURCE_NAME}."
                         )
 
                     uncached_samples.update(future_result)
+
+            for feature_id in self.feature_ids:
+                if feature_id not in uncached_samples:
+                    raise RuntimeError(f"Feature {feature_id} missing from collection.")
 
         if cached_sample_count == 0:
             feature_samples = uncached_samples

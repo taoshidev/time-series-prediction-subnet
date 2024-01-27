@@ -83,13 +83,20 @@ class FeatureSource(ABC):
     ) -> ndarray:
         sample_count = None
         for feature_id, samples in feature_samples.items():
+            feature_sample_count = len(samples)
             if sample_count is None:
-                sample_count = len(samples)
-            elif len(samples) != sample_count:
-                raise Exception()  # TODO: Implement
+                sample_count = feature_sample_count
+            elif feature_sample_count != sample_count:
+                raise RuntimeError(
+                    f"Feature {feature_id} has {feature_sample_count}"
+                    f" samples when {sample_count} expected."
+                )
 
         results = np.empty(shape=(self.feature_count, sample_count), dtype=dtype)
         for i, feature_id in enumerate(self.feature_ids):
-            samples = feature_samples[feature_id]
+            samples = feature_samples.get(feature_id)
+            if samples is None:
+                raise RuntimeError(f"Feature {feature_id} is missing.")
             results[i] = samples
+
         return results.T

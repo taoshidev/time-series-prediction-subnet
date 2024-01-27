@@ -88,7 +88,7 @@ class BinanceKlineFeatureSource(FeatureSource):
     ):
         query_interval = self._INTERVALS.get(interval_ms)
         if query_interval is None:
-            raise ValueError()  # TODO: Implement
+            raise ValueError(f"interval_ms {interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
@@ -191,12 +191,17 @@ class BinanceKlineFeatureSource(FeatureSource):
                         data_rows.extend(response_rows)
                         success = True
 
-                except:
-                    # TODO: Logging
-                    pass
+                except Exception as e:
+                    self._logger.warning(
+                        "Exception occurred requesting feature samples using "
+                        f"{url}: {e}"
+                    )
 
-                if success or (retries == 0):
+                if success:
                     break
+
+                if retries == 0:
+                    raise RuntimeError("Retries exceeded.")
 
                 retries -= 1
                 time.sleep(self.RETRY_DELAY)
@@ -208,7 +213,7 @@ class BinanceKlineFeatureSource(FeatureSource):
 
         row_count = len(data_rows)
         if row_count == 0:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("No samples received.")
 
         self._convert_samples(data_rows)
         feature_samples = self._create_feature_samples(sample_count)

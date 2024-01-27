@@ -11,7 +11,7 @@ class FeatureStorage(FeatureSource):
         self,
         start_time_ms: int,
         interval_ms: int,
-        samples: dict[FeatureID, ndarray],
+        feature_samples: dict[FeatureID, ndarray],
     ):
         pass
 

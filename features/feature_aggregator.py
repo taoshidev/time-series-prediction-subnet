@@ -1,26 +1,31 @@
 # developer: Taoshidev
 # Copyright © 2024 Taoshi, LLC
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from features import FeatureID, FeatureSource
+import logging
 import numpy as np
 from numpy import ndarray
-from typing_extensions import Protocol
-from typing import Callable
 from statistics import mean
+from typing import Callable
+
+IndividualAggregator = Callable[[Iterable], int | float]
 
 
-IndividualAggregator = Callable[[list], int | float]
-
-
-class GroupAggregator(Protocol):
-    def aggregate(self, values: dict[FeatureID, int | float]) -> int | float:
+class GroupAggregator(ABC):
+    @abstractmethod
+    def aggregate(
+        self, sources_feature_samples: list[dict[FeatureID, int | float]]
+    ) -> dict[FeatureID, int | float]:
         pass
 
 
 class FeatureAggregator(FeatureSource):
     SOURCE_NAME = "Aggregator"
 
-    # feature_dtypes and default_dtype are not enforced when features have one source
+    # feature_dtypes and default_dtype are not enforced when aggregation uses
+    # a single source
     def __init__(
         self,
         sources: list[FeatureSource],
@@ -30,6 +35,7 @@ class FeatureAggregator(FeatureSource):
         default_dtype: np.dtype = np.dtype(np.float32),
         default_aggregator: IndividualAggregator = mean,
         aggregation_map: dict[FeatureID, IndividualAggregator] = None,
+        group_aggregation_map: list[tuple[list[FeatureID], GroupAggregator]] = None,
     ):
         if not sources:
             raise ValueError("No sources.")
@@ -38,8 +44,9 @@ class FeatureAggregator(FeatureSource):
         self._timeout = timeout
         self._default_aggregator = default_aggregator
         self._aggregation_map = aggregation_map
+        self._logger = logging.getLogger(self.__class__.__name__)
 
-        # TODO: Verify feature_ids are the same between sources
+        # TODO: Implement group aggregation
 
         if feature_ids is None:
             feature_ids = []
@@ -55,7 +62,7 @@ class FeatureAggregator(FeatureSource):
     ) -> dict[FeatureID, ndarray]:
         results = {}
 
-        for feature_index, feature_id in self.feature_ids:
+        for feature_index, feature_id in enumerate(self.feature_ids):
             aggregator = self._default_aggregator
             if self._aggregation_map is not None:
                 aggregator = self._aggregation_map.get(feature_id, aggregator)
@@ -68,8 +75,7 @@ class FeatureAggregator(FeatureSource):
 
             feature_samples_count = len(feature_samples)
             if feature_samples_count == 0:
-                raise Exception()  # TODO: Implement
-
+                raise RuntimeError(f"Feature {feature_id} missing from aggregation.")
             elif feature_samples_count == 1:
                 aggregated_samples = feature_samples[0]
 
@@ -93,8 +99,9 @@ class FeatureAggregator(FeatureSource):
         sources_feature_samples = []
 
         with ThreadPoolExecutor(max_workers=len(self._sources)) as executor:
-            futures = []
             future_sources = {}
+            futures = []
+            timed_out_sources = []
             for source in self._sources:
                 future = executor.submit(
                     source.get_feature_samples,
@@ -104,37 +111,51 @@ class FeatureAggregator(FeatureSource):
                 )
                 future_sources[future] = source
                 futures.append(future)
+                timed_out_sources.append(source.SOURCE_NAME)
 
             try:
                 for future in as_completed(futures, timeout=self._timeout):
+                    future_source = future_sources[future]
+                    timed_out_sources.remove(future_source.SOURCE_NAME)
                     try:
                         future_result = future.result()
-                    except:
+                    except Exception as e:
                         future_result = None
-                        # TODO: Logging
+                        self._logger.warning(
+                            "Exception occurred requesting feature samples from "
+                            f"{future_source.SOURCE_NAME}: {e}"
+                        )
 
                     if future_result is not None:
-                        for feature_id, future_result_samples in future_result.values():
-                            future_result_sample_count = len(future_result_samples)
-                            if future_result_sample_count != sample_count:
-                                future_source = future_sources[future]
-                                raise Exception(
+                        for feature_id, future_result_samples in future_result.items():
+                            result_sample_count = len(future_result_samples)
+                            if result_sample_count != sample_count:
+                                raise RuntimeError(
                                     f"Expected {sample_count} samples from "
-                                    f"{future_source.SOURCE_NAME} for feature {feature_id}, "
-                                    f"but {future_result_sample_count} samples returned."
+                                    f"{future_source.SOURCE_NAME} for feature "
+                                    f"{feature_id}, but received {result_sample_count}."
                                 )
 
                         sources_feature_samples.append(future_result)
 
             except TimeoutError:
-                pass  # TODO: Logging
+                self._logger.warning(
+                    "Timeout occurred requesting feature samples "
+                    f"from: {timed_out_sources}."
+                )
 
         source_count = len(sources_feature_samples)
 
         if source_count == 0:
-            raise Exception()  # TODO: Implement
+            raise RuntimeError("No sources returned samples to aggregate.")
         elif source_count == 1:
             feature_samples = sources_feature_samples[0]
+
+            for feature_id in self.feature_ids:
+                if feature_id not in feature_samples:
+                    raise RuntimeError(
+                        f"Feature {feature_id} missing from aggregation."
+                    )
         else:
             feature_samples = self.aggregate(sample_count, sources_feature_samples)
 
