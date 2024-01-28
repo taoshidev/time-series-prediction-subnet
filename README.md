@@ -22,6 +22,8 @@
   <a href="https://twitter.com/taoshiio">Twitter</a>
     ·
   <a href="https://twitter.com/taoshiio">Bittensor</a>
+    ·
+  <a href='https://huggingface.co/Taoshi'>Hugging Face</a>
 </p>
 
 ---
@@ -100,9 +102,10 @@ As the project evolves, we anticipate that miners will diversify their focus, sp
 
 ## Prerequisites
 
-Below are the prerequisites for validators and miners, you may be able to make miner and validator work off lesser specs.
+- Requires **Python 3.10 or higher.**
+- [Bittensor](https://github.com/opentensor/bittensor#install)
 
-Requires **Python 3.10 or higher.**
+Below are the prerequisites for validators and miners, you may be able to make miner and validator work off lesser specs.
 
 **Validator**
 
@@ -178,70 +181,70 @@ To run a validator, follow these steps:
 1. [Install TSPS.](#installation)
 2. Install [PM2](https://pm2.io) and the [jq](https://jqlang.github.io/jq/) package on your system.
 
-On Linux:
+   On Linux:
 
-```bash
-# update lists
-$ sudo apt update
+   ```bash
+   # update lists
+   $ sudo apt update
 
-# JSON-processor
-$ sudo apt install jq
+   # JSON-processor
+   $ sudo apt install jq
 
-# install npm
-$ sudo apt install npm
+   # install npm
+   $ sudo apt install npm
 
-# install pm2 globally
-$ sudo npm install pm2 -g
+   # install pm2 globally
+   $ sudo npm install pm2 -g
 
-# update pm2 process list
-$ pm2 update
-```
+   # update pm2 process list
+   $ pm2 update
+   ```
 
-On MacOS:
+   On MacOS:
 
-```bash
-# update lists
-$ brew update
+   ```bash
+   # update lists
+   $ brew update
 
-# JSON-processor
-$ brew install jq
+   # JSON-processor
+   $ brew install jq
 
-# install npm
-$ brew install npm
+   # install npm
+   $ brew install npm
 
-# install pm2 globally
-$ sudo npm install pm2 -g
+   # install pm2 globally
+   $ sudo npm install pm2 -g
 
-# update pm2 process list
-$ pm2 update
-```
+   # update pm2 process list
+   $ pm2 update
+   ```
 
 3. Be sure to install venv for the repo.
 
-```bash
-# from within the TSPS repo
+   ```bash
+   # from within the TSPS repo
 
-# create virtual environment
-$ python3 -m venv venv
+   # create virtual environment
+   $ python3 -m venv venv
 
-# activate virtual environment
-$ source venv/bin/activate
+   # activate virtual environment
+   $ source venv/bin/activate
 
-# install packages
-$ pip install -r requirements.txt
-```
+   # install packages
+   $ pip install -r requirements.txt
+   ```
 
 4. Run the `run.sh` script, which will run your validator and pull the latest updates as they are issued.
 
-```bash
-$ pm2 start run.sh --name sn8 -- --wallet.name <wallet> --wallet.hotkey <hotkey> --netuid 8
-```
+   ```bash
+   $ pm2 start run.sh --name sn8 -- --wallet.name <wallet> --wallet.hotkey <hotkey> --netuid 8
+   ```
 
-This will run two PM2 process:
+   This will run two PM2 process:
 
-1. A process for the validator, called sn8 by default (you can change this in run.sh)
-2. And a process for the run.sh script (in step 4, we named it tsps). The script will check for updates every 30 minutes,
-   if there is an update, it will pull, install, restart tsps, and restart itself.
+   1. A process for the validator, called sn8 by default (you can change this in run.sh)
+   2. And a process for the run.sh script (in step 4, we named it tsps). The script will check for updates every 30 minutes,
+      if there is an update, it will pull, install, restart tsps, and restart itself.
 
 ### Manual Installation
 
