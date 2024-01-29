@@ -1,4 +1,5 @@
 # What is Bittensor?
+
 Bittensor is a network where computers validate the work that other computers contribute to the network - the work what is most valuable to the collective will be rewarded
 
 Bittensor is a catalyst to the open-source developers and smaller AI research labs now have a financial incentive for fine-tuning open foundational models
@@ -7,7 +8,7 @@ Bittensor is a library of machine intelligence that continuously grows and share
 
 # What is a subnet?
 
-Bittensor is releasing its own language for creating incentive mechanisms. This allows developers to build incentive systems on Bittensor, tapping into our web of intelligence to develop markets of the developer’s choosings  
+Bittensor is releasing its own language for creating incentive mechanisms. This allows developers to build incentive systems on Bittensor, tapping into our web of intelligence to develop markets of the developer’s choosings
 
 Subnet 1, an incentive system for machine intelligence production, showcases the enormous potential of markets to procure huge amounts of resources. Releasing user-created subnets is set to create a cambrian explosion of additional resources into the Bittensor ecosystem
 
@@ -19,5 +20,4 @@ The release of subnets also offers the potential to pull these tools into a shar
 
 You get to play a vital role in helping bootstrap what could one day become one of the most powerful networks in the world - and you make money by doing so!
 
-By incentivizing developers to create their own markets, Bittensor is set to become a  one-stop-shop for those seeking all the compute requirements for building unstoppable applications on top of an incentivized infrastructure
-
+By incentivizing developers to create their own markets, Bittensor is set to become a one-stop-shop for those seeking all the compute requirements for building unstoppable applications on top of an incentivized infrastructure
