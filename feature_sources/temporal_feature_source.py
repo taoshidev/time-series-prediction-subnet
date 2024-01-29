@@ -10,6 +10,7 @@ class TemporalFeatureSource(FeatureSource):
     SOURCE_NAME = "Temporal"
 
     VALID_FEATURE_IDS = [
+        FeatureID.EPOCH_TIMESTAMP_MS,
         FeatureID.TIME_OF_DAY,
         FeatureID.TIME_OF_WEEK,
         FeatureID.TIME_OF_MONTH,
@@ -45,44 +46,52 @@ class TemporalFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        offset = 0
-        divisor = 0
         results = {}
         for feature_index, feature_id in enumerate(self.feature_ids):
-            term_function = None
-            match feature_id:
-                case FeatureID.TIME_OF_DAY:
-                    offset = 0
-                    divisor = time_span_ms(days=1)
-                case FeatureID.TIME_OF_WEEK:
-                    # Unix epoch starts on a Thursday
-                    offset = time_span_ms(days=4)
-                    divisor = time_span_ms(weeks=1)
-                case FeatureID.TIME_OF_MONTH:
-                    term_function = self._get_month_term
-                case FeatureID.TIME_OF_YEAR:
-                    term_function = self._get_year_term
-
             dtype = self.feature_dtypes[feature_index]
             samples = np.empty(shape=sample_count, dtype=dtype)
 
-            if term_function is None:
-                # -1 to 1 normalization
-                divisor /= 2
-                current_time_ms = start_time_ms + offset
-                for i in range(sample_count):
-                    samples[i] = ((current_time_ms / divisor) % 2) - 1
-                    current_time_ms += interval_ms
-            else:
-                term_start_ms = 0
-                term_end_ms = 0
+            if feature_id == FeatureID.EPOCH_TIMESTAMP_MS:
                 current_time_ms = start_time_ms
                 for i in range(sample_count):
-                    if current_time_ms >= term_end_ms:
-                        term_start_ms, term_end_ms = term_function(current_time_ms)
-                        divisor = (term_end_ms - term_start_ms) / 2
-                    samples[i] = (((current_time_ms - term_start_ms) / divisor) % 2) - 1
+                    samples[i] = current_time_ms
                     current_time_ms += interval_ms
+            else:
+                offset = 0
+                divisor = 0
+                term_function = None
+                match feature_id:
+                    case FeatureID.TIME_OF_DAY:
+                        offset = 0
+                        divisor = time_span_ms(days=1)
+                    case FeatureID.TIME_OF_WEEK:
+                        # Unix epoch starts on a Thursday
+                        offset = time_span_ms(days=4)
+                        divisor = time_span_ms(weeks=1)
+                    case FeatureID.TIME_OF_MONTH:
+                        term_function = self._get_month_term
+                    case FeatureID.TIME_OF_YEAR:
+                        term_function = self._get_year_term
+
+                if term_function is None:
+                    # -1 to 1 normalization
+                    divisor /= 2
+                    current_time_ms = start_time_ms + offset
+                    for i in range(sample_count):
+                        samples[i] = ((current_time_ms / divisor) % 2) - 1
+                        current_time_ms += interval_ms
+                else:
+                    term_start_ms = 0
+                    term_end_ms = 0
+                    current_time_ms = start_time_ms
+                    for i in range(sample_count):
+                        if current_time_ms >= term_end_ms:
+                            term_start_ms, term_end_ms = term_function(current_time_ms)
+                            divisor = (term_end_ms - term_start_ms) / 2
+                        samples[i] = (
+                            ((current_time_ms - term_start_ms) / divisor) % 2
+                        ) - 1
+                        current_time_ms += interval_ms
 
             results[feature_id] = samples
 
