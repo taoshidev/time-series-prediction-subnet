@@ -2,7 +2,7 @@
 
 This tutorial shows how to use the Bittensor testnet to create a subnet and run your incentive mechanism on it.
 
-**IMPORTANT:** We strongly recommend that you first run [Running TSPS Locally](running_on_staging.md) before running on the testnet. Incentive mechanisms running on the testnet are open to anyone, and although these mechanisms on testnet do not emit real TAO, they cost you test TAO which you must create.
+**IMPORTANT:** We strongly recommend that you first run [Running TSPS Locally](https://github.com/taoshidev/time-series-prediction-subnet/blob/main/docs/running_locally.md) before running on the testnet. Incentive mechanisms running on the testnet are open to anyone, and although these mechanisms on testnet do not emit real TAO, they cost you test TAO which you must create.
 
 **DANGER**
 
