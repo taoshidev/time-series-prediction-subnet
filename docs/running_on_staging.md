@@ -1,9 +1,9 @@
-# Running subtensor locally
+# Running Subtensor Locally
 
 - [Running docker](#running-docker)
 - [Compiling your own binary](#compiling-your-own-binary)
 
-## Running docker
+## Running Docker
 
 ### Install git
 
