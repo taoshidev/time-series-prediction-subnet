@@ -20,11 +20,11 @@ class FeatureCollector(FeatureSource):
             cache_copy = {}
             for key, value in feature_samples.items():
                 cache_copy[key] = value.copy()
-            self._samples = cache_copy
-            self._start_time_ms = start_time_ms
-            self._interval_ms = interval_ms
-            self._sample_count = sample_count
-            self._end_time_ms = start_time_ms + (interval_ms * sample_count)
+            self.samples = cache_copy
+            self.start_time_ms = start_time_ms
+            self.interval_ms = interval_ms
+            self.sample_count = sample_count
+            self.end_time_ms = start_time_ms + (interval_ms * sample_count)
 
     # feature_ids parameter allows overriding the order/exclusion of features
     def __init__(

@@ -1,10 +1,9 @@
 # developer: Taoshidev
 # Copyright © 2024 Taoshi, LLC
-from datetime import datetime, timezone
 from features import FeatureID, FeatureSource
 import numpy as np
 from numpy import ndarray
-from time_util.time_util import TimeUtil
+from time_util import datetime, time_span_ms
 
 
 class TemporalFeatureSource(FeatureSource):
@@ -17,15 +16,9 @@ class TemporalFeatureSource(FeatureSource):
         FeatureID.TIME_OF_YEAR,
     ]
 
-    _DAY_MS = 24 * 60 * 60 * 1000
-    _WEEK_MS = 7 * _DAY_MS
-
-    # Unix epoch starts on a Thursday
-    _OFFSET_THURSDAY_TO_SUNDAY_MS = 3 * _DAY_MS
-
     @staticmethod
     def _get_month_term(time_ms) -> tuple[int, int]:
-        term_datetime = TimeUtil.millis_to_timestamp(time_ms)
+        term_datetime = datetime.fromtimestamp_ms(time_ms)
         year = term_datetime.year
         month = term_datetime.month
         if month == 12:
@@ -34,20 +27,16 @@ class TemporalFeatureSource(FeatureSource):
         else:
             end_year = year
             end_month = month + 1
-        start = datetime(year=year, month=month, day=1, tzinfo=timezone.utc)
-        end = datetime(year=end_year, month=end_month, day=1, tzinfo=timezone.utc)
-        start_ms = int(start.timestamp() * 1000)
-        end_ms = int(end.timestamp() * 1000)
+        start_ms = datetime(year=year, month=month, day=1).timestamp_ms()
+        end_ms = datetime(year=end_year, month=end_month, day=1).timestamp_ms()
         return start_ms, end_ms
 
     @staticmethod
     def _get_year_term(time_ms) -> tuple[int, int]:
-        term_datetime = TimeUtil.millis_to_timestamp(time_ms)
+        term_datetime = datetime.fromtimestamp_ms(time_ms)
         year = term_datetime.year
-        start = datetime(year=year, month=1, day=1, tzinfo=timezone.utc)
-        end = datetime(year=year + 1, month=1, day=1, tzinfo=timezone.utc)
-        start_ms = int(start.timestamp() * 1000)
-        end_ms = int(end.timestamp() * 1000)
+        start_ms = datetime(year=year, month=1, day=1).timestamp_ms()
+        end_ms = datetime(year=year + 1, month=1, day=1).timestamp_ms()
         return start_ms, end_ms
 
     def get_feature_samples(
@@ -64,10 +53,11 @@ class TemporalFeatureSource(FeatureSource):
             match feature_id:
                 case FeatureID.TIME_OF_DAY:
                     offset = 0
-                    divisor = self._DAY_MS
+                    divisor = time_span_ms(days=1)
                 case FeatureID.TIME_OF_WEEK:
-                    offset = self._OFFSET_THURSDAY_TO_SUNDAY_MS
-                    divisor = self._WEEK_MS
+                    # Unix epoch starts on a Thursday
+                    offset = time_span_ms(days=4)
+                    divisor = time_span_ms(weeks=1)
                 case FeatureID.TIME_OF_MONTH:
                     term_function = self._get_month_term
                 case FeatureID.TIME_OF_YEAR:

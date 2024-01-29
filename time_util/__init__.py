@@ -49,6 +49,23 @@ def closest_interval_ms(timestamp_ms: int, interval_ms: int) -> int:
 
 # noinspection PyPep8Naming
 class datetime(pendulum.DateTime):
+    def __new__(
+        cls,
+        year,
+        month=None,
+        day=None,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+        tzinfo=UTC,
+        *,
+        fold=0
+    ):
+        return super().__new__(
+            cls, year, month, day, hour, minute, second, microsecond, tzinfo, fold=fold
+        )
+
     @classmethod
     def _clone(cls, dt) -> "datetime":
         return cls(

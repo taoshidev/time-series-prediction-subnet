@@ -39,3 +39,4 @@ from .kraken_kline_feature_source import (
     KrakenKlineField,
 )
 from .temporal_feature_source import TemporalFeatureSource
+from .test_feature_source import TestFeatureSource

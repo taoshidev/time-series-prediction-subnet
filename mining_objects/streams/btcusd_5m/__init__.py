@@ -89,13 +89,7 @@ btc_usd_funding_rate_feature_source = CoinMetricsMarketFundingRates(
     },
 )
 
-temporal_feature_ids = [
-    FeatureID.TIME_OF_DAY,
-    FeatureID.TIME_OF_WEEK,
-    FeatureID.TIME_OF_MONTH,
-    FeatureID.TIME_OF_YEAR,
-]
-
+temporal_feature_ids = TemporalFeatureSource.VALID_FEATURE_IDS
 temporal_feature_source = TemporalFeatureSource(temporal_feature_ids)
 
 
