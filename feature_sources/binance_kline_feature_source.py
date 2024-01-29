@@ -102,10 +102,8 @@ class BinanceKlineFeatureSource(FeatureSource):
         self._retries = retries
         self._logger = getLogger(self.__class__.__name__)
 
-        convert_fields = set(self._fields) & self._UNCONVERTED_FIELDS
-        self._convert_field_indexes = [field for field in convert_fields]
+        self._convert_field_indexes = set(self._fields) & self._UNCONVERTED_FIELDS
 
-    # noinspection PyMethodMayBeStatic
     def _convert_sample(self, sample: list) -> None:
         for i in self._convert_field_indexes:
             sample[i] = float(sample[i])
@@ -114,6 +112,7 @@ class BinanceKlineFeatureSource(FeatureSource):
         for row in data_rows:
             self._convert_sample(row)
 
+    # TODO: Examine moving this functionality into the FeatureSource base class
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
         for field in BinanceKlineField:

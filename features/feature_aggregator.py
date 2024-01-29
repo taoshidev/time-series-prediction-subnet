@@ -10,7 +10,13 @@ from numpy import ndarray
 from statistics import mean
 from typing import Callable
 
-IndividualAggregator = Callable[[Iterable], int | float]
+SimpleAggregator = Callable[[Iterable], int | float]
+
+
+class IndividualAggregator(ABC):
+    @abstractmethod
+    def aggregate(self, feature_samples: Iterable) -> int | float:
+        pass
 
 
 class GroupAggregator(ABC):
@@ -33,8 +39,10 @@ class FeatureAggregator(FeatureSource):
         feature_ids: list[FeatureID] = None,
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
-        default_aggregator: IndividualAggregator = mean,
-        aggregation_map: dict[FeatureID, IndividualAggregator] = None,
+        default_aggregator: SimpleAggregator | IndividualAggregator = mean,
+        aggregation_map: dict[
+            FeatureID, SimpleAggregator | IndividualAggregator
+        ] = None,
         group_aggregation_map: list[tuple[list[FeatureID], GroupAggregator]] = None,
     ):
         if not sources:
@@ -57,7 +65,7 @@ class FeatureAggregator(FeatureSource):
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
 
-    def aggregate(
+    def aggregate_sources_feature_samples(
         self, sample_count: int, sources_feature_samples: list[dict[FeatureID, ndarray]]
     ) -> dict[FeatureID, ndarray]:
         results = {}
@@ -84,7 +92,10 @@ class FeatureAggregator(FeatureSource):
                 aggregated_samples = np.empty(sample_count, feature_dtype)
                 for i in range(sample_count):
                     values = [feature_sample[i] for feature_sample in feature_samples]
-                    aggregated_samples[i] = aggregator(values)
+                    if isinstance(aggregator, IndividualAggregator):
+                        aggregated_samples[i] = aggregator.aggregate(values)
+                    else:
+                        aggregated_samples[i] = aggregator(values)
 
             results[feature_id] = aggregated_samples
 
@@ -157,6 +168,8 @@ class FeatureAggregator(FeatureSource):
                         f"Feature {feature_id} missing from aggregation."
                     )
         else:
-            feature_samples = self.aggregate(sample_count, sources_feature_samples)
+            feature_samples = self.aggregate_sources_feature_samples(
+                sample_count, sources_feature_samples
+            )
 
         return feature_samples

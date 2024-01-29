@@ -93,11 +93,8 @@ class BybitKlineFeatureSource(FeatureSource):
         self._retries = retries
         self._logger = getLogger(self.__class__.__name__)
 
-        # TODO: Simplify
-        convert_fields = set(self._fields) & self._UNCONVERTED_FIELDS
-        self._convert_field_indexes = [field for field in convert_fields]
+        self._convert_field_indexes = set(self._fields) & self._UNCONVERTED_FIELDS
 
-    # noinspection PyMethodMayBeStatic
     def _convert_sample(self, sample: list) -> None:
         for i in self._convert_field_indexes:
             sample[i] = float(sample[i])

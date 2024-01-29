@@ -219,7 +219,7 @@ class CoinMetricsFeatureSource(FeatureSource):
         # the ISO timezone suffix for UTC ("+00:00") and their Python
         # library doesn't format it for their preference
         start_time = datetime.fromtimestamp_ms(query_start_time_ms)
-        # TODO: Subtract 1 from sample_count
+        # TODO: Subtract 1 from sample_count?
         end_time_ms = start_time_ms + (interval_ms * sample_count)
         end_time = datetime.fromtimestamp_ms(end_time_ms)
         start_time_string = start_time.to_iso8601_string()
