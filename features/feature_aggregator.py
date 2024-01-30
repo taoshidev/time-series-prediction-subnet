@@ -7,7 +7,7 @@ from features import FeatureID, FeatureSource
 import logging
 import numpy as np
 from numpy import ndarray
-from statistics import mean
+from statistics import fmean
 from typing import Callable
 
 SimpleAggregator = Callable[[Iterable], int | float]
@@ -20,11 +20,40 @@ class IndividualAggregator(ABC):
 
 
 class GroupAggregator(ABC):
+    def __init__(self, feature_ids: list[FeatureID]):
+        self.feature_ids = feature_ids
+
     @abstractmethod
     def aggregate(
         self, sources_feature_samples: list[dict[FeatureID, int | float]]
     ) -> dict[FeatureID, int | float]:
         pass
+
+
+class WeightedMeanGroupAggregator(GroupAggregator):
+    def __init__(self, feature_ids: list[FeatureID], weight_feature_id: FeatureID):
+        self._value_feature_ids = feature_ids
+        self._weight_feature_id = weight_feature_id
+        super().__init__([*feature_ids, weight_feature_id])
+
+    def aggregate(
+        self, sources_features_sample: list[dict[FeatureID, int | float]]
+    ) -> dict[FeatureID, int | float]:
+        results = {}
+
+        for value_feature_id in self._value_feature_ids:
+            values = []
+            weights = []
+
+            for sample in sources_features_sample:
+                value = sample[value_feature_id]
+                weight = sample[self._weight_feature_id]
+                values.append(value)
+                weights.append(weight)
+
+            results[value_feature_id] = fmean(values, weights=weights)
+
+        return results
 
 
 class FeatureAggregator(FeatureSource):
@@ -39,11 +68,11 @@ class FeatureAggregator(FeatureSource):
         feature_ids: list[FeatureID] = None,
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
-        default_aggregator: SimpleAggregator | IndividualAggregator = mean,
+        default_aggregator: SimpleAggregator | IndividualAggregator = fmean,
         aggregation_map: dict[
             FeatureID, SimpleAggregator | IndividualAggregator
         ] = None,
-        group_aggregation_map: list[tuple[list[FeatureID], GroupAggregator]] = None,
+        group_aggregators: list[GroupAggregator] = None,
     ):
         if not sources:
             raise ValueError("No sources.")
@@ -54,16 +83,29 @@ class FeatureAggregator(FeatureSource):
         self._aggregation_map = aggregation_map
         self._logger = logging.getLogger(self.__class__.__name__)
 
-        # TODO: Implement group aggregation
-
         if feature_ids is None:
             feature_ids = []
             for source in sources:
                 feature_ids.extend(source.feature_ids)
             feature_ids = list(set(feature_ids))
 
+        if group_aggregators is not None:
+            for group_aggregator in group_aggregators:
+                for feature_id in group_aggregator.feature_ids:
+                    if feature_id in aggregation_map:
+                        raise ValueError(
+                            f"Feature {feature_id} in group_aggregators has existing "
+                            "mapping."
+                        )
+        self._group_aggregators = group_aggregators
+
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
+
+        self._feature_id_dtype_map = {
+            self.feature_ids[i]: self.feature_dtypes[i]
+            for i in range(self.feature_count)
+        }
 
     def aggregate_sources_feature_samples(
         self, sample_count: int, sources_feature_samples: list[dict[FeatureID, ndarray]]
@@ -98,6 +140,42 @@ class FeatureAggregator(FeatureSource):
                         aggregated_samples[i] = aggregator(values)
 
             results[feature_id] = aggregated_samples
+
+        if self._group_aggregators is not None:
+            for group_aggregator in self._group_aggregators:
+                group_feature_ids = group_aggregator.feature_ids
+
+                # Get all the sources that supply all the feature IDs necessary
+                group_sources = []
+                for source in sources_feature_samples:
+                    if all(feature_id in source for feature_id in group_feature_ids):
+                        group_sources.append(source)
+
+                aggregated_feature_samples = {}
+                for i in range(sample_count):
+                    sources_features_sample = []
+                    for feature_id in group_feature_ids:
+                        features_sample = {}
+                        for group_source in group_sources:
+                            features_sample[feature_id] = group_source[feature_id][i]
+                        sources_features_sample.append(features_sample)
+
+                    sample_aggregation_result = group_aggregator.aggregate(
+                        sources_features_sample  # type:ignore
+                    )
+
+                    # Extract the results from the aggregation of each sample across the
+                    # feature sources and store the aggregated values as feature
+                    # samples to be returned
+                    for feature_id, value in sample_aggregation_result:
+                        feature_samples = aggregated_feature_samples.get(feature_id)
+                        if feature_samples is None:
+                            feature_dtype = self._feature_id_dtype_map[feature_id]
+                            feature_samples = np.empty(sample_count, feature_dtype)
+                            aggregated_feature_samples[feature_id] = feature_samples
+                        feature_samples[i] = value
+
+                results.update(aggregated_feature_samples)
 
         return results
 
