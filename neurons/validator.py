@@ -21,13 +21,14 @@ from scipy.stats import yeojohnson
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from miner_config import MinerConfig
+from hashing_utils import HashingUtils
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
 from vali_objects.cmw.cmw_util import CMWUtil
 from vali_objects.dataclasses.base_objects.base_request_dataclass import BaseRequestDataClass
-from template.protocol import TrainingForward, TrainingBackward, LiveForward, LiveBackward
+from template.protocol import TrainingForward, TrainingBackward, LiveForward, LiveBackward, LiveForwardHash
 from time_util.time_util import TimeUtil
 from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
@@ -224,10 +225,18 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
             # vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
             # samples = bt.tensor(np.array(ds))
 
+            live_hash_proto = LiveForwardHash(
+                request_uuid=request_uuid,
+                stream_id=stream_type,
+                topic_id=vali_request.topic_id,
+                feature_ids=vali_request.feature_ids,
+                schema_id=vali_request.schema_id,
+                prediction_size=vali_request.prediction_size
+            )
+
             live_proto = LiveForward(
                 request_uuid=request_uuid,
                 stream_id=stream_type,
-                # samples=samples,
                 topic_id=vali_request.topic_id,
                 feature_ids=vali_request.feature_ids,
                 schema_id=vali_request.schema_id,
@@ -235,6 +244,16 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
             )
 
             try:
+                hashed_responses = dendrite.query(
+                    metagraph.axons,
+                    live_hash_proto,
+                    deserialize=True,
+                    timeout=10
+                )
+
+                # wait to allow sending at correct expected intervals
+                time.sleep(60)
+
                 responses = dendrite.query(
                     metagraph.axons,
                     live_proto,
@@ -266,31 +285,46 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                 for i, resp_i in enumerate(responses):
                     if resp_i.predictions is not None:
+                        miner_hotkey = metagraph.axons[i].hotkey
                         try:
                             predictions = resp_i.predictions.numpy()
-                            if len(predictions) == vali_request.prediction_size and len(predictions.shape) == 1:
-                                pred_metagraph_hotkeys.append(metagraph.axons[i].hotkey)
-                                # for file name
-                                output_uuid = str(uuid.uuid4())
-                                bt.logging.debug(f"axon hotkey has correctly responded: [{metagraph.axons[i].hotkey}]")
+                            hashed_predictions = HashingUtils.hash_predictions(miner_hotkey, str(predictions.tolist()))
+                            miner_provided_hashed_predictions = hashed_responses[i].hashed_predictions
 
-                                # has the right number of predictions made
-                                pdf = PredictionDataFile(
-                                    client_uuid=vali_request.client_uuid,
-                                    stream_type=vali_request.stream_type,
-                                    stream_id=stream_type,
-                                    topic_id=vali_request.topic_id,
-                                    request_uuid=request_uuid,
-                                    miner_uid=metagraph.axons[i].hotkey,
-                                    start=prediction_start_time,
-                                    end=prediction_end_time,
-                                    predictions=predictions,
-                                    prediction_size=vali_request.prediction_size,
-                                    additional_details=vali_request.additional_details
-                                )
-                                ValiUtils.save_predictions_request(output_uuid, pdf)
+                            if len(predictions) == vali_request.prediction_size and len(predictions.shape) == 1:
+                                if hashed_predictions == miner_provided_hashed_predictions:
+                                    pred_metagraph_hotkeys.append(miner_hotkey)
+                                    # for file name
+                                    output_uuid = str(uuid.uuid4())
+                                    bt.logging.debug(f"axon hotkey has correctly responded: [{miner_hotkey}]")
+
+                                    # has the right number of predictions made
+                                    pdf = PredictionDataFile(
+                                        client_uuid=vali_request.client_uuid,
+                                        stream_type=vali_request.stream_type,
+                                        stream_id=stream_type,
+                                        topic_id=vali_request.topic_id,
+                                        request_uuid=request_uuid,
+                                        miner_uid=miner_hotkey,
+                                        start=prediction_start_time,
+                                        end=prediction_end_time,
+                                        predictions=predictions,
+                                        prediction_size=vali_request.prediction_size,
+                                        additional_details=vali_request.additional_details
+                                    )
+                                    ValiUtils.save_predictions_request(output_uuid, pdf)
+                                else:
+                                    bt.logging.debug(f"incorrect match between "
+                                                     f"hashed predictions [{miner_provided_hashed_predictions}] "
+                                                     f"and predictions provided [{hashed_predictions}] "
+                                                     f"for miner [{miner_hotkey}]")
+                            else:
+                                bt.logging.debug(f"incorrectly provided "
+                                                 f"prediction size [{len(predictions)}] "
+                                                 f"or shape [{len(predictions.shape)}] "
+                                                 f"for miner [{miner_hotkey}]")
                         except Exception as e:
-                            bt.logging.debug(f"not correctly configured predictions: [{metagraph.axons[i].hotkey}]")
+                            bt.logging.debug(f"not correctly configured predictions: [{miner_hotkey}]")
                             continue
                 bt.logging.info(f"all hotkeys of accurately formatted predictions received {pred_metagraph_hotkeys}")
                 bt.logging.info("completed storing all predictions")
@@ -304,9 +338,6 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
             bt.logging.info("processing predictions ready to be weighed")
             # handle results ready to score and weigh
             request_df = vali_request.df
-            # stream_type = hash(str(request_df.stream_type) + wallet.hotkey.ss58_address)
-            # hash_object = hashlib.sha256(request_df.stream_type.encode())
-            # stream_type = hash_object.hexdigest()
             stream_type = request_df.stream_type
             try:
                 data_structure = ValiUtils.get_standardized_ds()
