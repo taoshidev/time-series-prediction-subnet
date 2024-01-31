@@ -20,6 +20,7 @@ import numpy as np
 from scipy.stats import yeojohnson
 
 from data_generator.data_generator_handler import DataGeneratorHandler
+from miner_config import MinerConfig
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
@@ -199,32 +200,34 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
             if vali_request.client_uuid is None:
                 vali_request.client_uuid = wallet.hotkey.ss58_address
 
-            if int(config.test_only_historical) == 1:
-                bt.logging.debug("using historical only with a client request")
-                start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
-            else:
-                start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
-            bt.logging.info(f"sending requested data on stream type [{stream_type}] "
-                           f"with params start date [{start_dt}] & [{end_dt}] ")
+            # will keep source code for the scenario where we still want to reference testing only historical
 
-            ds = ValiUtils.get_standardized_ds()
-            for ts_range in ts_ranges:
+            # if int(config.test_only_historical) == 1:
+            #     bt.logging.debug("using historical only with a client request")
+            #     start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
+            # else:
+            #     start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
+            # bt.logging.info(f"sending requested data on stream type [{stream_type}] "
+            #                f"with params start date [{start_dt}] & [{end_dt}] ")
+
+            # ds = ValiUtils.get_standardized_ds()
+            # for ts_range in ts_ranges:
                 # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
                 #                                                ds,
                 #                                                ts_range)
-                data_generator_handler.data_generator_handler(vali_request.topic_id,
-                                                              0,
-                                                              vali_request.additional_details,
-                                                              ds,
-                                                              ts_range)
+                # data_generator_handler.data_generator_handler(vali_request.topic_id,
+                #                                               0,
+                #                                               vali_request.additional_details,
+                #                                               ds,
+                #                                               ts_range)
 
             # vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
-            samples = bt.tensor(np.array(ds))
+            # samples = bt.tensor(np.array(ds))
 
             live_proto = LiveForward(
                 request_uuid=request_uuid,
                 stream_id=stream_type,
-                samples=samples,
+                # samples=samples,
                 topic_id=vali_request.topic_id,
                 feature_ids=vali_request.feature_ids,
                 schema_id=vali_request.schema_id,
@@ -236,7 +239,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_proto,
                     deserialize=True,
-                    timeout=180
+                    timeout=30
                 )
 
                 # # check to see # of responses
@@ -251,6 +254,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 #         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
                 #     else:
                 #         bt.logging.debug(f"index [{i}] has no proper response")
+                end_dt = TimeUtil.generate_start_timestamp(0)
+
                 prediction_start_time = TimeUtil.timestamp_to_millis(end_dt)
                 prediction_end_time = TimeUtil.timestamp_to_millis(end_dt) + \
                 TimeUtil.minute_in_millis(vali_request.prediction_size *
@@ -550,13 +555,9 @@ if __name__ == "__main__":
 
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
-
-    time_interval = random.randint(0, 550)
-    bt.logging.info("sleep time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
-        if current_time.minute in [0, 30]:
-            time.sleep(time_interval)
+        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS:
             # updating metagraph before run
             metagraph.sync(subtensor = subtensor)
             bt.logging.info(f"Metagraph: {metagraph}")

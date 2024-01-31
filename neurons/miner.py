@@ -145,15 +145,14 @@ def is_invalid_validator(metagraph, hotkey):
         bt.logging.info(f"Denied due to low stake. Min threshold [{MinerConfig.MIN_VALI_SIZE}]")
         return True
 
-    # WILL ADD BACK IN WITH RELEASE 4.4.0
     # step 3: ensure the request is in the required time window
     current_time = datetime.datetime.now()
 
-    # bt.logging.debug(f"Acceptable intervals for requests [{MinerConfig.ACCEPTABLE_INTERVALS}]")
-    #
-    # if current_time.minute not in MinerConfig.ACCEPTABLE_INTERVALS:
-    #     bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
-    #     return True
+    bt.logging.debug(f"Acceptable intervals for requests [{MinerConfig.ACCEPTABLE_INTERVALS}]")
+
+    if current_time.minute not in MinerConfig.ACCEPTABLE_INTERVALS:
+        bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
+        return True
 
     return False
 
