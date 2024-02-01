@@ -204,7 +204,7 @@ def main( config ):
             "rows": 601
         },
          "chaotic_v1_1": {
-            "model_dir": get_model_dir("mining_models/chaotic_v1_1/"),
+            "model_dir": get_model_dir("/mining_models/chaotic_v1_1/"),
             "window_size": 100,
             "id": "chaotic_v1_1",
             "features": MiningModelNHITS.base_model_dataset,

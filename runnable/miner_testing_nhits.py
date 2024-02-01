@@ -155,6 +155,7 @@ if __name__ == "__main__":
             end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
             curr_iter += iter_add
 
+
             data_structure = np.array(data_structure)
             samples = data_structure
 
