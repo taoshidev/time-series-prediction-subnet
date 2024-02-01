@@ -231,7 +231,7 @@ if __name__ == "__main__":
             }
             # CHANGE THIS 
             for model_name, mining_details in mining_models.items():
-                prep_dataset = mining_details["mining_model"]
+                #prep_dataset = mining_details["mining_model"]
                 base_mining_model = MiningModelNHITS() \
                     .set_model_dir(mining_details["model_dir"]) \
                     .load_model()
