@@ -191,6 +191,6 @@ class MiningUtils:
 
         predicted_closes = base_mining_model.predict(df=input,futr=futr)
 
-        predicted_closes = predicted_closes['NHITS'].tolist()[0]
+        predicted_closes = predicted_closes['NHITS'].tolist()
 
         return predicted_closes # needs to be a list

@@ -242,11 +242,8 @@ if __name__ == "__main__":
 
                 predicted_closes = base_mining_model.predict(df=input,futr=futr)
 
-                predicted_closes = predicted_closes['NHITS'].tolist()[0]
+                predicted_closes = predicted_closes['NHITS'].tolist()
                 
-                
-   
-
                 plot_length = range(len(predicted_closes))
 
                 close_column = data_structure[1].reshape(-1, 1)
