@@ -248,7 +248,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_hash_proto,
                     deserialize=True,
-                    timeout=10
+                    timeout=20
                 )
 
                 # wait to allow sending at correct expected intervals
@@ -258,7 +258,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_proto,
                     deserialize=True,
-                    timeout=30
+                    timeout=20
                 )
 
                 # # check to see # of responses
@@ -588,7 +588,7 @@ if __name__ == "__main__":
     bt.logging.info("Starting validator loop.")
     while True:
         current_time = datetime.now().time()
-        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS:
+        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
             # updating metagraph before run
             metagraph.sync(subtensor = subtensor)
             bt.logging.info(f"Metagraph: {metagraph}")
