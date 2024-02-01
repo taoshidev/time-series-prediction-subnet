@@ -240,7 +240,7 @@ if __name__ == "__main__":
                 futr = prepare_futr_datset(input,100)
       
 
-                predicted_closes = MiningModelNHITS.predict(df=input,futr_df=futr)
+                predicted_closes = MiningModelNHITS.predict(df=input,futr=futr)
 
                 predicted_closes = predicted_closes['NHITS'].tolist()[0]
                 
