@@ -221,7 +221,7 @@ if __name__ == "__main__":
             mining_models = {
               
                 "chaotic_v1_1": {
-                    "model_dir": "/mining_models/chaotic_v1_1/",
+                    "model_dir": "mining_models/chaotic_v1_1/",
                     "window_size": 100,
                     "id": "chaotic_v1_1",
                     "features": MiningModelNHITS.base_model_dataset,
