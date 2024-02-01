@@ -245,11 +245,12 @@ if __name__ == "__main__":
                 predicted_closes = predicted_closes['NHITS'].tolist()
                 
                 plot_length = range(len(predicted_closes))
+                print(f"lenght of prediction = {len(predicted_closes)}")
 
                 close_column = data_structure[1].reshape(-1, 1)
 
 
-                reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
+                #reshaped_predicted_closes = np.array(predicted_closes).reshape(-1, 1)
 
 
                 output_uuid = str(uuid.uuid4())
@@ -348,6 +349,9 @@ if __name__ == "__main__":
 
                 color_chosen = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
+                    print( miner_uid)
+                    print(miner_preds)
+                    print(len(miner_preds))
                     if plot_predictions and "miner" in miner_uid:
                         plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
                         color_chosen += 1
