@@ -351,12 +351,23 @@ if __name__ == "__main__":
                 color_chosen = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
                     print( miner_uid)
-                    print(miner_preds)
                     print(len(miner_preds))
+                  
+                        
                     if plot_predictions and "miner" in miner_uid:
                         plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
                         color_chosen += 1
-                    scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
+                        
+                        try:
+                            
+                             scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
+                        
+                        except: 
+                            
+                            print("error in scoring")
+                            continue
+                    
+    
 
                 print("scores ", scores)
                 if plot_predictions:
