@@ -46,7 +46,7 @@ import pandas as pd
 import numpy as np
 from pandas.tseries.offsets import Minute
 
-def prepare_futr_datset(df, num_rows):
+def prepare_futr_datset(df, num_rows=100):
     # Check if the DataFrame is empty or the 'ds' column doesn't exist
     if df.empty or 'ds' not in df.columns:
         raise ValueError("DataFrame is empty or 'ds' column is not present.")
