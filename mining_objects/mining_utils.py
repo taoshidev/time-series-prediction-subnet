@@ -189,7 +189,7 @@ class MiningUtils:
             .set_model_dir(mining_details["model_dir"]) \
             .load_model()
 
-        predicted_closes = MiningModelNHITS.predict(df=input,futr=futr)
+        predicted_closes = base_mining_model.predict(df=input,futr=futr)
 
         predicted_closes = predicted_closes['NHITS'].tolist()[0]
 
