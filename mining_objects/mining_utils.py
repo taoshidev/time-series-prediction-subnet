@@ -65,8 +65,8 @@ def prepare_futr_datset(df, num_rows=100):
     expected_futr_df['hour'] = timestamp.dt.hour
     expected_futr_df['minute'] = timestamp.dt.minute
     expected_futr_df['day'] = timestamp.dt.day
-    expected_futr_df['dayofweek'] = timestamp.dt.dayofweek
-    expected_futr_df['weekofyear'] = timestamp.dt.weekofyear
+    expected_futr_df['dayofweek'] = timestamp.dt.isocalendar().day
+    expected_futr_df['weekofyear'] = timestamp.dt.isocalendar().week
     expected_futr_df['quarter'] = timestamp.dt.quarter
     expected_futr_df['unique_id'] = df['unique_id'][0]
     # Set other columns to NaN
@@ -189,7 +189,7 @@ class MiningUtils:
             .set_model_dir(mining_details["model_dir"]) \
             .load_model()
 
-        predicted_closes = MiningModelNHITS.predict(df=input,futr_df=futr)
+        predicted_closes = MiningModelNHITS.predict(df=input,futr=futr)
 
         predicted_closes = predicted_closes['NHITS'].tolist()[0]
 

@@ -159,9 +159,9 @@ class MiningModelNHITS:
 
         return self
 
-    def predict(self, data):
+    def predict(self, df,futr):
 
-        predictions =  self.loaded_model.predict(data)
+        predictions =  self.loaded_model.predict(df,futr_df=futr.reset_index())
    
         return predictions
 
