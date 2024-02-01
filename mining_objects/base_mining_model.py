@@ -4,7 +4,7 @@
 import numpy as np
 import tensorflow
 from numpy import ndarray
-
+from neuralforecast import NeuralForecast
 
 class BaseMiningModel:
     def __init__(self, features):
@@ -109,6 +109,60 @@ class BaseMiningModel:
 
         predicted_value = self.loaded_model.predict(window_data)
         predictions.append(predicted_value)
+        return predictions
+
+    @staticmethod
+    def base_model_dataset(samples):
+        min_cutoff = 0
+
+        cutoff_close = samples.tolist()[1][min_cutoff:]
+        cutoff_high = samples.tolist()[2][min_cutoff:]
+        cutoff_low = samples.tolist()[3][min_cutoff:]
+        cutoff_volume = samples.tolist()[4][min_cutoff:]
+
+        return np.array([cutoff_close,
+                                 cutoff_high,
+                                 cutoff_low,
+                                 cutoff_volume]).T
+
+
+
+class MiningModelNHITS:
+    def __init__(self):
+        self.neurons = [[50,0]] # dont think I need
+        self.features = 4 # dont think I need
+        self.loaded_model = None
+        self.window_size = 100 
+        self.model_dir = None
+        self.batch_size = 16 # dont think I need
+        self.learning_rate = 0.01 # dont think I need
+
+    def set_neurons(self, neurons):
+        self.neurons = neurons
+        return self
+
+    def set_window_size(self, window_size):
+        self.window_size = window_size
+        return self
+
+    def set_model_dir(self, model, stream_id=None):
+        if model is None and stream_id is not None:
+            self.model_dir = f'mining_models/{stream_id}.keras'
+        elif model is not None:
+            self.model_dir = model
+        else:
+            raise Exception("stream_id is not provided to define model")
+        return self
+
+    def load_model(self):
+        self.loaded_model = NeuralForecast.load(self.model_dir)
+
+        return self
+
+    def predict(self, data):
+
+        predictions =  self.loaded_model.predict(data)
+   
         return predictions
 
     @staticmethod

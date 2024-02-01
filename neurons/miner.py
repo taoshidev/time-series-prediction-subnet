@@ -21,7 +21,7 @@ import bittensor as bt
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from miner_config import MinerConfig
-from mining_objects.base_mining_model import BaseMiningModel
+from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS
 from mining_objects.mining_utils import MiningUtils
 from time_util.time_util import TimeUtil
 from vali_config import ValiConfig
@@ -44,7 +44,7 @@ def get_config():
     )
     # Adds override arguments for network and netuid.
     parser.add_argument("--netuid", type=int, default=1, help="The chain subnet uid.")
-    parser.add_argument("--base_model", type=str, default="model_v4_1", help="Choose the base model you want to run (if youre not using a custom one).")
+    parser.add_argument("--base_model", type=str, default="chaotic_v1_1", help="Choose the base model you want to run (if youre not using a custom one).")
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
     bt.subtensor.add_args(parser)
     # Adds logging specific arguments i.e. --logging.debug ..., --logging.trace .. or --logging.logging_dir ...
@@ -102,7 +102,7 @@ def update_predictions(stream_predictions, data_generator_handler, model_chosen)
                 np_ds = np.array(ds)
 
                 # generate stream predictions
-                predicted_closes = MiningUtils.open_model_prediction_generation(np_ds, model_chosen,
+                predicted_closes = MiningUtils.open_model_prediction_generation_nhits(np_ds, model_chosen,
                                                                                 stream_prediction.prediction_size)
                 bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
@@ -203,6 +203,13 @@ def main( config ):
             "features": BaseMiningModel.base_model_dataset,
             "rows": 601
         },
+         "chaotic_v1_1": {
+            "model_dir": get_model_dir("/mining_models/chaotic_v1_1/"),
+            "window_size": 100,
+            "id": "modelch001",
+            "features": MiningModelNHITS.base_model_dataset,
+            "rows": 601
+        },
     }
 
     # Activating Bittensor's logging with the set configurations.
@@ -226,11 +233,12 @@ def main( config ):
         bt.logging.debug(f"using an existing base model [{config.base_model}]")
 
         model_chosen = base_mining_models[base_model_id]
-
-        base_mining_model = BaseMiningModel(4) \
-            .set_window_size(model_chosen["window_size"]) \
+        
+        base_mining_model = MiningModelNHITS() \
             .set_model_dir(model_chosen["model_dir"]) \
             .load_model()
+
+
     else:
         bt.logging.debug("base model not chosen.")
 

@@ -4,3 +4,6 @@ tensorflow
 scikit-learn
 pandas
 matplotlib
+numpy
+neuralforecast
+

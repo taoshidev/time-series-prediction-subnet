@@ -5,10 +5,78 @@ import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
-from mining_objects.base_mining_model import BaseMiningModel
+from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS
 from vali_config import ValiConfig
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
+
+import pandas as pd 
+
+def handler_to_model_input_format(ds):  
+    '''Prepares the data for the model input
+    '''
+    df = pd.concat([pd.DataFrame(i) for i in ds],axis=1)
+    df.columns = [
+        'ds',
+        'close',
+        'high',
+        'low',
+        'volume',
+    ]
+    df.ds= pd.to_datetime(df.ds, unit='ms')
+    timestamp = pd.to_datetime(df.ds, unit='ms')
+    df['year'] = timestamp.dt.year
+    df['month'] = timestamp.dt.month
+    df['hour'] = timestamp.dt.hour
+    df['minute'] = timestamp.dt.minute
+    df['day'] = timestamp.dt.day
+    df['dayofweek'] = timestamp.dt.isocalendar().day
+    df['weekofyear'] = timestamp.dt.isocalendar().week
+    df['quarter'] = timestamp.dt.quarter
+    # Add more features as reuired
+    df['unique_id'] ='BTCUSD'
+    df['y'] = df['close']
+    df = df.drop('close',axis=1)
+    return df 
+
+
+
+
+import pandas as pd
+import numpy as np
+from pandas.tseries.offsets import Minute
+
+def prepare_futr_datset(df, num_rows):
+    # Check if the DataFrame is empty or the 'ds' column doesn't exist
+    if df.empty or 'ds' not in df.columns:
+        raise ValueError("DataFrame is empty or 'ds' column is not present.")
+
+    # Get the last datetime from the 'ds' column
+    last_datetime = df['ds'].iloc[-1]
+
+    # Generate a date range starting from the last datetime plus 5 minutes
+    datetimes = pd.date_range(start=last_datetime + Minute(5), periods=num_rows, freq='5T')
+
+    # Create a DataFrame with the new datetimes
+    expected_futr_df = pd.DataFrame({'ds': datetimes})
+    timestamp = pd.to_datetime(expected_futr_df.ds, unit='ms')
+    expected_futr_df['year'] = timestamp.dt.year
+    expected_futr_df['month'] = timestamp.dt.month
+    expected_futr_df['hour'] = timestamp.dt.hour
+    expected_futr_df['minute'] = timestamp.dt.minute
+    expected_futr_df['day'] = timestamp.dt.day
+    expected_futr_df['dayofweek'] = timestamp.dt.dayofweek
+    expected_futr_df['weekofyear'] = timestamp.dt.weekofyear
+    expected_futr_df['quarter'] = timestamp.dt.quarter
+    expected_futr_df['unique_id'] = df['unique_id'][0]
+    # Set other columns to NaN
+
+
+    # Append the new DataFrame to the original one
+    return expected_futr_df
+
+
+
 
 
 class MiningUtils:
@@ -108,3 +176,21 @@ class MiningUtils:
 
         predicted_closes = predicted_closes.T.tolist()[0]
         return predicted_closes
+    
+    
+    @staticmethod
+    def open_model_prediction_generation_nhits(samples, mining_details, prediction_size):
+   
+        input = handler_to_model_input_format(samples)
+        futr = prepare_futr_datset(input)
+
+        # leverage base mining model class to generate predictions
+        base_mining_model = MiningModelNHITS() \
+            .set_model_dir(mining_details["model_dir"]) \
+            .load_model()
+
+        predicted_closes = MiningModelNHITS.predict(df=input,futr_df=futr)
+
+        predicted_closes = predicted_closes['NHITS'].tolist()[0]
+
+        return predicted_closes # needs to be a list
