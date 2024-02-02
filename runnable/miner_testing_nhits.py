@@ -372,8 +372,10 @@ if __name__ == "__main__":
     
                 pd.DataFrame(scores_2).to_csv('validation_check.csv',mode='a',header=False)
                 print("scores ", scores)
-                if plot_predictions:
-                 #   plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
+               # if plot_predictions:
+                    
+                  #  try:
+                   # plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
 
                   #  plt.legend()
                  #   plt.show()
