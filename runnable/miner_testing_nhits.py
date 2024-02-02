@@ -352,12 +352,12 @@ if __name__ == "__main__":
                 for miner_uid, miner_preds in request_details.predictions.items():
                     print( miner_uid)
                     
-                    print(data_structure[1])
-                    print(np.array(minrt_preds))
+                    print(np.array(miner_preds).shape)
+                    print(np.array(data_structure[1]).shape)
                     print(len(miner_preds)==len(data_structure[1]))
                         
                     if plot_predictions and "miner" in miner_uid:
-                        plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
+                        #plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
                         color_chosen += 1
                         
                         try:
