@@ -352,6 +352,7 @@ if __name__ == "__main__":
                 for miner_uid, miner_preds in request_details.predictions.items():
                     print( miner_uid)
                     print(len(miner_preds))
+                    print(data_structure[1])
                   
                         
                     if plot_predictions and "miner" in miner_uid:
