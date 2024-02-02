@@ -351,9 +351,10 @@ if __name__ == "__main__":
                 color_chosen = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
                     print( miner_uid)
-                    print(len(miner_preds))
+                    
                     print(data_structure[1])
-                  
+                    print(np.array(minrt_preds))
+                    print(len(miner_preds)==len(data_structure[1]))
                         
                     if plot_predictions and "miner" in miner_uid:
                         plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
