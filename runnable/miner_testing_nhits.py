@@ -342,19 +342,17 @@ if __name__ == "__main__":
                 print("number of results gathered: ", len(data_structure[1]))
 
                 scores = {}
+                scores_2= []
 
                 NUM_COLORS = 10
                 cm = plt.get_cmap('gist_rainbow')
                 colors = [cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)]
                 x_values = range(len(data_structure[1]))
-
+                
                 color_chosen = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
                     print( miner_uid)
                     
-                    print(np.array(miner_preds).shape)
-                    print(np.array(data_structure[1]).shape)
-                    print(len(miner_preds)==len(data_structure[1]))
                     print(Scoring.score_response(miner_preds, data_structure[1]))    
                     if plot_predictions and "miner" in miner_uid:
                         #plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
@@ -363,20 +361,22 @@ if __name__ == "__main__":
                         try:
                             
                              scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
-                        
+                             print(scores[miner_uid])
+                             scores_2.append( Scoring.score_response(miner_preds, data_structure[1]))
+                             #scores.append(Scoring.score_response(miner_preds, data_structure[1]))
                         except: 
                             
                             print("error in scoring")
                             continue
                     
     
-
+                pd.DataFrame(scores_2).to_csv('validation_check.csv',mode='a',header=False)
                 print("scores ", scores)
                 if plot_predictions:
-                    plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
+                 #   plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
 
-                    plt.legend()
-                    plt.show()
+                  #  plt.legend()
+                 #   plt.show()
 
                 scaled_scores = Scoring.simple_scale_scores(scores)
                 stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
