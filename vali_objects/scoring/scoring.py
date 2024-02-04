@@ -122,6 +122,11 @@ class Scoring:
 
         score_miner_uids = [score[0] for score in scores]
 
+        if len(vweights) != 0:
+            vweight_avg = sum(vweights.values()) / len(vweights)
+        else:
+            vweight_avg = 0
+
         for key, value in vweights.items():
             if key not in score_miner_uids:
                 vweights[key] = Scoring.basic_ema((vweights[key] +
@@ -130,11 +135,12 @@ class Scoring:
 
         for score in scores:
             if score[0] in vweights:
-                vweights[score[0]] = Scoring.basic_ema((vweights[score[0]] +
-                                                        (score[1] * geometric_mean_of_percentile))
-                                                       / (1 + geometric_mean_of_percentile), vweights[score[0]])
+                previous_ema = vweights[score[0]]
             else:
-                vweights[score[0]] = score[1] * geometric_mean_of_percentile
+                previous_ema = vweight_avg
+            vweights[score[0]] = Scoring.basic_ema((previous_ema +
+                                                    (score[1] * geometric_mean_of_percentile))
+                                                   / (1 + geometric_mean_of_percentile), previous_ema)
 
         ValiUtils.set_vali_weights_bkp(vweights)
         return vweights, geometric_mean_of_percentile

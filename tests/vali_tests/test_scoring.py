@@ -81,9 +81,9 @@ class TestScoring(TestBase):
                          '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 35.54618500386289,
                          '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 36.54618500386289}
         scaled_scores_results = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 1.0,
-         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe': 0.6666666666666667,
-         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 0.33333333333333337,
-         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 0.0}
+                                 '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe': 0.6666666666666667,
+                                 '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 0.33333333333333337,
+                                 '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 0.0}
 
         scaled_scores = Scoring.simple_scale_scores(sample_scores)
         self.assertEqual(scaled_scores_results, scaled_scores)
@@ -118,7 +118,7 @@ class TestScoring(TestBase):
 
     def test_update_weights_using_historical_distributions(self):
         try:
-            os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+            os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
         except:
             pass
 
@@ -131,9 +131,11 @@ class TestScoring(TestBase):
 
         self.assertEqual(gmop, geometric_mean_of_percentile)
 
-        new_scores = {score[0]: score[1] * geometric_mean_of_percentile for score in scores}
-
-        self.assertEqual(new_scores, vweights)
+        self.assertEqual({'miner1': 0.0004119237974115415,
+                          'miner2': 0.000823847594823083,
+                          'miner3': 0.0012357713922346242,
+                          'miner4': 0.001647695189646166},
+                         vweights)
 
         set_vweights = ValiUtils.get_vali_weights_json()
         self.assertEqual(vweights, set_vweights)
@@ -141,12 +143,36 @@ class TestScoring(TestBase):
         scores.pop()
         ds = [[], [30000, 30100, 30150]]
 
+        # testing if we remove a miner their score begins to drop
+
         vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
-        os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+
+        self.assertEqual({'miner1': 0.0006828611697138493,
+                          'miner2': 0.0013657223394276986,
+                          'miner3': 0.002048583509141548,
+                          'miner4': 0.0016432125023400094},
+                         vweights)
+
+        # testing adding a new miner that they fit to the average even if the scores
+        # have a larger magnitude move
+
+        ds = [[], [30000, 3100, 32000]]
+        scores.append(("miner5", 0.5))
+
+        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+
+        self.assertEqual({'miner1': 0.002709741554005403,
+                          'miner2': 0.005419483108010806,
+                          'miner3': 0.00812922466201621,
+                          'miner4': 0.0016096775533126623,
+                          'miner5': 0.011609888862193414},
+                         vweights)
+
+        os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
 
     def test_update_weights_remove_deregistrations(self):
         try:
-            os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+            os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
         except:
             pass
 
@@ -169,11 +195,11 @@ class TestScoring(TestBase):
 
         self.assertEqual(set_vweights, vweights)
 
-        os.remove(ValiBkpUtils.get_vali_weights_dir()+ValiBkpUtils.get_vali_weights_file())
+        os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
 
     def test_update_weights_using_historical_distributions_with_dummy_data(self):
         scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
-        data = [[],[10, 20, 30, 40]]
+        data = [[], [10, 20, 30, 40]]
         updated_scores = Scoring.update_weights_using_historical_distributions(scores, data)
 
     def test_calculate_directional_accuracy(self):
