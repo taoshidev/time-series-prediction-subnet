@@ -350,15 +350,14 @@ def main( config ):
         bt.logging.debug(f"received lf request on stream type [{synapse.stream_id}] "
                          f"by vali [{synapse.dendrite.hotkey}]")
 
-        # Convert the string back to a list using literal_eval
+        # need to determine if the validator has correctly updated to the latest logic. This is
+        # important for backward compatibility so miners dont lose incentive
         try:
             if synapse.stream_id in sent_preds and synapse.dendrite.hotkey in sent_preds[synapse.stream_id]:
                 stream_preds = sent_preds[synapse.stream_id][synapse.dendrite.hotkey]
                 synapse.predictions = bt.tensor(np.array(stream_preds))
-                # remove hotkey for usage in next request
-                del sent_preds[synapse.stream_id][synapse.dendrite.hotkey]
             else:
-                bt.logging.error(f"suspecting validator has not updated to V5, sending back non-hash based preds")
+                bt.logging.warning(f"suspecting validator has not updated to V5, sending back non-hash based preds")
                 stream_preds = miner_preds[synapse.stream_id]
                 synapse.predictions = bt.tensor(np.array(stream_preds))
             bt.logging.debug(f"sending lf [{stream_preds}]")
