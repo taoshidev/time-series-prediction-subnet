@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from feature_sources import TemporalFeatureSource
 from features import FeatureID

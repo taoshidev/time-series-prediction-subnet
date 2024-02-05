@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from features import FeatureID, FeatureCollector
 from feature_sources import TemporalFeatureSource, TestFeatureSource
@@ -7,8 +7,8 @@ import unittest
 
 
 class TestFeatureAggregator(unittest.TestCase):
+    @staticmethod
     def compare_samples(
-        self,
         test_source: TestFeatureSource,
         temporal_source: TemporalFeatureSource,
         feature_collector: FeatureCollector,
@@ -29,9 +29,11 @@ class TestFeatureAggregator(unittest.TestCase):
         )
 
         for feature_id in test_source.feature_ids:
+            # noinspection PyUnresolvedReferences
             assert (collector_samples[feature_id] == test_samples[feature_id]).all()
 
         for feature_id in temporal_source.feature_ids:
+            # noinspection PyUnresolvedReferences
             assert (collector_samples[feature_id] == temporal_samples[feature_id]).all()
 
     def test_binance_bybit_coinbase_kline_feature_aggregator(self):
@@ -66,7 +68,11 @@ class TestFeatureAggregator(unittest.TestCase):
             _SAMPLE_COUNT,
         )
 
-        start_time_ms = _START_TIME_MS - (_LOOK_BACK_SIZE * _INTERVAL_MS)
+        start_time_ms = (
+            _START_TIME_MS
+            + (_SAMPLE_COUNT * _INTERVAL_MS)
+            - (_LOOK_BACK_SIZE * _INTERVAL_MS)
+        )
 
         self.compare_samples(
             test_source,

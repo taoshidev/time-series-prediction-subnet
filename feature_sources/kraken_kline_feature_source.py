@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from enum import IntEnum
 from features import FeatureCompaction, FeatureSource, FeatureID
@@ -8,7 +8,6 @@ import math
 import numpy as np
 from numpy import ndarray
 import requests
-from requests import JSONDecodeError
 import statistics
 import time
 from time_util import time_span_ms

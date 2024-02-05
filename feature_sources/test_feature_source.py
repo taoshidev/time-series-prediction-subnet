@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from features import FeatureID, FeatureSource
 import numpy as np

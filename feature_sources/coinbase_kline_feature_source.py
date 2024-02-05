@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from enum import IntEnum
 from features import FeatureCompaction, FeatureSource, FeatureID
@@ -74,6 +74,7 @@ class CoinbaseKlineFeatureSource(FeatureSource):
         self._retries = retries
         self._logger = getLogger(self.__class__.__name__)
 
+    # noinspection PyMethodMayBeStatic
     def _convert_samples(self, data_rows: list[list]) -> None:
         _OPEN_TIME = CoinbaseKlineField.OPEN_TIME
         _SEC_TO_MS = time_span_ms(seconds=1)

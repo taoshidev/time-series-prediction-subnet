@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from enum import IntEnum
 from features import FeatureCompaction, FeatureSource, FeatureID

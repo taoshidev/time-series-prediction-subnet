@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from .binary_file_feature_storage import BinaryFileFeatureStorage
 from .binance_kline_feature_source import (

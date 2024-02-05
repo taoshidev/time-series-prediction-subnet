@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from features import FeatureID, FeatureSource
@@ -20,7 +20,7 @@ class FeatureCollector(FeatureSource):
             cache_copy = {}
             for key, value in feature_samples.items():
                 cache_copy[key] = value.copy()
-            self.samples = cache_copy
+            self.feature_samples = cache_copy
             self.start_time_ms = start_time_ms
             self.interval_ms = interval_ms
             self.sample_count = sample_count
@@ -63,6 +63,9 @@ class FeatureCollector(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
+        # Access cache through local variable to ensure thread safety
+        cache = self._cache
+
         uncached_samples = {}
         cache_start_index = 0
         cache_end_index = 0
@@ -71,20 +74,20 @@ class FeatureCollector(FeatureSource):
         uncached_start_time_ms = start_time_ms
         uncached_sample_count = sample_count
 
-        if (self._cache is not None) and (interval_ms == self._cache.interval_ms):
+        if (cache is not None) and (interval_ms == cache.interval_ms):
             # For simplicity and speed, the cache will only hit if the last portion of
             # the last collection overlaps with the previous collection
-            if self._cache.start_time_ms <= start_time_ms < self._cache.end_time_ms:
+            if cache.start_time_ms <= start_time_ms < cache.end_time_ms:
                 cache_start_index = int(
-                    (start_time_ms - self._cache.start_time_ms) / interval_ms
+                    (start_time_ms - cache.start_time_ms) / interval_ms
                 )
-                cached_sample_count = self._cache.sample_count - cache_start_index
+                cached_sample_count = cache.sample_count - cache_start_index
                 cache_end_index = cache_start_index + cached_sample_count
 
                 if cached_sample_count == sample_count:
                     save_cache_results = False
                 else:
-                    uncached_start_time_ms = self._cache.end_time_ms
+                    uncached_start_time_ms = cache.end_time_ms
                     uncached_sample_count = sample_count - cached_sample_count
 
         collect_uncached = cached_sample_count != sample_count
@@ -132,16 +135,17 @@ class FeatureCollector(FeatureSource):
         if cached_sample_count == 0:
             feature_samples = uncached_samples
         else:
+            cache_feature_samples = cache.feature_samples
             feature_samples = {}
             for feature_id in self.feature_ids:
-                feature_samples = np.empty(sample_count)
-                cached_feature_samples = self._cache[feature_id]
-                feature_samples[:cached_sample_count] = cached_feature_samples[
+                samples = np.empty(sample_count)
+                cached_samples = cache_feature_samples[feature_id]
+                samples[:cached_sample_count] = cached_samples[
                     cache_start_index:cache_end_index
                 ]
                 if collect_uncached:
-                    feature_samples[cached_sample_count:] = uncached_samples[feature_id]
-                feature_samples[feature_id] = feature_samples
+                    samples[cached_sample_count:] = uncached_samples[feature_id]
+                feature_samples[feature_id] = samples
 
         if save_cache_results:
             self._cache = self.FeatureSamplesCache(

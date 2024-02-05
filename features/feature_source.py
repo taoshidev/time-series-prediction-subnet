@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from abc import ABC, abstractmethod
 from enum import IntEnum
@@ -79,8 +79,19 @@ class FeatureSource(ABC):
         pass
 
     def feature_samples_to_array(
-        self, feature_samples: dict[FeatureID, ndarray], dtype: np.dtype = np.float32
+        self,
+        feature_samples: dict[FeatureID, ndarray],
+        feature_ids: list[FeatureID] = None,
+        start: int = 0,
+        stop: int = None,
+        dtype: np.dtype = np.float32,
     ) -> ndarray:
+        if feature_ids is None:
+            feature_ids = self.feature_ids
+            feature_count = self.feature_count
+        else:
+            feature_count = len(feature_ids)
+
         sample_count = None
         for feature_id, samples in feature_samples.items():
             feature_sample_count = len(samples)
@@ -92,11 +103,57 @@ class FeatureSource(ABC):
                     f" samples when {sample_count} expected."
                 )
 
-        results = np.empty(shape=(self.feature_count, sample_count), dtype=dtype)
-        for i, feature_id in enumerate(self.feature_ids):
+        if stop is None:
+            stop = sample_count
+        elif stop > sample_count:
+            raise ValueError()  # TODO: Implement
+
+        if start >= stop:
+            raise ValueError  # TODO: Implement
+
+        sample_count = stop - start
+
+        results = np.empty(shape=(feature_count, sample_count), dtype=dtype)
+        for i, feature_id in enumerate(feature_ids):
             samples = feature_samples.get(feature_id)
             if samples is None:
                 raise RuntimeError(f"Feature {feature_id} is missing.")
-            results[i] = samples
+            results[i] = samples[start:stop]
 
         return results.T
+
+    def array_to_feature_samples(
+        self,
+        array: ndarray,
+        feature_ids: list[FeatureID] = None,
+        start: int = 0,
+        stop: int = None,
+    ) -> dict[FeatureID, ndarray]:
+        if feature_ids is None:
+            feature_ids = self.feature_ids
+            feature_count = self.feature_count
+        else:
+            feature_count = len(feature_ids)
+
+        shape = array.shape
+        if len(shape) != 2:
+            raise ValueError()  # TODO: Implement
+
+        if shape[1] != feature_count:
+            raise ValueError()  # TODO: Implement
+
+        sample_count = shape[0]
+        if stop is None:
+            stop = sample_count
+        elif stop > sample_count:
+            raise ValueError()  # TODO: Implement
+
+        if start >= stop:
+            raise ValueError  # TODO: Implement
+
+        array = array.T
+        results = {}
+        for feature_index, feature_id in feature_ids:
+            results[feature_id] = array[feature_index][start:stop]
+
+        return results

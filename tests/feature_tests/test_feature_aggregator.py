@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from features import FeatureID, FeatureAggregator
 from feature_sources import (
@@ -9,7 +9,7 @@ from feature_sources import (
     CoinbaseKlineFeatureSource,
     CoinbaseKlineField,
 )
-from statistics import mean
+from statistics import fmean
 from time_util import datetime, time_span_ms
 import unittest
 
@@ -58,7 +58,7 @@ class TestFeatureAggregator(unittest.TestCase):
         test_aggregator = FeatureAggregator(
             sources=[binance_source, bybit_source, coinbase_source],
             aggregation_map={
-                FeatureID.BTC_USD_CLOSE: mean,
+                FeatureID.BTC_USD_CLOSE: fmean,
                 FeatureID.BTC_USD_HIGH: max,
                 FeatureID.BTC_USD_LOW: min,
                 FeatureID.BTC_USD_VOLUME: sum,
@@ -80,21 +80,21 @@ class TestFeatureAggregator(unittest.TestCase):
         expected_values = {
             # Open time: 1672530900000
             0: {
-                FeatureID.BTC_USD_CLOSE: mean((16542.40000000, 16541.8, 16530.35)),
+                FeatureID.BTC_USD_CLOSE: fmean((16542.40000000, 16541.8, 16530.35)),
                 FeatureID.BTC_USD_HIGH: max(16544.47000000, 16542.97, 16532),
                 FeatureID.BTC_USD_LOW: min(16535.05000000, 16534.59, 16525.5),
                 FeatureID.BTC_USD_VOLUME: sum((227.06684000, 8.600131, 65.73377818)),
             },
             # Open time: 1674405600000
             6249: {
-                FeatureID.BTC_USD_CLOSE: mean((22831.88000000, 22828.44, 22835.7)),
+                FeatureID.BTC_USD_CLOSE: fmean((22831.88000000, 22828.44, 22835.7)),
                 FeatureID.BTC_USD_HIGH: max(22831.88000000, 22829.99, 22835.7),
                 FeatureID.BTC_USD_LOW: min(22797.00000000, 22802.25, 22801.94),
                 FeatureID.BTC_USD_VOLUME: sum((665.50900000, 13.348506, 44.66172957)),
             },
             # Open time: 1674780600000
             -1: {
-                FeatureID.BTC_USD_CLOSE: mean((22913.75000000, 22907.61, 22917.36)),
+                FeatureID.BTC_USD_CLOSE: fmean((22913.75000000, 22907.61, 22917.36)),
                 FeatureID.BTC_USD_HIGH: max(22982.91000000, 22979.14, 22985.1),
                 FeatureID.BTC_USD_LOW: min(22897.02000000, 22900.01, 22900.4),
                 FeatureID.BTC_USD_VOLUME: sum((1445.37762000, 27.59141, 146.46861788)),

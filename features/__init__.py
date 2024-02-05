@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from .feature_id import FeatureID
 from .feature_source import FeatureCompaction, FeatureSource

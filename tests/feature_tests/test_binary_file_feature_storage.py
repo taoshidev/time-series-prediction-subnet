@@ -1,4 +1,4 @@
-# developer: Taoshidev
+# developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
 from feature_sources import BinaryFileFeatureStorage, TemporalFeatureSource
 from time_util import time_span_ms
@@ -50,6 +50,7 @@ class TestBinaryFileFeatureStorage(unittest.TestCase):
             )
 
             for feature_id in temporal_feature_ids:
+                # noinspection PyUnresolvedReferences
                 assert (
                     stored_feature_samples[feature_id]
                     == expected_feature_samples[feature_id]
@@ -69,6 +70,7 @@ class TestBinaryFileFeatureStorage(unittest.TestCase):
             )
 
             for feature_id in temporal_feature_ids:
+                # noinspection PyUnresolvedReferences
                 assert (
                     stored_feature_samples[feature_id]
                     == expected_feature_samples[feature_id]
