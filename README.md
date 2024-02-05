@@ -262,7 +262,15 @@ $ nohup python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.h
 
 # Running a Miner
 
-If you're running a miner, you should see two types of requests: LiveForward and LiveBackward. LiveForward will be when your miner performs predictions; LiveBackward will receive the results that occurred live if you want to use them for any updating purposes.
+If you're running a miner, you should see three types of requests: LiveForwardHash, LiveForward, and LiveBackward. 
+
+LiveForwardHash is requested first, which will be a hash of your predictions. LiveForward will be requested 60 seconds later which
+will request the actual predictions made (non-hashed). Using the hash and the actual predictions, validators can validate the 
+authenticity of the predictions made, ensuring no participants are copying anothers.
+
+- **LiveForwardHash** - will be when you provide a hash of your predictions.
+- **LiveForward** - will be when your miner provides your actual predictions.
+- **LiveBackward** - will receive the results that occurred live if you want to use them for any updating purposes.
 
 You'll receive rewards for your predictions `~10 hours` after making them. Therefore, if you start running on the network, you should expect a lag in receiving rewards. Predictions are reviewed and rewarded every 30 minutes.
 
@@ -403,9 +411,9 @@ $ python neurons/miner.py --netuid 3 --subtensor.network test --wallet.name mine
   <summary>What is the expected data input and output as a miner?</summary>
   <br>
   <p>
-For financial markets, the goal will be to predict the next 8 hours of closes on a 5m interval (100 closes). The subnet will provide the trade pair's last 25-30 days of 5m data to help achieve that goal. You'll likely want to incorporate additional data into your modeling techniques.
+For financial markets, the goal will be to predict the next 8 hours of closes on a 5m interval (100 closes).
+At a minimum, you should be using OHLCV. You should consider using additional data sources in order to be competitive.
     
-    Input Features: [close_timestamp (milliseconds), close, high, low, volume]
     Target Feature: [close]
   </p>
 </details>
