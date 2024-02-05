@@ -21,7 +21,7 @@ import bittensor as bt
 
 from data_generator.data_generator_handler import DataGeneratorHandler
 from miner_config import MinerConfig
-from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS
+from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS,MiningModelStack
 from mining_objects.mining_utils import MiningUtils
 from time_util.time_util import TimeUtil
 from vali_config import ValiConfig
@@ -101,7 +101,7 @@ def update_predictions(stream_predictions, data_generator_handler, model_chosen)
                                                                   ts_range)
                 np_ds = np.array(ds)
 
-                # generate stream predictions
+                # generate stream predictions -> change to:  open_model_prediction_generation_stack
                 predicted_closes = MiningUtils.open_model_prediction_generation_nhits(np_ds, model_chosen,
                                                                                 stream_prediction.prediction_size)
                 bt.logging.debug(f"predicted closes [{predicted_closes}]")
@@ -210,6 +210,13 @@ def main( config ):
             "features": MiningModelNHITS.base_model_dataset,
             "rows": 601
         },
+        "chaotic_multi": {
+            "model_dir": get_model_dir("/mining_models/chaotic_multi/"),
+            "window_size": 100,
+            "id": "chaotic_multi",
+            "features": MiningModelStack.base_model_dataset,
+            "rows": 601
+        },
     }
 
     # Activating Bittensor's logging with the set configurations.
@@ -234,9 +241,17 @@ def main( config ):
 
         model_chosen = base_mining_models[base_model_id]
         
-        base_mining_model = MiningModelNHITS() \
-            .set_model_dir(model_chosen["model_dir"]) \
-            .load_model()
+        if base_model_id == 'chaotic_multi': 
+            base_mining_model = MiningModelStack() \
+                .set_model_dir(model_chosen["model_dir"]) \
+                .load_model()
+        
+        elif base_model_id == 'chaotic_v1_1':
+            
+            base_mining_model = MiningModelNHITS() \
+                .set_model_dir(model_chosen["model_dir"]) \
+                .load_model()
+                
 
 
     else:

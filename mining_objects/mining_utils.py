@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
-from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS
+from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS,MiningModelStack
 from vali_config import ValiConfig
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
@@ -36,7 +36,6 @@ def handler_to_model_input_format(ds):
     # Add more features as reuired
     df['unique_id'] ='BTCUSD'
     df['y'] = df['close']
-    df = df.drop('close',axis=1)
     return df 
 
 
@@ -194,3 +193,31 @@ class MiningUtils:
         predicted_closes = predicted_closes['NHITS'].tolist()
 
         return predicted_closes # needs to be a list
+
+
+    
+    @staticmethod
+    def open_model_prediction_generation_stack(samples, mining_details, prediction_size):
+   
+        input = handler_to_model_input_format(samples)
+        futr = prepare_futr_datset(input)
+        last_set = input.iloc[-1200:-100] # drop last 100 candles 
+        last_set_futr = prepare_futr_datset(last_set)
+
+
+        # leverage base mining model class to generate predictions
+        base_mining_model = MiningModelStack() \
+            .set_model_dir(mining_details["model_dir"]) \
+            .load_models()
+            
+        best_model = base_mining_model.select_model(df=last_set,futr=last_set_futr,ground_truth=input['close'].tail(100))
+        model_name = best_model.models[0]
+        predicted_closes = best_model.predict(df=input,futr=futr)
+        
+        model_type = base_mining_model.type 
+
+        predicted_closes = predicted_closes[model_name].tolist() # change this
+
+        return predicted_closes # needs to be a list
+    
+    

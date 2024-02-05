@@ -5,6 +5,9 @@ import numpy as np
 import tensorflow
 from numpy import ndarray
 from neuralforecast import NeuralForecast
+import pandas as pd 
+from sklearn.metrics import mean_squared_error
+import os 
 
 class BaseMiningModel:
     def __init__(self, features):
@@ -165,6 +168,73 @@ class MiningModelNHITS:
    
         return predictions
 
+    @staticmethod
+    def base_model_dataset(samples):
+        min_cutoff = 0
+
+        cutoff_close = samples.tolist()[1][min_cutoff:]
+        cutoff_high = samples.tolist()[2][min_cutoff:]
+        cutoff_low = samples.tolist()[3][min_cutoff:]
+        cutoff_volume = samples.tolist()[4][min_cutoff:]
+
+        return np.array([cutoff_close,
+                                 cutoff_high,
+                                 cutoff_low,
+                                 cutoff_volume]).T
+        
+        
+        
+class MiningModelStack:
+    def __init__(self):
+        self.neurons = [[50,0]] # dont think I need
+        self.features = 4 # dont think I need
+        self.loaded_model = None
+        self.window_size = 100 
+        self.model_dir = None
+        self.loaded_models = None
+        self.batch_size = 16 # dont think I need
+        self.learning_rate = 0.01 # dont think I need
+
+    def set_neurons(self, neurons):
+        self.neurons = neurons
+        return self
+
+    def set_window_size(self, window_size):
+        self.window_size = window_size
+        return self
+
+    def set_model_dir(self, model, stream_id=None):
+        self.model_dir = model
+        return self 
+    
+    def set_model_type(self,modelname): 
+        self.type = modelname
+        return self 
+   
+    
+    def load_models(self):
+        dirs = os.listdir(self.model_dir) # set to full path
+        model_dirs = [os.path.join(self.model_dir, entry) for entry in model_dirs if os.path.isdir(os.path.join(self.model_dir, entry))]
+
+        dict = [ NeuralForecast.load(model) for model in self.model_dirs ]
+        self.loaded_models = dict 
+        return self
+
+    def predict(self, df,futr):
+
+        predictions =  self.loaded_model.predict(df,futr_df = futr.reset_index())
+   
+        return predictions
+    
+    
+    def select_model(self,df,futr,ground_truth):
+        
+        predictions = [ model.predict(df,futr_df = futr.reset_index()).drop(columns='ds') for model in self.loaded_models] 
+        errors = [ mean_squared_error(prediction.values,ground_truth.values , squared=False)  for prediction in predictions]
+        min_error = errors.index(min(errors)) # find index 
+        return self.loaded_models[min_error]
+       
+    
     @staticmethod
     def base_model_dataset(samples):
         min_cutoff = 0
