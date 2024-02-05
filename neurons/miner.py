@@ -147,7 +147,7 @@ def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
         bt.logging.info(f"Denied due to low stake. Min threshold [{MinerConfig.MIN_VALI_SIZE}]")
         return True
 
-    # ADDING WITH V5.0.0
+    # ADDING WITH V5.1.0
     # step 3: ensure the request is in the required time window
     # current_time = datetime.datetime.now()
     #
@@ -313,13 +313,15 @@ def main( config ):
 
     def live_hash_f(synapse: template.protocol.LiveForwardHash) -> template.protocol.LiveForwardHash:
 
-        bt.logging.debug(f"received lf request on stream type [{synapse.stream_id}]")
-
+        bt.logging.debug(f"received lf hash request on stream type [{synapse.stream_id}] "
+                         f"by vali [{synapse.dendrite.hotkey}]")
         # Convert the string back to a list using literal_eval
         try:
             if synapse.stream_id in miner_preds:
+                if synapse.stream_id not in sent_preds:
+                    sent_preds[synapse.stream_id] = {}
                 stream_preds = miner_preds[synapse.stream_id]
-                sent_preds[synapse.stream_id] = stream_preds
+                sent_preds[synapse.stream_id][synapse.dendrite.hotkey] = stream_preds
                 hashed_preds = HashingUtils.hash_predictions(wallet.hotkey.ss58_address, str(stream_preds))
 
                 synapse.hashed_predictions = hashed_preds
@@ -345,18 +347,23 @@ def main( config ):
 
     def live_f(synapse: template.protocol.LiveForward) -> template.protocol.LiveForward:
 
-        bt.logging.debug(f"received lf request on stream type [{synapse.stream_id}]")
+        bt.logging.debug(f"received lf request on stream type [{synapse.stream_id}] "
+                         f"by vali [{synapse.dendrite.hotkey}]")
 
         # Convert the string back to a list using literal_eval
         try:
-            if synapse.stream_id in sent_preds:
-                stream_preds = sent_preds[synapse.stream_id]
+            if synapse.stream_id in sent_preds and synapse.dendrite.hotkey in sent_preds[synapse.stream_id]:
+                stream_preds = sent_preds[synapse.stream_id][synapse.dendrite.hotkey]
                 synapse.predictions = bt.tensor(np.array(stream_preds))
-                bt.logging.debug(f"sending lf [{stream_preds}]")
-                bt.logging.debug(f'sending lf with length [{len(stream_preds)}]')
-                return synapse
+                # remove hotkey for usage in next request
+                del sent_preds[synapse.stream_id][synapse.dendrite.hotkey]
             else:
-                bt.logging.error(f"miner preds not stored properly in memory")
+                bt.logging.error(f"suspecting validator has not updated to V5, sending back non-hash based preds")
+                stream_preds = miner_preds[synapse.stream_id]
+                synapse.predictions = bt.tensor(np.array(stream_preds))
+            bt.logging.debug(f"sending lf [{stream_preds}]")
+            bt.logging.debug(f'sending lf with length [{len(stream_preds)}]')
+            return synapse
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
