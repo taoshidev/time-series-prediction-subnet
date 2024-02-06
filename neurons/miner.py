@@ -250,7 +250,7 @@ def main( config ):
             
             base_mining_model = MiningModelNHITS() \
                 .set_model_dir(model_chosen["model_dir"]) \
-                .load_model()
+                .load_models()
                 
 
 
