@@ -140,7 +140,7 @@ if __name__ == "__main__":
                 }
             )
 
-            iter_add = 601
+            iter_add = 1
 
             data_structure = MiningUtils.get_file(
                 "/runnable/historical_financial_data/data.pickle", True)
@@ -323,7 +323,6 @@ if __name__ == "__main__":
             # logic to gather and score predictions
             for request_details in predictions_to_complete:
                 
-                try: 
                     request_df = request_details.df
                     data_structure = ValiUtils.get_standardized_ds()
                     data_generator_handler = DataGeneratorHandler()
@@ -435,14 +434,12 @@ if __name__ == "__main__":
 
                     curr_iter -= 501
                 
-                except: 
-                
-                  break 
 
             # end results are stored in the path validation/backups/valiconfig.json (same as it goes on the subnet)
             # ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))
         except MinResponsesException as e:
-            print(e)
-            print("removing files in validation/predictions")
-            for file in ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir()):
-                os.remove(file)
+           # print(e)
+           # print("removing files in validation/predictions")
+           # for file in ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir()):
+           #     os.remove(file)
+           break
