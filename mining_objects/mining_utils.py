@@ -218,7 +218,7 @@ class MiningUtils:
             
         best_model = base_mining_model.select_model(df=last_set,futr=last_set_futr,ground_truth=input['close'].tail(25))
         model_name = best_model.models[0]
-        predicted_closes = best_model.predict(df=input,futr=futr)
+        predicted_closes = best_model.predict(df=input,futr_df=futr)
         
         model_type = base_mining_model.type 
 
