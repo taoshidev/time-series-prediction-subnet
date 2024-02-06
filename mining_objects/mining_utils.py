@@ -201,7 +201,7 @@ class MiningUtils:
    
         input = handler_to_model_input_format(samples)
         futr = prepare_futr_datset(input)
-        last_set = input.iloc[-1200:-100] # drop last 100 candles 
+        last_set = input.iloc[-1200:-25] # drop last 100 candles 
         last_set_futr = prepare_futr_datset(last_set)
 
 
@@ -210,7 +210,7 @@ class MiningUtils:
             .set_model_dir(mining_details["model_dir"]) \
             .load_models()
             
-        best_model = base_mining_model.select_model(df=last_set,futr=last_set_futr,ground_truth=input['close'].tail(100))
+        best_model = base_mining_model.select_model(df=last_set,futr=last_set_futr,ground_truth=input['close'].tail(25))
         model_name = best_model.models[0]
         predicted_closes = best_model.predict(df=input,futr=futr)
         
