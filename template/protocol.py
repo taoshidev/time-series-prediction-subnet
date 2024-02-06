@@ -3,42 +3,45 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
 
-import typing
 import bittensor as bt
 from pydantic import Field
-
-from typing import List
+from typing import Optional
 
 
 class BaseProtocol(bt.Synapse):
     request_uuid: str = Field(..., allow_mutation=False)
     stream_id: str = Field(..., allow_mutation=False)
-    samples: typing.Optional[bt.Tensor] = None
-    topic_id: typing.Optional[int] = Field(..., allow_mutation=False)
+    samples: Optional[bt.Tensor] = None
+    topic_id: Optional[int] = Field(..., allow_mutation=False)
 
 
 class Forward(BaseProtocol):
-    feature_ids: List[float]
+    feature_ids: list[float]
     prediction_size: int = Field(..., allow_mutation=False)
-    schema_id: typing.Optional[int] = Field(..., allow_mutation=False)
-    predictions: typing.Optional[bt.Tensor] = None
+    schema_id: Optional[int] = Field(..., allow_mutation=False)
 
-    # def deserialize(self) -> bt.Tensor:
-    #     return self.predictions
+
+class ForwardPrediction(Forward):
+    predictions: Optional[bt.Tensor] = None
+
+
+class ForwardHash(Forward):
+    hashed_predictions: Optional[str] = None
 
 
 class Backward(BaseProtocol):
     received: bool = None
 
-    # def deserialize(self) -> bool:
-    #     return self.received
 
-
-class TrainingForward(Forward):
+class TrainingForward(ForwardPrediction):
     pass
 
 
-class LiveForward(Forward):
+class LiveForward(ForwardPrediction):
+    pass
+
+
+class LiveForwardHash(ForwardHash):
     pass
 
 
@@ -48,6 +51,3 @@ class TrainingBackward(Backward):
 
 class LiveBackward(Backward):
     pass
-
-
-

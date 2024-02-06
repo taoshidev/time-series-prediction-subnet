@@ -1,126 +1,203 @@
-# developer: Taoshidev
-# Copyright © 2023 Taoshi Inc
-
+# developer: taoshi-mbrown
+# Copyright © 2023 Taoshi, LLC
+from keras.callbacks import Callback, EarlyStopping
+from keras.layers import Dense, Dropout, Layer, LSTM
+from keras.mixed_precision import Policy
+from keras.models import load_model, Sequential
+from keras.optimizers import Adam
 import numpy as np
-import tensorflow
 from numpy import ndarray
+import resource
+import tensorflow as tf
+
+
+def _get_dataset_options():
+    dataset_options = tf.data.Options()
+    dataset_options.experimental_distribute.auto_shard_policy = (
+        tf.data.experimental.AutoShardPolicy.DATA
+    )
+    return dataset_options
+
+
+_DATASET_OPTIONS = _get_dataset_options()
+
+
+class ResourceUsageCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        main_memory_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        main_memory_usage /= 1024
+        gpu_memory_usage = tf.config.experimental.get_memory_info("GPU:0")["current"]
+        gpu_memory_usage /= 1048576
+        print(f" - Memory (MiB): {main_memory_usage:,.2f}, {gpu_memory_usage:,.2f}")
+
+
+def _get_sparse_indexes(prediction_length: int, prediction_count: int):
+    if prediction_count > prediction_length:
+        raise ValueError("prediction_count cannot be greater than prediction_length.")
+
+    results = [0] * prediction_count
+
+    if prediction_count > 1:
+        stride = int(prediction_length / (prediction_count - 1))
+        prediction_index = stride
+
+        for i in range(1, prediction_count - 1):
+            results[i] = prediction_index
+            prediction_index += stride
+
+        results[-1] = prediction_length - 1
+
+    return results
 
 
 class BaseMiningModel:
-    def __init__(self, features):
-        self.neurons = [[50,0]]
-        self.features = features
-        self.loaded_model = None
-        self.window_size = 100
-        self.model_dir = None
-        self.batch_size = 16
-        self.learning_rate = 0.01
+    def __init__(
+        self,
+        filename: str,
+        mode: str,
+        feature_count: int,
+        sample_count: int,
+        prediction_feature_count: int,
+        prediction_count: int,
+        prediction_length: int,
+        layers: list[list[int, float]] = None,
+        learning_rate: float = 0.01,
+        display_memory_usage: bool = False,
+        dtype: np.dtype | Policy = Policy("float32"),
+    ):
+        input_shape = (sample_count, feature_count)
+        output_length = prediction_feature_count * prediction_count
+        output_shape = (None, output_length)
 
-    def set_neurons(self, neurons):
-        self.neurons = neurons
-        return self
+        self._read_only = "w" not in mode
 
-    def set_window_size(self, window_size):
-        self.window_size = window_size
-        return self
+        if "r" in mode:
+            model = load_model(filename)
+            first_layer: Layer = model.layers[0]
+            output_layer: Layer = model.layers[-1]
 
-    def set_model_dir(self, model, stream_id=None):
-        if model is None and stream_id is not None:
-            self.model_dir = f'mining_models/{stream_id}.keras'
-        elif model is not None:
-            self.model_dir = model
+            if first_layer.input_shape != input_shape:
+                raise ValueError(
+                    f"sample_count {sample_count} and "
+                    f"feature_count {feature_count} "
+                    "do not match the loaded model's "
+                    f"input_shape of {first_layer.input_shape}."
+                )
+
+            if output_layer.output_shape != output_shape:
+                raise ValueError(
+                    f"prediction_feature_count {prediction_feature_count} and "
+                    f"prediction_count {prediction_count} "
+                    f"for an output_length {output_length}"
+                    "does not match the loaded model's "
+                    f"output_shape of {output_layer.output_shape}."
+                )
+
         else:
-            raise Exception("stream_id is not provided to define model")
-        return self
+            if not layers:
+                raise ValueError("layers must be defined when creating a new model.")
 
-    def set_batch_size(self, batch_size):
-        self.batch_size = batch_size
-        return self
+            model = Sequential()
+            last_lstm_index = len(layers) - 1
+            for i, (lstm_units, dropout_rate) in enumerate(layers):
+                return_sequences = i != last_lstm_index
+                if i == 0:
+                    first_layer = LSTM(
+                        dtype=dtype,
+                        units=lstm_units,
+                        input_shape=input_shape,
+                        return_sequences=return_sequences,
+                    )
+                    model.add(first_layer)
+                else:
+                    if dropout_rate != 0:
+                        model.add(Dropout(dtype=dtype, rate=dropout_rate))
+                    model.add(
+                        LSTM(
+                            dtype=dtype,
+                            units=lstm_units,
+                            return_sequences=return_sequences,
+                        )
+                    )
 
-    def set_learning_rate(self, learning_rate):
-        self.learning_rate = learning_rate
-        return self
+            model.add(Dense(dtype=dtype, units=output_length))
 
-    def load_model(self):
-        self.loaded_model = tensorflow.keras.models.load_model(self.model_dir)
-        return self
+            optimizer = Adam(learning_rate=learning_rate)
+            model.compile(
+                optimizer=optimizer, loss="mean_squared_error", run_eagerly=False
+            )
 
-    def train(self, data: ndarray, epochs: int = 100):
-        try:
-            model = tensorflow.keras.models.load_model(self.model_dir)
-        except OSError:
-            model = None
+        self._model = model
+        self._filename = filename
+        self.sample_count = sample_count
+        self._prediction_feature_count = prediction_feature_count
+        self._prediction_count = prediction_count
+        self._prediction_length = prediction_length
+        self._display_memory_usage = display_memory_usage
 
-        output_sequence_length = 100
+        self.prediction_sparse_indexes = _get_sparse_indexes(
+            prediction_length, prediction_count
+        )
 
-        if model is None:
-            model = tensorflow.keras.models.Sequential()
+        if prediction_count == prediction_length:
+            self._interpolation_indexes = None
+        else:
+            self._interpolation_indexes = np.arange(prediction_length)
 
-            if len(self.neurons) > 1:
-                model.add(tensorflow.keras.layers.LSTM(self.neurons[0][0],
-                                                       input_shape=(self.window_size, self.features),
-                                                       return_sequences=True))
-                for ind, stack in enumerate(self.neurons[1:]):
-                    return_sequences = True
-                    if ind+1 == len(self.neurons)-1:
-                        return_sequences = False
-                    model.add(tensorflow.keras.layers.Dropout(stack[1]))
-                    model.add(tensorflow.keras.layers.LSTM(stack[0], return_sequences=return_sequences))
-            else:
-                model.add(tensorflow.keras.layers.LSTM(self.neurons[0][0],
-                                                       input_shape=(self.window_size, self.features)))
+    def train(
+        self,
+        training_dataset,
+        epochs: int = 100,
+        patience: int = 10,
+    ):
+        if self._read_only:
+            raise RuntimeError("Training not supported in read only mode.")
 
-            model.add(tensorflow.keras.layers.Dense(1))
+        # Prevent warnings about using data sharding for multiple GPUs
+        training_dataset = training_dataset.with_options(_DATASET_OPTIONS)
 
-            optimizer = tensorflow.keras.optimizers.Adam(learning_rate=self.learning_rate)
-            model.compile(optimizer=optimizer, loss='mean_squared_error')
+        early_stopping = EarlyStopping(
+            monitor="loss", patience=patience, restore_best_weights=True
+        )
 
-        X_train, Y_train = [], []
+        callbacks = [
+            early_stopping,
+        ]
 
-        X_train_data = data
-        Y_train_data = data.T[0].T
+        if self._display_memory_usage:
+            callbacks.append(ResourceUsageCallback())
 
-        for i in range(len(Y_train_data) - output_sequence_length - self.window_size):
-            target_sequence = Y_train_data[i+self.window_size+output_sequence_length:i+self.window_size+output_sequence_length+1]
-            Y_train.append(target_sequence)
+        self._model.fit(
+            training_dataset,
+            epochs=epochs,
+            callbacks=callbacks,
+        )
 
-        for i in range(len(X_train_data) - output_sequence_length - self.window_size):
-            input_sequence = X_train_data[i:i+self.window_size]
-            X_train.append(input_sequence)
+        self._model.save(self._filename)
 
-        X_train = np.array(X_train)
-        Y_train = np.array(Y_train)
+    def predict(self, model_input: ndarray, dtype: np.dtype = np.float32) -> ndarray:
+        window = model_input[-self.sample_count :]
+        # TODO: Necessary?
+        # window = window.reshape(1, self.sample_count, self._feature_count)
 
-        X_train = tensorflow.convert_to_tensor(np.array(X_train, dtype=np.float32))
-        Y_train = tensorflow.convert_to_tensor(np.array(Y_train, dtype=np.float32))
+        prediction = self._model.predict(window)
+        prediction.shape = (self._prediction_count, self._prediction_feature_count)
 
-        early_stopping = tensorflow.keras.callbacks.EarlyStopping(monitor="loss", patience=10,
+        if self._interpolation_indexes is None:
+            return prediction
 
-                                                                  restore_best_weights=True)
+        else:
+            sparse_prediction = prediction.T
+            full_prediction = np.empty(
+                shape=(self._prediction_feature_count, self._prediction_length),
+                dtype=dtype,
+            )
 
-        model.fit(X_train, Y_train, epochs=epochs, batch_size=self.batch_size, callbacks=[early_stopping])
-        model.save(self.model_dir)
+            for i in range(self._prediction_feature_count):
+                full_prediction[i] = np.interp(
+                    self._interpolation_indexes,
+                    self.prediction_sparse_indexes,
+                    sparse_prediction[i],
+                )
 
-    def predict(self, data: ndarray):
-        predictions = []
-
-        window_data = data[-self.window_size:]
-        window_data = window_data.reshape(1, self.window_size, self.features)
-
-        predicted_value = self.loaded_model.predict(window_data)
-        predictions.append(predicted_value)
-        return predictions
-
-    @staticmethod
-    def base_model_dataset(samples):
-        min_cutoff = 0
-
-        cutoff_close = samples.tolist()[1][min_cutoff:]
-        cutoff_high = samples.tolist()[2][min_cutoff:]
-        cutoff_low = samples.tolist()[3][min_cutoff:]
-        cutoff_volume = samples.tolist()[4][min_cutoff:]
-
-        return np.array([cutoff_close,
-                                 cutoff_high,
-                                 cutoff_low,
-                                 cutoff_volume]).T
+            return full_prediction.T

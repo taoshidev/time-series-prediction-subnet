@@ -157,3 +157,11 @@ class FeatureSource(ABC):
             results[feature_id] = array[feature_index][start:stop]
 
         return results
+
+
+def get_feature_ids(feature_sources: list[FeatureSource]) -> list[FeatureID]:
+    results = []
+    for feature_source in feature_sources:
+        for feature_id in feature_source.feature_ids:
+            results.append(feature_id)
+    return results

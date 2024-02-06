@@ -1,6 +1,12 @@
 # developer: taoshi-mbrown
 # Copyright © 2024 Taoshi, LLC
-from features import FeatureAggregator, FeatureID, FeatureScaler, FeatureSource
+from features import (
+    FeatureAggregator,
+    FeatureCollector,
+    FeatureID,
+    FeatureScaler,
+    get_feature_ids,
+)
 from feature_sources import (
     CoinMetric,
     CoinMetricsAssetMetrics,
@@ -9,13 +15,15 @@ from feature_sources import (
     CoinMetricsMarketFundingRates,
     CoinMetricsMarketMetrics,
     CoinMetricsMarketOpenInterest,
-    TemporalFeatureSource,
     BinanceKlineFeatureSource,
     BinanceKlineField,
     BybitKlineField,
-    CoinbaseKlineField,
     BybitKlineFeatureSource,
     CoinbaseKlineFeatureSource,
+    CoinbaseKlineField,
+    KrakenKlineFeatureSource,
+    KrakenKlineField,
+    TemporalFeatureSource,
 )
 from sklearn.preprocessing import MinMaxScaler
 from statistics import fmean
@@ -26,18 +34,12 @@ INTERVAL_MS = time_span_ms(minutes=5)
 PREDICTION_COUNT = 10
 PREDICTION_LENGTH = 100
 
+_VALIDATOR_AGGREGATOR_TIMEOUT = 10.0
+
 _INCLUDE_EXCHANGE_KLINES = True
 _INCLUDE_COIN_METRICS = False
 
 historical_sources = []
-
-
-def get_feature_ids(feature_sources: list[FeatureSource]) -> list[FeatureID]:
-    results = []
-    for feature_source in feature_sources:
-        for feature_id in feature_source.feature_ids:
-            results.append(feature_id)
-    return results
 
 
 if _INCLUDE_EXCHANGE_KLINES:
@@ -206,3 +208,53 @@ model_feature_scaler = FeatureScaler(
 )
 
 prediction_feature_ids = [FeatureID.BTC_USD_CLOSE]
+
+validator_binance_source = BinanceKlineFeatureSource(
+    symbol="BTCUSDT",
+    interval_ms=time_span_ms(minutes=5),
+    feature_mappings={
+        FeatureID.BTC_USD_CLOSE: BinanceKlineField.PRICE_CLOSE,
+    },
+)
+
+validator_bybit_source = BybitKlineFeatureSource(
+    category="spot",
+    symbol="BTCUSDT",
+    interval_ms=time_span_ms(minutes=5),
+    feature_mappings={
+        FeatureID.BTC_USD_CLOSE: BybitKlineField.PRICE_CLOSE,
+    },
+)
+
+validator_coinbase_source = CoinbaseKlineFeatureSource(
+    symbol="BTC-USD",
+    interval_ms=time_span_ms(minutes=5),
+    feature_mappings={
+        FeatureID.BTC_USD_CLOSE: CoinbaseKlineField.PRICE_CLOSE,
+    },
+)
+
+validator_kraken_source = KrakenKlineFeatureSource(
+    symbol="BTC-USD",
+    interval_ms=time_span_ms(minutes=5),
+    feature_mappings={
+        FeatureID.BTC_USD_CLOSE: KrakenKlineField.PRICE_CLOSE,
+    },
+)
+
+validator_aggregator = FeatureAggregator(
+    sources=[
+        validator_binance_source,
+        validator_bybit_source,
+        validator_coinbase_source,
+        validator_kraken_source,
+    ],
+    aggregation_map={
+        FeatureID.BTC_USD_CLOSE: fmean,
+    },
+    timeout=_VALIDATOR_AGGREGATOR_TIMEOUT,
+)
+
+validator_feature_source = FeatureCollector(
+    sources=[validator_aggregator],
+)

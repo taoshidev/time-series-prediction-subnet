@@ -7,5 +7,6 @@ pandas
 pendulum
 requests
 scikit-learn
+scipy
 tensorflow==2.13.1
 torch
