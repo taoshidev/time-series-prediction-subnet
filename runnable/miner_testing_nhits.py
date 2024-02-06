@@ -118,7 +118,7 @@ if __name__ == "__main__":
     historical_weights = {}
 
     days_processed = []
-    curr_iter = 0
+    curr_iter = 1000
 
     start_iter = []
 
@@ -141,14 +141,15 @@ if __name__ == "__main__":
             )
 
             iter_add = 1
+            init_iter = 0 
 
             data_structure = MiningUtils.get_file(
                 "/runnable/historical_financial_data/data.pickle", True)
-            data_structure = [data_structure[0][curr_iter:curr_iter + iter_add],
-                              data_structure[1][curr_iter:curr_iter + iter_add],
-                              data_structure[2][curr_iter:curr_iter + iter_add],
-                              data_structure[3][curr_iter:curr_iter + iter_add],
-                              data_structure[4][curr_iter:curr_iter + iter_add]]
+            data_structure = [data_structure[0][init_iter:curr_iter + iter_add],
+                              data_structure[1][init_iter:curr_iter + iter_add],
+                              data_structure[2][init_iter:curr_iter + iter_add],
+                              data_structure[3][init_iter:curr_iter + iter_add],
+                              data_structure[4][init_iter:curr_iter + iter_add]]
             print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
             print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
             start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
@@ -437,7 +438,7 @@ if __name__ == "__main__":
 
             # end results are stored in the path validation/backups/valiconfig.json (same as it goes on the subnet)
             # ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))
-        except MinResponsesException as e:
+        except:
            # print(e)
            # print("removing files in validation/predictions")
            # for file in ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir()):
