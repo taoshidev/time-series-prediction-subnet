@@ -22,6 +22,8 @@ from time_util import datetime
 
 
 def main():
+    print(datetime.now())
+
     # Prevents main memory leak and consequent slowdown
     # Remove if this leak is fixed in later versions of TensorFlow
     tf.config.run_functions_eagerly(False)
@@ -120,10 +122,15 @@ def main():
             scenarios_per_chunk = (
                 int((chunk_length - SAMPLE_COUNT - PREDICTION_LENGTH) / 2) + 1
             )
-            training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
 
             if scenarios_per_chunk <= 0:
                 break
+
+            training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
+            targets = np.empty(
+                shape=(scenarios_per_chunk, PREDICTION_COUNT, prediction_feature_count),
+                dtype=_DATA_PRECISION,
+            )
 
         chunk_start_datetime = datetime.fromtimestamp_ms(chunk_start_ms)
         print(f"Reading historical data for {chunk_start_datetime}...")
@@ -161,7 +168,7 @@ def main():
                     target_data_index
                 ]
 
-        # Flatten to interlace features within predictions for training
+        # Flatten to interlace features within predictions to match flat model output
         targets.shape = (
             scenarios_per_chunk,
             PREDICTION_COUNT * prediction_feature_count,
@@ -186,6 +193,7 @@ def main():
         chunk_end += chunk_length
 
     print("Done.")
+    print(datetime.now())
 
 
 if __name__ == "__main__":
