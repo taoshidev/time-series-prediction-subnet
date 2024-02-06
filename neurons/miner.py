@@ -102,7 +102,12 @@ def update_predictions(stream_predictions, data_generator_handler, model_chosen)
                 np_ds = np.array(ds)
 
                 # generate stream predictions -> change to:  open_model_prediction_generation_stack
-                predicted_closes = MiningUtils.open_model_prediction_generation_nhits(np_ds, model_chosen,
+                if  model_chosen['id'] == 'chaotic_v1_1': 
+                    
+                    predicted_closes = MiningUtils.open_model_prediction_generation_nhits(np_ds, model_chosen,
+                                                                                stream_prediction.prediction_size)
+                elif model_chosen['id'] == 'chaotic_multi': 
+                     predicted_closes = MiningUtils.open_model_prediction_generation_stack(np_ds, model_chosen,
                                                                                 stream_prediction.prediction_size)
                 bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
