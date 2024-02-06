@@ -220,7 +220,6 @@ class MiningUtils:
         model_name = best_model.models[0]
         predicted_closes = best_model.predict(df=input,futr_df=futr)
         
-        model_type = base_mining_model.type 
 
         predicted_closes = predicted_closes[model_name].tolist() # change this
         if prediction_size== 101 : 
