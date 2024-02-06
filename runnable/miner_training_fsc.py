@@ -22,7 +22,8 @@ from time_util import datetime
 
 
 def main():
-    print(datetime.now())
+    process_start_time = datetime.now()
+    print(f"Training started at {process_start_time}")
 
     # Prevents main memory leak and consequent slowdown
     # Remove if this leak is fixed in later versions of TensorFlow
@@ -68,7 +69,7 @@ def main():
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
         model = BaseMiningModel(
-            filename="mining_models/model5.h5",
+            filename="mining_models/model_v5.h5",
             mode="w",
             feature_count=feature_count,
             sample_count=SAMPLE_COUNT,
@@ -192,8 +193,8 @@ def main():
         chunk_start += chunk_length
         chunk_end += chunk_length
 
-    print("Done.")
-    print(datetime.now())
+    process_end_time = datetime.now()
+    print(f"Training ended at {process_end_time}")
 
 
 if __name__ == "__main__":
