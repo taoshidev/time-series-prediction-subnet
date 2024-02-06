@@ -221,7 +221,7 @@ class MiningUtils:
         predicted_closes = best_model.predict(df=input,futr_df=futr)
         
 
-        predicted_closes = predicted_closes[model_name].tolist() # change this
+        predicted_closes = predicted_closes.drop(columns='ds').iloc[:,0].tolist()# change this
         if prediction_size== 101 : 
                 predicted_closes.append(predicted_closes[-1])
 
