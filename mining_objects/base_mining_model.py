@@ -210,9 +210,9 @@ class MiningModelStack:
     
     def load_models(self):
         dirs = os.listdir(self.model_dir) # set to full path
-        model_dirs = [os.path.join(self.model_dir, entry) for entry in model_dirs if os.path.isdir(os.path.join(self.model_dir, entry))]
+        model_dirs = [os.path.join(self.model_dir, entry) for entry in dirs if os.path.isdir(os.path.join(self.model_dir, entry))]
 
-        dict = [ NeuralForecast.load(model) for model in self.model_dirs ]
+        dict = [ NeuralForecast.load(model) for model in model_dirs ]
         self.loaded_models = dict 
         return self
 
