@@ -191,6 +191,12 @@ class MiningUtils:
         predicted_closes = base_mining_model.predict(df=input,futr=futr)
 
         predicted_closes = predicted_closes['NHITS'].tolist()
+        if prediction_size== 101 : 
+                predicted_closes.append(predicted_closes[-1])
+
+        if prediction_size != len(predicted_closes) : 
+            print(f"Prediction length is{ len(predicted_closes)} and not {prediction_size} ")
+       
 
         return predicted_closes # needs to be a list
 
@@ -217,7 +223,12 @@ class MiningUtils:
         model_type = base_mining_model.type 
 
         predicted_closes = predicted_closes[model_name].tolist() # change this
+        if prediction_size== 101 : 
+                predicted_closes.append(predicted_closes[-1])
 
+        if prediction_size != len(predicted_closes) : 
+            print(f"Prediction length is{ len(predicted_closes)} and not {prediction_size} ")
+       
         return predicted_closes # needs to be a list
     
     

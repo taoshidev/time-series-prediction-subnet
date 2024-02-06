@@ -207,10 +207,6 @@ class MiningModelStack:
         self.model_dir = model
         return self 
     
-    def set_model_type(self,modelname): 
-        self.type = modelname
-        return self 
-   
     
     def load_models(self):
         dirs = os.listdir(self.model_dir) # set to full path
@@ -227,10 +223,10 @@ class MiningModelStack:
         return predictions
     
     
-    def select_model(self,df,futr,ground_truth):
-        
+    def select_model(self,df,futr,ground_truth,length=25):
+        length = length - 1
         predictions = [ model.predict(df,futr_df = futr.reset_index()).drop(columns='ds') for model in self.loaded_models] 
-        errors = [ mean_squared_error(prediction.values,ground_truth.values , squared=False)  for prediction in predictions]
+        errors = [ mean_squared_error(prediction.values[0:length],ground_truth.values[0:length] , squared=False)  for prediction in predictions]
         min_error = errors.index(min(errors)) # find index 
         return self.loaded_models[min_error]
        
