@@ -322,113 +322,122 @@ if __name__ == "__main__":
 
             # logic to gather and score predictions
             for request_details in predictions_to_complete:
-                request_df = request_details.df
-                data_structure = ValiUtils.get_standardized_ds()
-                data_generator_handler = DataGeneratorHandler()
-
-                data_structure = MiningUtils.get_file(
-                    "/runnable/historical_financial_data/data.pickle", True)
-                data_structure = [data_structure[0][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[1][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[2][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[3][curr_iter:curr_iter + client_request.prediction_size],
-                                  data_structure[4][curr_iter:curr_iter + client_request.prediction_size]]
-                print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
-                print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
-                start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
-                end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
-                # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
-
-                print("number of results gathered: ", len(data_structure[1]))
-
-                scores = {}
-                scores_2= []
-
-                NUM_COLORS = 10
-                cm = plt.get_cmap('gist_rainbow')
-                colors = [cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)]
-                x_values = range(len(data_structure[1]))
                 
-                color_chosen = 0
-                for miner_uid, miner_preds in request_details.predictions.items():
-                    print( miner_uid)
+                try: 
+                    request_df = request_details.df
+                    data_structure = ValiUtils.get_standardized_ds()
+                    data_generator_handler = DataGeneratorHandler()
+
+                    data_structure = MiningUtils.get_file(
+                        "/runnable/historical_financial_data/data.pickle", True)
+                    data_structure = [data_structure[0][curr_iter:curr_iter + client_request.prediction_size],
+                                    data_structure[1][curr_iter:curr_iter + client_request.prediction_size],
+                                    data_structure[2][curr_iter:curr_iter + client_request.prediction_size],
+                                    data_structure[3][curr_iter:curr_iter + client_request.prediction_size],
+                                    data_structure[4][curr_iter:curr_iter + client_request.prediction_size]]
                     
-                    print(Scoring.score_response(miner_preds, data_structure[1]))    
-                    if plot_predictions and "miner" in miner_uid:
-                        #plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
-                        color_chosen += 1
+                    print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
+                
+                    print("end", TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1]))
+                    start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
+                    end_dt = TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])
+                    # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
+
+                    print("number of results gathered: ", len(data_structure[1]))
+
+                    scores = {}
+                    scores_2= []
+
+                    NUM_COLORS = 10
+                    cm = plt.get_cmap('gist_rainbow')
+                    colors = [cm(1. * i / NUM_COLORS) for i in range(NUM_COLORS)]
+                    x_values = range(len(data_structure[1]))
+                    
+                    color_chosen = 0
+                    for miner_uid, miner_preds in request_details.predictions.items():
+                        print( miner_uid)
                         
-                        try:
+                        print(Scoring.score_response(miner_preds, data_structure[1]))    
+                        if plot_predictions and "miner" in miner_uid:
+                            #plt.plot(x_values, miner_preds, label=miner_uid, color=colors[color_chosen])
+                            color_chosen += 1
                             
-                             scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
-                             print(scores[miner_uid])
-                             scores_2.append( Scoring.score_response(miner_preds, data_structure[1]))
-                             #scores.append(Scoring.score_response(miner_preds, data_structure[1]))
-                        except: 
+                            try:
+                                
+                                scores[miner_uid] = Scoring.score_response(miner_preds, data_structure[1])
+                                print(scores[miner_uid])
+                                scores_2.append( Scoring.score_response(miner_preds, data_structure[1]))
+                                #scores.append(Scoring.score_response(miner_preds, data_structure[1]))
+                            except: 
+                                
+                                print("error in scoring")
+                                continue
                             
-                            print("error in scoring")
-                            continue
                     
     
-                pd.DataFrame(scores_2).to_csv('validation_check.csv',mode='a',header=False)
-                print("scores ", scores)
-               # if plot_predictions:
-                    
-                  #  try:
-                   # plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
+                    pd.DataFrame(scores_2).to_csv('validation_check.csv',mode='a',header=False)
+                    print("scores ", scores)
+                # if plot_predictions:
+                        
+                    #  try:
+                    # plt.plot(x_values, data_structure[1], label="results", color=colors[color_chosen])
 
-                  #  plt.legend()
-                 #   plt.show()
+                    #  plt.legend()
+                    #   plt.show()
 
-                scaled_scores = Scoring.simple_scale_scores(scores)
-                stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
+                    scaled_scores = Scoring.simple_scale_scores(scores)
+                    stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(request_df.stream_id)
 
-                sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
-                winning_scores = sorted_scores
+                    sorted_scores = sorted(scaled_scores.items(), key=lambda x: x[1], reverse=True)
+                    winning_scores = sorted_scores
 
-                weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(weighed_scores, data_structure)
-                # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                    weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+                    weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(weighed_scores, data_structure)
+                    # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
-                for key, score in scores.items():
-                    if key not in totals:
-                        totals[key] = 0
-                    totals[key] += score
+                    for key, score in scores.items():
+                        if key not in totals:
+                            totals[key] = 0
+                        totals[key] += score
 
-                if plot_weights:
-                    for key, value in weighed_winning_scores_dict.items():
-                        if key not in historical_weights:
-                            historical_weights[key] = []
-                        historical_weights[key].append(value)
+                    if plot_weights:
+                        for key, value in weighed_winning_scores_dict.items():
+                            if key not in historical_weights:
+                                historical_weights[key] = []
+                            historical_weights[key].append(value)
 
-                    weights.append(weight)
+                        weights.append(weight)
 
-                    print("curr iter", curr_iter)
-                    if (curr_iter-1) % 10000 == 0:
-                        x_values = range(len(weights))
-                        for key, value in historical_weights.items():
-                            print(key, sum(value))
-                            plt.plot(x_values, value, label=key, color=colors[color_chosen])
-                            color_chosen += 1
-                        plt.legend()
-                        plt.show()
+                        print("curr iter", curr_iter)
+                        if (curr_iter-1) % 10000 == 0:
+                            x_values = range(len(weights))
+                            for key, value in historical_weights.items():
+                                print(key, sum(value))
+                                plt.plot(x_values, value, label=key, color=colors[color_chosen])
+                                color_chosen += 1
+                            plt.legend()
+                            plt.show()
 
-                # for key, score in weighed_winning_scores_dict.items():
-                #     if key not in total_weights:
-                #         total_weights[key] = 0
-                #     total_weights[key] += score
+                    # for key, score in weighed_winning_scores_dict.items():
+                    #     if key not in total_weights:
+                    #         total_weights[key] = 0
+                    #     total_weights[key] += score
 
-                # print("winning distribution", weighed_scores)
-                print("updated weights", weighed_winning_scores_dict)
+                    # print("winning distribution", weighed_scores)
+                    print("updated weights", weighed_winning_scores_dict)
 
-                # print("updated totals:", totals)
-                # print("updated total weights:", total_weights)
+                    # print("updated totals:", totals)
+                    # print("updated total weights:", total_weights)
 
-                time_now = TimeUtil.now_in_millis()
-                for file in request_details.files:
-                    os.remove(file)
+                    time_now = TimeUtil.now_in_millis()
+                    for file in request_details.files:
+                        os.remove(file)
 
-                curr_iter -= 501
+                    curr_iter -= 501
+                
+                except: 
+                
+                  break 
 
             # end results are stored in the path validation/backups/valiconfig.json (same as it goes on the subnet)
             # ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))
