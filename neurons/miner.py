@@ -244,13 +244,13 @@ def main( config ):
         if base_model_id == 'chaotic_multi': 
             base_mining_model = MiningModelStack() \
                 .set_model_dir(model_chosen["model_dir"]) \
-                .load_model()
+                .load_models()
         
         elif base_model_id == 'chaotic_v1_1':
             
             base_mining_model = MiningModelNHITS() \
                 .set_model_dir(model_chosen["model_dir"]) \
-                .load_models()
+                .load_model()
                 
 
 
