@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
@@ -37,7 +37,7 @@ class TimeUtil:
 
     @staticmethod
     def now_in_millis() -> int:
-        return int(datetime.utcnow().timestamp() * 1000)
+        return int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp() * 1000)
 
     @staticmethod
     def timestamp_to_millis(dt) -> int:

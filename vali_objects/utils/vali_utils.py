@@ -1,7 +1,8 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 import json
+import os
 import random
 from inspect import isclass
 from pickle import UnpicklingError
@@ -46,6 +47,17 @@ class ValiUtils:
             return init_cmw
         else:
             return json.loads(vbkp)
+
+    @staticmethod
+    def get_vali_weights_json() -> Dict:
+        # wrapping here to allow simpler error handling & original for other error handling
+        try:
+            vweights = ValiBkpUtils.get_vali_file(ValiBkpUtils.get_vali_weights_dir()
+                                              + ValiBkpUtils.get_vali_weights_file())
+        except FileNotFoundError:
+            return {}
+        else:
+            return json.loads(vweights)
 
     @staticmethod
     def get_vali_memory_json() -> CMW:
@@ -106,6 +118,12 @@ class ValiUtils:
                                      vali_records)
 
     @staticmethod
+    def set_vali_weights_bkp(vali_weights: Dict):
+        ValiBkpUtils.write_vali_file(ValiBkpUtils.get_vali_weights_dir(),
+                                     ValiBkpUtils.get_vali_weights_file(),
+                                     vali_weights)
+
+    @staticmethod
     def get_predictions_to_complete() -> List[PredictionRequest]:
         def sort_by_end(item):
             return item.df.end
@@ -113,30 +131,34 @@ class ValiUtils:
         all_files = ValiBkpUtils.get_all_files_in_dir(ValiBkpUtils.get_vali_predictions_dir())
         request_to_complete = {}
         for file in all_files:
-            unpickled_df = ValiUtils.get_vali_predictions(file)
-            # need to add a buffer of 24 hours to ensure the data is available via api requests
-            if TimeUtil.now_in_millis() > unpickled_df.end + TimeUtil.hours_in_millis():
-                if unpickled_df.vmins is not None \
-                        and unpickled_df.vmaxs is not None \
-                        and unpickled_df.decimal_places is not None:
-                    unpickled_unscaled_data_structure = Scaling.unscale_values(unpickled_df.vmins[0],
-                                                                               unpickled_df.vmaxs[0],
-                                                                               unpickled_df.decimal_places[0],
-                                                                               unpickled_df.predictions)
-                else:
-                    unpickled_unscaled_data_structure = unpickled_df.predictions
-                if unpickled_df.request_uuid not in request_to_complete:
-                    # keeping as a dict to easily add new files to ref
-                    request_to_complete[unpickled_df.request_uuid] = PredictionRequest(
-                        request_uuid=unpickled_df.request_uuid,
-                        df=unpickled_df,
-                        files=[],
-                        predictions={}
-                    )
-                request_to_complete[
-                    unpickled_df.request_uuid].predictions[unpickled_df.miner_uid] = unpickled_unscaled_data_structure
-                request_to_complete[
-                    unpickled_df.request_uuid].files.append(file)
+            try:
+                unpickled_df = ValiUtils.get_vali_predictions(file)
+                # need to add a buffer of 24 hours to ensure the data is available via api requests
+                if TimeUtil.now_in_millis() > unpickled_df.end + TimeUtil.hours_in_millis(1):
+                    if unpickled_df.vmins is not None \
+                            and unpickled_df.vmaxs is not None \
+                            and unpickled_df.decimal_places is not None:
+                        unpickled_unscaled_data_structure = Scaling.unscale_values(unpickled_df.vmins[0],
+                                                                                   unpickled_df.vmaxs[0],
+                                                                                   unpickled_df.decimal_places[0],
+                                                                                   unpickled_df.predictions)
+                    else:
+                        unpickled_unscaled_data_structure = unpickled_df.predictions
+                    if unpickled_df.request_uuid not in request_to_complete:
+                        # keeping as a dict to easily add new files to ref
+                        request_to_complete[unpickled_df.request_uuid] = PredictionRequest(
+                            request_uuid=unpickled_df.request_uuid,
+                            df=unpickled_df,
+                            files=[],
+                            predictions={}
+                        )
+                    request_to_complete[
+                        unpickled_df.request_uuid].predictions[unpickled_df.miner_uid] = unpickled_unscaled_data_structure
+                    request_to_complete[
+                        unpickled_df.request_uuid].files.append(file)
+            except (ValiFileMissingException, ValiBkpCorruptDataException, EOFError):
+                print(f"removing invalid miner prediction data file [{file}]")
+                os.remove(file)
         pred_requests = [pred_request for pred_request in request_to_complete.values()]
         sorted_pred_requests = sorted(pred_requests, key=sort_by_end, reverse=True)
         return sorted_pred_requests

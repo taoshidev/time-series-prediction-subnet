@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 import hashlib
 import os
 import random
@@ -17,10 +17,10 @@ import bittensor as bt
 # Step 2: Set up the configuration parser
 # This function is responsible for setting up and parsing command-line arguments.
 import numpy as np
-import torch
+from scipy.stats import yeojohnson
 
 from data_generator.data_generator_handler import DataGeneratorHandler
-from data_generator.financial_markets_generator.binance_data import BinanceData
+from miner_config import MinerConfig
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
@@ -200,32 +200,34 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
             if vali_request.client_uuid is None:
                 vali_request.client_uuid = wallet.hotkey.ss58_address
 
-            if int(config.test_only_historical) == 1:
-                bt.logging.debug("using historical only with a client request")
-                start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
-            else:
-                start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
-            bt.logging.info(f"sending requested data on stream type [{stream_type}] "
-                           f"with params start date [{start_dt}] & [{end_dt}] ")
+            # will keep source code for the scenario where we still want to reference testing only historical
 
-            ds = ValiUtils.get_standardized_ds()
-            for ts_range in ts_ranges:
+            # if int(config.test_only_historical) == 1:
+            #     bt.logging.debug("using historical only with a client request")
+            #     start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
+            # else:
+            #     start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
+            # bt.logging.info(f"sending requested data on stream type [{stream_type}] "
+            #                f"with params start date [{start_dt}] & [{end_dt}] ")
+
+            # ds = ValiUtils.get_standardized_ds()
+            # for ts_range in ts_ranges:
                 # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
                 #                                                ds,
                 #                                                ts_range)
-                data_generator_handler.data_generator_handler(vali_request.topic_id,
-                                                              0,
-                                                              vali_request.additional_details,
-                                                              ds,
-                                                              ts_range)
+                # data_generator_handler.data_generator_handler(vali_request.topic_id,
+                #                                               0,
+                #                                               vali_request.additional_details,
+                #                                               ds,
+                #                                               ts_range)
 
             # vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
-            samples = bt.tensor(np.array(ds))
+            # samples = bt.tensor(np.array(ds))
 
             live_proto = LiveForward(
                 request_uuid=request_uuid,
                 stream_id=stream_type,
-                samples=samples,
+                # samples=samples,
                 topic_id=vali_request.topic_id,
                 feature_ids=vali_request.feature_ids,
                 schema_id=vali_request.schema_id,
@@ -237,7 +239,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_proto,
                     deserialize=True,
-                    timeout=180
+                    timeout=30
                 )
 
                 # # check to see # of responses
@@ -252,6 +254,8 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 #         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
                 #     else:
                 #         bt.logging.debug(f"index [{i}] has no proper response")
+                end_dt = TimeUtil.generate_start_timestamp(0)
+
                 prediction_start_time = TimeUtil.timestamp_to_millis(end_dt)
                 prediction_end_time = TimeUtil.timestamp_to_millis(end_dt) + \
                 TimeUtil.minute_in_millis(vali_request.prediction_size *
@@ -313,14 +317,14 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 bt.logging.debug(f"requested results end: [{TimeUtil.millis_to_timestamp(request_df.end)}]")
 
                 data_generator_handler.data_generator_handler(request_df.topic_id,
-                                                              request_df.prediction_size,
+                                                              0,
                                                               request_df.additional_details,
                                                               data_structure,
                                                               (request_df.start, request_df.end))
 
                 bt.logging.debug(f"number of results: [{len(data_structure[0])}]")
-                bt.logging.debug(f"results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
-                bt.logging.debug(f"results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
+                bt.logging.debug(f"gathered results start: [{TimeUtil.millis_to_timestamp(data_structure[0][0])}]")
+                bt.logging.debug(f"gathered results end: [{TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])}]")
 
                 bt.logging.info("results gathered sending back to miners via backprop and weighing")
 
@@ -359,21 +363,16 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                 if len(scores) > 0:
 
                     bt.logging.debug(f"unscaled scores [{scores}]")
-                    acceptable_scores = {miner_uid: score for miner_uid, score in scores.items() if score < 1000}
-                    bt.logging.debug(f"removed scores out of acceptable range [{scores}]")
-
-                    if len(acceptable_scores) > 2:
-                        bt.logging.debug(f"enough acceptable range scores to continue with them")
-                        scores = acceptable_scores
-
                     scores_list = np.array([score for miner_uid, score in scores.items()])
                     variance = np.var(scores_list)
 
                     if variance == 0:
                         bt.logging.debug("homogenous dataset, going to equally distribute scores")
-                        weighed_winning_scores = [(miner_uid, 1 / len(scores)) for miner_uid, score in scores.items()]
-                        bt.logging.debug(f"weighed scores [{weighed_winning_scores}]")
-                        weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                        weighed_scores = [(miner_uid, 1 / len(scores)) for miner_uid, score in scores.items()]
+                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
+                        weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(
+                            weighed_scores, data_structure)
+
                     else:
                         scaled_scores = Scoring.simple_scale_scores(scores)
 
@@ -383,27 +382,54 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
 
                         # choose top 10
                         weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-                        weighed_winning_scores = weighed_scores
-                        weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                        weighed_winning_scores_dict, weight = Scoring.update_weights_using_historical_distributions(weighed_scores, data_structure)
+                        # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
-                        bt.logging.debug(f"scaled scores [{scaled_scores}]")
-                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
-                        bt.logging.debug(f"weighed winning scores dict [{weighed_winning_scores_dict}]")
+                        bt.logging.debug(f"weight for the predictions: [{weight}]")
+                        bt.logging.debug(f"scaled scores: [{scaled_scores}]")
+                        bt.logging.debug(f"weighed winning scores: [{weighed_winning_scores_dict}]")
 
-                    bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
+                    values_list = np.array([v for k, v in weighed_winning_scores_dict.items()])
+
+                    mean = np.mean(values_list)
+                    std_dev = np.std(values_list)
+
+                    lower_bound = mean - 3 * std_dev
+                    bt.logging.debug(f"scores lower bound: [{lower_bound}]")
+
+                    if lower_bound < 0:
+                        lower_bound = 0
+
+                    filtered_results = [(k, v) for k, v in weighed_winning_scores_dict.items() if lower_bound < v]
+                    filtered_scores = np.array([x[1] for x in filtered_results])
+
+                    # Normalize the list using Z-score normalization
+                    transformed_results = yeojohnson(filtered_scores, lmbda=500)
+                    scaled_transformed_list = Scaling.min_max_scalar_list(transformed_results)
+                    filtered_winning_scores_dict = {filtered_results[i][0]: scaled_transformed_list[i]
+                                                    for i in range(len(filtered_results))}
+
+                    bt.logging.debug(f"filtered weighed winning scores: [{filtered_winning_scores_dict}]")
+
+                    # bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
                     weights = []
                     converted_uids = []
 
-                    for ind, weighed_winning_score in enumerate(weighed_winning_scores):
+                    deregistered_mineruids = []
+
+                    for miner_uid, weighed_winning_score in filtered_winning_scores_dict.items():
                         try:
-                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(weighed_winning_score[0])])
-                            weights.append(weighed_winning_score[1])
+                            converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_uid)])
+                            weights.append(weighed_winning_score)
                         except Exception:
+                            deregistered_mineruids.append(miner_uid)
                             bt.logging.info(f"not able to find miner hotkey, "
-                                            f"likely deregistered [{weighed_winning_score}]")
+                                            f"likely deregistered [{miner_uid}]")
+
+                    Scoring.update_weights_remove_deregistrations(deregistered_mineruids)
 
                     bt.logging.debug(f"converted uids [{converted_uids}]")
-                    bt.logging.debug(f"set weights [{weights}]")
+                    bt.logging.debug(f"weights gathered [{weights}]")
 
                     result = subtensor.set_weights(
                         netuid=config.netuid,  # Subnet to set weights on.
@@ -529,13 +555,9 @@ if __name__ == "__main__":
 
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
-
-    time_interval = random.randint(0, 550)
-    bt.logging.info("sleep time interval: ", time_interval)
     while True:
         current_time = datetime.now().time()
-        if current_time.minute in [0, 30]:
-            time.sleep(time_interval)
+        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS:
             # updating metagraph before run
             metagraph.sync(subtensor = subtensor)
             bt.logging.info(f"Metagraph: {metagraph}")
@@ -564,4 +586,3 @@ if __name__ == "__main__":
             bt.logging.info(f"Number of requests being handled [{len(requests)}]")
             run_time_series_validation(wallet, config, metagraph, requests)
             time.sleep(60)
-

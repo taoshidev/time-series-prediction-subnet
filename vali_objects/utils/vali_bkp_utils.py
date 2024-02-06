@@ -1,5 +1,5 @@
 # developer: Taoshidev
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 
 import json
 import os
@@ -21,8 +21,16 @@ class ValiBkpUtils:
         return ValiConfig.BASE_DIR + '/validation/outputs/'
 
     @staticmethod
+    def get_vali_weights_dir() -> str:
+        return ValiConfig.BASE_DIR + '/validation/weights/'
+
+    @staticmethod
     def get_vali_data_file() -> str:
         return 'valirecords.json'
+
+    @staticmethod
+    def get_vali_weights_file() -> str:
+        return 'valiweights.json'
 
     @staticmethod
     def get_vali_predictions_dir() -> str:
