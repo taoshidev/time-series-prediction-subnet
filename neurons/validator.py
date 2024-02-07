@@ -6,17 +6,15 @@ import argparse
 import bittensor as bt
 from hashing_utils import HashingUtils
 from miner_config import MinerConfig
-from mining_objects.streams.btcusd_5m import (
+import numpy as np
+import os
+from scipy.stats import yeojohnson
+from streams.btcusd_5m import (
     INTERVAL_MS,
     prediction_feature_ids,
     validator_feature_source,
 )
-import numpy as np
-import os
-from scipy.stats import yeojohnson
 from template.protocol import (
-    TrainingForward,
-    TrainingBackward,
     LiveForward,
     LiveBackward,
     LiveForwardHash,
@@ -37,7 +35,6 @@ from vali_objects.dataclasses.base_objects.base_request_dataclass import (
 from vali_objects.dataclasses.client_request import ClientRequest
 from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.dataclasses.prediction_request import PredictionRequest
-from vali_objects.dataclasses.training_request import TrainingRequest
 from vali_objects.exceptions.incorrect_live_results_count_exception import (
     IncorrectLiveResultsCountException,
 )
@@ -49,7 +46,6 @@ from vali_objects.scaling.scaling import Scaling
 from vali_objects.scoring.scoring import Scoring
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
-from vali_config import ValiConfig
 
 
 def get_config():
@@ -111,108 +107,7 @@ def run_time_series_validation(
         # standardized request identifier for miners to tie together forward/backprop
         request_uuid = str(uuid.uuid4())
 
-        if isinstance(vali_request, TrainingRequest):
-            # stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
-            # stream_type = hash(str(vali_request.stream_type))
-            # hash_object = hashlib.sha256(vali_request.stream_type.encode())
-            # stream_type = hash_object.hexdigest()
-
-            stream_type = vali_request.stream_type
-
-            start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
-            bt.logging.info(
-                f"sending training data on stream type [{stream_type}] "
-                f"with params start date [{start_dt}] & [{end_dt}] "
-            )
-
-            ds = ValiUtils.get_standardized_ds()
-
-            for ts_range in ts_ranges:
-                data_generator_handler.data_generator_handler(
-                    vali_request.topic_id,
-                    0,
-                    vali_request.additional_details,
-                    ds,
-                    ts_range,
-                )
-
-            vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
-            samples = bt.tensor(sds)
-
-            training_proto = TrainingForward(
-                request_uuid=request_uuid,
-                stream_id=stream_type,
-                samples=samples,
-                topic_id=vali_request.topic_id,
-                feature_ids=vali_request.feature_ids,
-                schema_id=vali_request.schema_id,
-                prediction_size=vali_request.prediction_size,
-            )
-
-            try:
-                responses = dendrite.query(
-                    metagraph.axons, training_proto, deserialize=True, timeout=30
-                )
-
-                # # check to see # of responses
-                # bt.logging.info(f"number of responses to training data: [{responses}]")
-
-                # FOR DEBUG PURPOSES
-                # for i, respi in enumerate(responses):
-                #     if respi is not None \
-                #             and len(respi.numpy()) == vali_request.prediction_size:
-                #         bt.logging.debug(f"number of responses to training data: [{len(respi.numpy())}]")
-                #     else:
-                #         bt.logging.debug(f"has no proper response")
-
-                training_results_start = TimeUtil.timestamp_to_millis(end_dt)
-                training_results_end = TimeUtil.timestamp_to_millis(
-                    end_dt
-                ) + TimeUtil.minute_in_millis(
-                    vali_request.prediction_size * ValiConfig.STANDARD_TF
-                )
-
-                results_ds = ValiUtils.get_standardized_ds()
-                bt.logging.info("getting training results to send back to miners")
-
-                # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
-                #                                                results_ds,
-                #                                                (training_results_start, training_results_end))
-                data_generator_handler.data_generator_handler(
-                    vali_request.topic_id,
-                    0,
-                    vali_request.additional_details,
-                    results_ds,
-                    (training_results_start, training_results_end),
-                )
-                bt.logging.info("results gathered, sending back to miners")
-
-                results_vmin, results_vmax, results_scaled = Scaling.scale_values(
-                    results_ds[0], vmin=vmins[0], vmax=vmaxs[0]
-                )
-                results = bt.tensor(results_scaled)
-
-                training_backprop_proto = TrainingBackward(
-                    request_uuid=request_uuid,
-                    stream_id=stream_type,
-                    samples=results,
-                    topic_id=vali_request.topic_id,
-                )
-
-                dendrite.query(
-                    metagraph.axons,
-                    training_backprop_proto,
-                    deserialize=True,
-                    timeout=30,
-                )
-                bt.logging.info("results sent back to miners")
-
-            # If we encounter an unexpected error, log it for debugging.
-            except RuntimeError as e:
-                bt.logging.error(e)
-                traceback.print_exc()
-
-        elif isinstance(vali_request, ClientRequest):
+        if isinstance(vali_request, ClientRequest):
             # stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
             # stream_type = hash(str(vali_request.stream_type))
             # hash_object = hashlib.sha256(vali_request.stream_type.encode())
@@ -222,30 +117,6 @@ def run_time_series_validation(
 
             if vali_request.client_uuid is None:
                 vali_request.client_uuid = wallet.hotkey.ss58_address
-
-            # will keep source code for the scenario where we still want to reference testing only historical
-
-            # if int(config.test_only_historical) == 1:
-            #     bt.logging.debug("using historical only with a client request")
-            #     start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(True)
-            # else:
-            #     start_dt, end_dt, ts_ranges = ValiUtils.randomize_days(False)
-            # bt.logging.info(f"sending requested data on stream type [{stream_type}] "
-            #                f"with params start date [{start_dt}] & [{end_dt}] ")
-
-            # ds = ValiUtils.get_standardized_ds()
-            # for ts_range in ts_ranges:
-            # binance_data.get_data_and_structure_data_points(vali_request.stream_type,
-            #                                                ds,
-            #                                                ts_range)
-            # data_generator_handler.data_generator_handler(vali_request.topic_id,
-            #                                               0,
-            #                                               vali_request.additional_details,
-            #                                               ds,
-            #                                               ts_range)
-
-            # vmins, vmaxs, dps, sds = Scaling.scale_ds_with_ts(ds)
-            # samples = bt.tensor(np.array(ds))
 
             live_hash_proto = LiveForwardHash(
                 request_uuid=request_uuid,
@@ -403,6 +274,9 @@ def run_time_series_validation(
                 prediction_array = validator_feature_source.feature_samples_to_array(
                     feature_samples, prediction_feature_ids
                 )
+
+                # TODO: Improve validators to allow multiple features in predictions
+                prediction_array = prediction_array.flatten()
 
                 bt.logging.info(
                     "results gathered sending back to miners via backprop and weighing"
@@ -721,11 +595,6 @@ if __name__ == "__main__":
             if len(predictions_to_complete) > 0:
                 # add one request of predictions to complete
                 requests.append(predictions_to_complete[0])
-
-            # if no requests to fill, randomly send in a training request to help them train
-            # randomize to not have all validators sending in training data requests simultaneously to assist with load
-            if len(requests) == 0:
-                requests.append(ValiUtils.generate_standard_request(TrainingRequest))
 
             bt.logging.info(f"Number of requests being handled [{len(requests)}]")
             run_time_series_validation(wallet, config, metagraph, requests)

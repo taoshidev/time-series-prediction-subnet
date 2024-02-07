@@ -2,7 +2,7 @@
 # Copyright © 2023 Taoshi, LLC
 from features import FeatureCollector
 from feature_sources import BinaryFileFeatureStorage
-from mining_objects.streams.btcusd_5m import (
+from streams.btcusd_5m import (
     historical_sources,
     historical_feature_ids,
     INTERVAL_MS,

@@ -5,7 +5,8 @@ from feature_sources import BinaryFileFeatureStorage
 from keras.mixed_precision import Policy
 from keras.preprocessing import timeseries_dataset_from_array
 from mining_objects import BaseMiningModel
-from mining_objects.streams.btcusd_5m import (
+import numpy as np
+from streams.btcusd_5m import (
     historical_feature_ids,
     INTERVAL_MS,
     model_feature_ids,
@@ -16,7 +17,6 @@ from mining_objects.streams.btcusd_5m import (
     SAMPLE_COUNT,
     spontaneous_feature_sources,
 )
-import numpy as np
 import tensorflow as tf
 from time_util import datetime
 
@@ -129,7 +129,11 @@ def main():
 
             training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
             targets = np.empty(
-                shape=(scenarios_per_chunk, PREDICTION_COUNT, prediction_feature_count),
+                shape=(
+                    scenarios_per_chunk,
+                    PREDICTION_COUNT,
+                    prediction_feature_count,
+                ),
                 dtype=_DATA_PRECISION,
             )
 

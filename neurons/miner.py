@@ -4,12 +4,13 @@
 # Copyright © 2024 Taoshi, LLC
 import argparse
 import bittensor as bt
-import copy
-from features import FeatureCollector, FeatureSource
+from features import FeatureCollector, FeatureSource, FeatureScaler
 from hashing_utils import HashingUtils
 from miner_config import MinerConfig
 from mining_objects import BaseMiningModel
-from mining_objects.streams.btcusd_5m import (
+import numpy as np
+import os
+from streams.btcusd_5m import (
     INTERVAL_MS,
     model_feature_ids,
     model_feature_scaler,
@@ -17,10 +18,7 @@ from mining_objects.streams.btcusd_5m import (
     prediction_feature_ids,
     PREDICTION_COUNT,
     PREDICTION_LENGTH,
-    SAMPLE_COUNT,
 )
-import numpy as np
-import os
 import sys
 import template
 import threading
@@ -33,7 +31,14 @@ from vali_objects.request_templates import RequestTemplates
 
 FEATURE_COLLECTOR_TIMEOUT = 10.0
 
-base_mining_model = None
+btcusd_5m_feature_source = FeatureCollector(
+    sources=model_feature_sources,
+    feature_ids=model_feature_ids,
+    cache_results=True,
+    timeout=FEATURE_COLLECTOR_TIMEOUT,
+)
+
+base_mining_model: BaseMiningModel | None = None
 base_model_id = None
 
 # Cached miner predictions
@@ -87,10 +92,39 @@ def get_config():
     return config
 
 
+# TODO: Move this into a stream definition, so that each stream can be predicted using different sources, models, etc...
+def get_predictions(
+    tims_ms: int,
+    feature_source: FeatureSource,
+    feature_scaler: FeatureScaler,
+    model: BaseMiningModel,
+):
+    # TODO: interval should come from the stream definition
+    lookback_time_ms = tims_ms - (model.sample_count * INTERVAL_MS)
+
+    feature_samples = feature_source.get_feature_samples(
+        lookback_time_ms, INTERVAL_MS, model.sample_count
+    )
+
+    feature_scaler.scale_feature_samples(feature_samples)
+
+    model_input = feature_source.feature_samples_to_array(feature_samples)
+    predictions = model.predict(model_input)
+
+    prediction_samples = feature_source.array_to_feature_samples(
+        predictions, prediction_feature_ids
+    )
+    feature_scaler.unscale_feature_samples(prediction_samples)
+
+    prediction_array = feature_source.feature_samples_to_array(
+        prediction_samples, prediction_feature_ids
+    )
+
+    return prediction_array
+
+
 def update_predictions(
     stream_predictions: list[StreamPrediction],
-    feature_source: FeatureSource,
-    model: BaseMiningModel,
 ):
     while True:
         current_time = datetime.now()
@@ -98,50 +132,43 @@ def update_predictions(
             bt.logging.debug(f"running update of predictions [{current_time}]")
 
             for stream_prediction in stream_predictions:
-                if stream_prediction.stream_type not in miner_preds:
-                    bt.logging.info(
-                        f"stream type doesn't exist, setting to an empty list for [{stream_prediction.stream_type}]"
+                try:
+                    stream_type = stream_prediction.stream_type
+                    if stream_type not in miner_preds:
+                        miner_preds[stream_type] = []
+                        bt.logging.info(
+                            f"stream type doesn't exist, setting to an empty list for [{stream_type}]"
+                        )
+
+                    bt.logging.debug(
+                        f"current predicted closes in memory [{miner_preds[stream_type]}]"
                     )
-                    miner_preds[stream_prediction.stream_type] = []
-                bt.logging.debug(
-                    f"current predicted closes in memory [{miner_preds[stream_prediction.stream_type]}]"
-                )
-                bt.logging.info(
-                    f"setting predictions for [{stream_prediction.stream_type}]"
-                )
+                    bt.logging.info(f"setting predictions for [{stream_type}]")
 
-                start_time_ms = current_time.timestamp_ms() - (
-                    SAMPLE_COUNT * INTERVAL_MS
-                )
+                    prediction_array = get_predictions(
+                        current_time.timestamp_ms(),
+                        btcusd_5m_feature_source,
+                        model_feature_scaler,
+                        base_mining_model,
+                    )
 
-                feature_samples = feature_source.get_feature_samples(
-                    start_time_ms, INTERVAL_MS, SAMPLE_COUNT
-                )
+                    # TODO: Improve validators to allow multiple features in predictions
+                    predicted_closes = prediction_array.flatten()
 
-                # FeatureScaler is not thread safe, so make a local copy
-                feature_scaler = copy.deepcopy(model_feature_scaler)
-                feature_scaler.scale_feature_samples(feature_samples)
+                    bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
-                model_input = feature_source.feature_samples_to_array(feature_samples)
-                predictions = model.predict(model_input)
+                    # set preds in memory
+                    miner_preds[stream_type] = predicted_closes
+                    bt.logging.info(
+                        f"done setting predictions for [{stream_type}] "
+                        f"in memory with length [{len(predicted_closes)}]"
+                    )
 
-                prediction_samples = feature_source.array_to_feature_samples(
-                    predictions, prediction_feature_ids
-                )
-                feature_scaler.unscale_feature_samples(prediction_samples)
+                # Log errors and continue operations
+                except Exception:  # noqa
+                    bt.logging.error(traceback.format_exc())
+                continue
 
-                prediction_array = feature_source.feature_samples_to_array(
-                    prediction_samples, prediction_feature_ids
-                )
-
-                bt.logging.debug(f"predicted closes [{prediction_array}]")
-
-                # set preds in memory
-                miner_preds[stream_prediction.stream_type] = prediction_array
-                bt.logging.info(
-                    f"done setting predictions for [{stream_prediction.stream_type}] in memory "
-                    f"with length [{len(prediction_array)}]"
-                )
             time.sleep(15)
 
 
@@ -215,7 +242,6 @@ def main(config):
 
     base_mining_model = None
     base_model_id = config.base_model
-    model_chosen = None
 
     if base_model_id is not None and base_model_id in base_mining_models:
         bt.logging.debug(f"using an existing base model [{config.base_model}]")
@@ -462,13 +488,6 @@ def main(config):
         )
         sys.exit(0)
 
-    feature_collector = FeatureCollector(
-        sources=model_feature_sources,
-        feature_ids=model_feature_ids,
-        cache_results=True,
-        timeout=_FEATURE_COLLECTOR_TIMEOUT_MS,
-    )
-
     stream_predictions = [
         StreamPrediction.init_stream_prediction(request_template)
         for request_template in RequestTemplates().templates
@@ -476,7 +495,7 @@ def main(config):
 
     run_update_predictions = threading.Thread(
         target=update_predictions,
-        args=(stream_predictions, feature_collector, model_chosen),
+        args=(stream_predictions,),
     )
     run_update_predictions.start()
 
