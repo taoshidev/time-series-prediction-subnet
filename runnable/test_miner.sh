@@ -7,7 +7,7 @@ delay=5
 while true; do
     echo "Attempting to run the Python script..."
     # Run the Python script
-    cd /root/time-series-prediction-subnet/  &&  source /venv/bin/activate && /usr/bin/python3 /neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8011
+    cd /root/time-series-prediction-subnet/  &&  source /root/time-series-prediction-subnet/venv/bin/activate && /usr/bin/python3 /root/time-series-prediction-subnet/neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8011
 
     # Check the exit status of the Python script
     if [ $? -eq 0 ]; then
