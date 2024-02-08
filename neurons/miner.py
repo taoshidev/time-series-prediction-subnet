@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: Taoshidev
