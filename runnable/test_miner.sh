@@ -9,7 +9,7 @@ while true; do
     # Run the Python script
     
     set -e
-    source /root/time-series-prediction-subnet/venv/bin/activate
+    source "/root/time-series-prediction-subnet/venv/bin/activate"
 
     # Run the Python script with arguments
     cd /root/time-series-prediction-subnet/ && /usr/bin/python3 /root/time-series-prediction-subnet/neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8911
