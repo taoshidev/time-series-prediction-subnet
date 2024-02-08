@@ -12,7 +12,7 @@ while true; do
 # Check if cd command was successful
   # Activate the virtual environment
     source "/root/time-series-prediction-subnet/venv/bin/activate"
-    
+
     # Run the Python script with arguments
     /usr/bin/python3 /root/time-series-prediction-subnet/neurons/miner.py --netuid 3 --subtensor.network test --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8911
     # Check the exit status of the Python script
@@ -26,4 +26,5 @@ while true; do
 done
 
 echo "Script execution finished."
+
 

@@ -204,6 +204,7 @@ class MiningUtils:
     
     @staticmethod
     def open_model_prediction_generation_stack(samples, mining_details, prediction_size):
+        print(f"Prediction size is: ", prediction_size)
    
         input = handler_to_model_input_format(samples)
         futr = prepare_futr_datset(input)
