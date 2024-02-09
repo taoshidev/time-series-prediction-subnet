@@ -8,6 +8,7 @@ from streams.btcusd_5m import (
     INTERVAL_MS,
 )
 from time_util import closest_interval_ms, datetime, time_span_ms
+from vali_config import ValiConfig
 
 
 def main():
@@ -37,8 +38,11 @@ def main():
 
     print("Opening historical data...")
 
+    data_filename = (
+        ValiConfig.BASE_DIR + "/runnable/historical_financial_data/data.taosfs"
+    )
     historical_feature_storage = BinaryFileFeatureStorage(
-        filename="historical_financial_data/data.taosfs",
+        filename=data_filename,
         mode="w",
         feature_ids=historical_feature_ids,
     )

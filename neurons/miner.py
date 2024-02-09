@@ -18,6 +18,7 @@ from streams.btcusd_5m import (
     prediction_feature_ids,
     PREDICTION_COUNT,
     PREDICTION_LENGTH,
+    SAMPLE_COUNT,
 )
 import sys
 import template
@@ -111,13 +112,32 @@ def get_predictions(
     model_input = feature_source.feature_samples_to_array(feature_samples)
     predictions = model.predict(model_input)
 
-    prediction_samples = feature_source.array_to_feature_samples(
+    predicted_feature_samples = feature_source.array_to_feature_samples(
         predictions, prediction_feature_ids
     )
-    feature_scaler.unscale_feature_samples(prediction_samples)
+
+    # Special case with one prediction that must be extrapolated using the last sample.
+    # The predicted features must also exist in the sampled features. If it does not,
+    # then the prediction will be flat across the prediction length.
+    prediction_length = model.prediction_length
+    if (model.prediction_count == 1) and (prediction_length > 1):
+        for feature_id in prediction_feature_ids:
+            samples = feature_samples.get(feature_id)
+            if samples is not None:
+                predicted_samples = predicted_feature_samples[feature_id]
+                last_sample = samples[feature_id][-1]
+                prediction_sample = predicted_samples[0]
+                increment = (prediction_sample - last_sample) / prediction_length
+
+                extrapolation = last_sample
+                for i in range(prediction_length):
+                    extrapolation += increment
+                    predicted_samples[i] = extrapolation
+
+    feature_scaler.unscale_feature_samples(predicted_feature_samples)
 
     prediction_array = feature_source.feature_samples_to_array(
-        prediction_samples, prediction_feature_ids
+        predicted_feature_samples, prediction_feature_ids
     )
 
     return prediction_array
@@ -222,10 +242,47 @@ def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
 # Main takes the config and starts the miner.
 def main(config):
     base_mining_models = {
-        "model_v5_1": {
-            "creation_id": "model5001",
-            "filename": "/mining_models/model_v5_1.h5",
+        "model_v4_1": {
+            "id": "model2308",
+            "model_dir": "/mining_models/model_v4_1.h5",
             "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v4_2": {
+            "id": "model3005",
+            "model_dir": "/mining_models/model_v4_2.h5",
+            "sample_count": 500,
+            "prediction_count": 1,
+        },
+        "model_v4_3": {
+            "id": "model3103",
+            "model_dir": "/mining_models/model_v4_3.h5",
+            "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v4_4": {
+            "id": "model3104",
+            "model_dir": "/mining_models/model_v4_4.h5",
+            "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v4_5": {
+            "id": "model3105",
+            "model_dir": "/mining_models/model_v4_5.h5",
+            "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v4_6": {
+            "id": "model3106",
+            "model_dir": "/mining_models/model_v4_6.h5",
+            "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v5_1": {
+            "id": "model5000",
+            "filename": "/mining_models/model_v5_1.h5",
+            "sample_count": SAMPLE_COUNT,
+            "prediction_count": PREDICTION_COUNT,
         },
     }
 
@@ -255,7 +312,7 @@ def main(config):
             feature_count=len(model_feature_ids),
             sample_count=model_chosen["sample_count"],
             prediction_feature_count=len(prediction_feature_ids),
-            prediction_count=PREDICTION_COUNT,
+            prediction_count=model_chosen["prediction_count"],
             prediction_length=PREDICTION_LENGTH,
         )
 

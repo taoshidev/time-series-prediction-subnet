@@ -131,8 +131,8 @@ class BaseMiningModel:
         self._filename = filename
         self.sample_count = sample_count
         self._prediction_feature_count = prediction_feature_count
-        self._prediction_count = prediction_count
-        self._prediction_length = prediction_length
+        self.prediction_count = prediction_count
+        self.prediction_length = prediction_length
         self._display_memory_usage = display_memory_usage
 
         self.prediction_sparse_indexes = _get_sparse_indexes(
@@ -181,7 +181,7 @@ class BaseMiningModel:
         # window = window.reshape(1, self.sample_count, self._feature_count)
 
         prediction = self._model.predict(window)
-        prediction.shape = (self._prediction_count, self._prediction_feature_count)
+        prediction.shape = (self.prediction_count, self._prediction_feature_count)
 
         if self._interpolation_indexes is None:
             return prediction
@@ -189,7 +189,7 @@ class BaseMiningModel:
         else:
             sparse_prediction = prediction.T
             full_prediction = np.empty(
-                shape=(self._prediction_feature_count, self._prediction_length),
+                shape=(self._prediction_feature_count, self.prediction_length),
                 dtype=dtype,
             )
 

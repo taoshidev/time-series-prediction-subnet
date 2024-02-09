@@ -19,6 +19,7 @@ from streams.btcusd_5m import (
 )
 import tensorflow as tf
 from time_util import datetime
+from vali_config import ValiConfig
 
 
 def main():
@@ -37,6 +38,7 @@ def main():
     _BATCHES_PER_CHUNK = 32
     _LAYER_UNITS = 512
     _LEARNING_RATE = 0.001
+    _TRAINING_PASSES = 3
     _TRAINING_EPOCHS = 100
     _TRAINING_PATIENCE = 10
 
@@ -44,8 +46,11 @@ def main():
 
     print("Opening historical data...")
 
+    data_training_filename = (
+        ValiConfig.BASE_DIR + "/runnable/historical_financial_data/data_training.taosfs"
+    )
     historical_feature_storage = BinaryFileFeatureStorage(
-        filename="historical_financial_data/data_training.taosfs",
+        filename=data_training_filename,
         mode="r",
         feature_ids=historical_feature_ids,
     )
@@ -66,10 +71,11 @@ def main():
 
     print("Creating model...")
 
+    model_filename = ValiConfig.BASE_DIR + "/runnable/mining_models/model_v5.h5"
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
         model = BaseMiningModel(
-            filename="mining_models/model_v5.h5",
+            filename=model_filename,
             mode="w",
             feature_count=feature_count,
             sample_count=SAMPLE_COUNT,
@@ -86,116 +92,124 @@ def main():
             dtype=_MODEL_PRECISION,
         )
 
-    # A chunk contains batches.
-    # A batch contains scenarios.
-    # A scenario contains a training sequence and targets.
-    #
-    # Example of chunks containing 3 batches, with 2 scenarios per batch:
-    #
-    # start |--------| chunk n                         |--------------------------| end
-    # of    |        |training data        |           |                          | of
-    # file  |        |                |target data     |                          | file
-    #       |batch 1:|scenario 1      |targets    |    |                          |
-    #       |         |scenario 2     .|targets    |   |                          |
-    #       |batch 2:  |scenario 3    . |targets    |  |                          |
-    #       |           |scenario 4   .  |targets    | |                          |
-    #       |batch 3:    |scenario 5  .   |targets    ||                          |
-    #       |             |scenario 6 .    |targets    |                          |
-    #       |------------------------------| chunk n+1                       |----|
-    # (additional chunks)
-    scenarios_per_chunk = _BATCHES_PER_CHUNK * _SCENARIOS_PER_BATCH
-    training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
-    target_data_length = PREDICTION_LENGTH + scenarios_per_chunk - 1
-    chunk_length = training_data_length + target_data_length
+    training_pass = 1
+    while training_pass <= _TRAINING_PASSES:
+        print(f"Starting training pass {training_pass}...")
 
-    targets = np.empty(
-        shape=(scenarios_per_chunk, PREDICTION_COUNT, prediction_feature_count),
-        dtype=_DATA_PRECISION,
-    )
+        # A chunk contains batches.
+        # A batch contains scenarios.
+        # A scenario contains a training sequence and targets.
+        #
+        # Example of chunks containing 3 batches, with 2 scenarios per batch:
+        #
+        # start |--------| chunk n                         |--------------------------| end
+        # of    |        |training data        |           |                          | of
+        # file  |        |                |target data     |                          | file
+        #       |batch 1:|scenario 1      |targets    |    |                          |
+        #       |         |scenario 2     .|targets    |   |                          |
+        #       |batch 2:  |scenario 3    . |targets    |  |                          |
+        #       |           |scenario 4   .  |targets    | |                          |
+        #       |batch 3:    |scenario 5  .   |targets    ||                          |
+        #       |             |scenario 6 .    |targets    |                          |
+        #       |------------------------------| chunk n+1                       |----|
+        # (additional chunks)
+        scenarios_per_chunk = _BATCHES_PER_CHUNK * _SCENARIOS_PER_BATCH
+        training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
+        target_data_length = PREDICTION_LENGTH + scenarios_per_chunk - 1
+        chunk_length = training_data_length + target_data_length
 
-    chunk_start_ms = historical_start_time_ms
-    chunk_start = 0
-    chunk_end = chunk_length
-    while True:
-        if chunk_end > historical_sample_count:
-            chunk_end = historical_sample_count
-            chunk_length = chunk_end - chunk_start
-            scenarios_per_chunk = (
-                int((chunk_length - SAMPLE_COUNT - PREDICTION_LENGTH) / 2) + 1
-            )
-
-            if scenarios_per_chunk <= 0:
-                break
-
-            training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
-            targets = np.empty(
-                shape=(
-                    scenarios_per_chunk,
-                    PREDICTION_COUNT,
-                    prediction_feature_count,
-                ),
-                dtype=_DATA_PRECISION,
-            )
-
-        chunk_start_datetime = datetime.fromtimestamp_ms(chunk_start_ms)
-        print(f"Reading historical data for {chunk_start_datetime}...")
-
-        chunk_samples = feature_collector.get_feature_samples(
-            chunk_start_ms, INTERVAL_MS, chunk_length
-        )
-
-        model_feature_scaler.scale_feature_samples(chunk_samples)
-
-        training_data = feature_collector.feature_samples_to_array(
-            chunk_samples, stop=training_data_length, dtype=_DATA_PRECISION
-        )
-
-        target_data = feature_collector.feature_samples_to_array(
-            chunk_samples,
-            feature_ids=prediction_feature_ids,
-            start=training_data_length,
+        targets = np.empty(
+            shape=(scenarios_per_chunk, PREDICTION_COUNT, prediction_feature_count),
             dtype=_DATA_PRECISION,
         )
 
-        # Shape to simplify including multiple features in predictions
-        targets.shape = (
-            scenarios_per_chunk,
-            PREDICTION_COUNT,
-            prediction_feature_count,
-        )
+        chunk_start_ms = historical_start_time_ms
+        chunk_start = 0
+        chunk_end = chunk_length
+        while True:
+            if chunk_end > historical_sample_count:
+                chunk_end = historical_sample_count
+                chunk_length = chunk_end - chunk_start
+                scenarios_per_chunk = (
+                    int((chunk_length - SAMPLE_COUNT - PREDICTION_LENGTH) / 2) + 1
+                )
 
-        # Populate the training targets
-        sparse_indexes = model.prediction_sparse_indexes
-        for scenario_index in range(scenarios_per_chunk):
-            for prediction_index in range(PREDICTION_COUNT):
-                target_data_index = scenario_index + sparse_indexes[prediction_index]
-                targets[scenario_index, prediction_index] = target_data[
-                    target_data_index
-                ]
+                if scenarios_per_chunk <= 0:
+                    break
 
-        # Flatten to interlace features within predictions to match flat model output
-        targets.shape = (
-            scenarios_per_chunk,
-            PREDICTION_COUNT * prediction_feature_count,
-        )
+                training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
+                targets = np.empty(
+                    shape=(
+                        scenarios_per_chunk,
+                        PREDICTION_COUNT,
+                        prediction_feature_count,
+                    ),
+                    dtype=_DATA_PRECISION,
+                )
 
-        training_dataset = timeseries_dataset_from_array(
-            training_data,
-            targets,
-            sequence_length=SAMPLE_COUNT,
-            batch_size=_SCENARIOS_PER_BATCH,
-            shuffle=True,
-        )
+            chunk_start_datetime = datetime.fromtimestamp_ms(chunk_start_ms)
+            print(f"Reading historical data for {chunk_start_datetime}...")
 
-        print("Training...")
+            chunk_samples = feature_collector.get_feature_samples(
+                chunk_start_ms, INTERVAL_MS, chunk_length
+            )
 
-        model.train(
-            training_dataset, epochs=_TRAINING_EPOCHS, patience=_TRAINING_PATIENCE
-        )
+            model_feature_scaler.scale_feature_samples(chunk_samples)
 
-        chunk_start_ms += INTERVAL_MS * (chunk_length - PREDICTION_LENGTH)
-        chunk_start += chunk_length
-        chunk_end += chunk_length
+            training_data = feature_collector.feature_samples_to_array(
+                chunk_samples, stop=training_data_length, dtype=_DATA_PRECISION
+            )
+
+            target_data = feature_collector.feature_samples_to_array(
+                chunk_samples,
+                feature_ids=prediction_feature_ids,
+                start=training_data_length,
+                dtype=_DATA_PRECISION,
+            )
+
+            # Shape to simplify including multiple features in predictions
+            targets.shape = (
+                scenarios_per_chunk,
+                PREDICTION_COUNT,
+                prediction_feature_count,
+            )
+
+            # Populate the training targets
+            sparse_indexes = model.prediction_sparse_indexes
+            for scenario_index in range(scenarios_per_chunk):
+                for prediction_index in range(PREDICTION_COUNT):
+                    target_data_index = (
+                        scenario_index + sparse_indexes[prediction_index]
+                    )
+                    targets[scenario_index, prediction_index] = target_data[
+                        target_data_index
+                    ]
+
+            # Flatten to interlace features within predictions to match flat model output
+            targets.shape = (
+                scenarios_per_chunk,
+                PREDICTION_COUNT * prediction_feature_count,
+            )
+
+            training_dataset = timeseries_dataset_from_array(
+                training_data,
+                targets,
+                sequence_length=SAMPLE_COUNT,
+                batch_size=_SCENARIOS_PER_BATCH,
+                shuffle=True,
+            )
+
+            print("Training...")
+
+            model.train(
+                training_dataset, epochs=_TRAINING_EPOCHS, patience=_TRAINING_PATIENCE
+            )
+
+            chunk_start_ms += INTERVAL_MS * (chunk_length - PREDICTION_LENGTH)
+            chunk_start += chunk_length
+            chunk_end += chunk_length
+
+        training_pass += 1
 
     process_end_time = datetime.now()
     print(f"Training ended at {process_end_time}")
