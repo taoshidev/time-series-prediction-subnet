@@ -12,7 +12,7 @@ while true; do
     source /root/time-series-prediction-subnet/venv/bin/activate
 
     # Run the Python script with arguments
-    cd /root/time-series-prediction-subnet/ && /root/time-series-prediction-subnet/venv/bin/python3 /root/time-series-prediction-subnet/neurons/miner.py --netuid 8 --subtensor.network finney --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8999
+    cd /root/time-series-prediction-subnet/ && /root/time-series-prediction-subnet/venv/bin/python3 /root/time-series-prediction-subnet/neurons/miner.py --netuid 8 --subtensor.network finney --wallet.name miner --wallet.hotkey default --logging.debug --axon.port 8999 --base_model chaotic_multi 
     # Check the exit status of the Python script
     if [ $? -eq 0 ]; then
         echo "Python script succeeded."
