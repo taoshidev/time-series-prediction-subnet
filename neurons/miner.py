@@ -4,7 +4,7 @@
 # Copyright © 2024 Taoshi, LLC
 import argparse
 import bittensor as bt
-from features import FeatureCollector, FeatureSource, FeatureScaler,feature_samples_to_pandas
+from features import FeatureCollector, FeatureSource, FeatureScaler
 from hashing_utils import HashingUtils
 from miner_config import MinerConfig
 from mining_objects import BaseMiningModel,MiningModelStack
