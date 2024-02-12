@@ -10,6 +10,8 @@ from miner_config import MinerConfig
 from mining_objects import BaseMiningModel,MiningModelStack
 import numpy as np
 import os
+from typing import Tuple
+
 from streams.btcusd_5m import (
     INTERVAL_MS,
     model_feature_ids,
