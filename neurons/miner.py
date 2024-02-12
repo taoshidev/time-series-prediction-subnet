@@ -82,7 +82,7 @@ def get_config():
     parser.add_argument(
         "--base_model",
         type=str,
-        default="model_v5_1",
+        default="chaotic_multi",
         help="Choose the base model you want to run (if youre not using a custom one).",
     )
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
@@ -228,14 +228,13 @@ def get_predictions_stack(
     #feature_scaler.scale_feature_samples(feature_samples)
 
     model_input = feature_source.feature_samples_to_pandas(feature_samples,start_time = lookback_time_ms)
-    futr = prepare_futr_datset(model_input)
+    #futr = prepare_futr_datset(model_input)
     last_set = input.iloc[-1200:-25] # drop last 100 candles 
-    last_set_futr = prepare_futr_datset(last_set)
 
     # check this 
-    best_model =  model.select_model(df=last_set,futr=last_set_futr,ground_truth=model_input['close'].tail(25))
+    best_model =  model.select_model(df=last_set,ground_truth=model_input['close'].tail(25))
     model_name = best_model.models[0]
-    predicted_closes = best_model.predict(df=model_input,futr_df=futr)
+    predicted_closes = best_model.predict(df=model_input)
     prediction_size = model.prediction_length
     predicted_closes = predicted_closes.drop(columns='ds').iloc[:,0].tolist()# change this
     if prediction_size== 101 : 
