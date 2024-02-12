@@ -1,45 +1,27 @@
 # developer: taoshi-mbrown
 # Copyright © 2023 Taoshi, LLC
-from features import FeatureCollector
+from features import FeatureCollector, FeatureSource
 from feature_sources import BinaryFileFeatureStorage
 from streams.btcusd_5m import (
     historical_sources,
     historical_feature_ids,
     INTERVAL_MS,
 )
-from time_util import closest_interval_ms, datetime, time_span_ms
+from time_util import datetime, time_span_ms, previous_interval_ms
 from vali_config import ValiConfig
 
+SAMPLE_COUNT_MAX = 1000
 
-def main():
-    # choose the range of days to look back
-    # number of days back start
-    _DAYS_BACK_START = 400
-    # number of days forward since end day
-    # for example start from 100 days ago and get 70 days from 100 days ago
-    # (100 days ago, 99 days ago, 98 days ago, ..., up to 30 days ago)
-    _DAYS = 370
 
-    sample_count_max = int(time_span_ms(days=1) / INTERVAL_MS)
-
-    now = datetime.now()
-    now_time_ms = now.timestamp_ms()
-    start_time_ms = now_time_ms - time_span_ms(days=_DAYS_BACK_START)
-    end_time_ms = start_time_ms + time_span_ms(days=_DAYS)
-
-    start_time_ms = closest_interval_ms(start_time_ms, INTERVAL_MS)
-    end_time_ms = closest_interval_ms(end_time_ms, INTERVAL_MS)
-
-    historical_feature_collector = FeatureCollector(
-        sources=historical_sources,
-        feature_ids=historical_feature_ids,
-        cache_results=False,
-    )
-
-    print("Opening historical data...")
-
+def generate_historical_data(
+    feature_source: FeatureSource,
+    start_time_ms: int,
+    end_time_ms: int,
+    filename: str,
+) -> None:
+    print("Creating historical data file...")
     data_filename = (
-        ValiConfig.BASE_DIR + "/runnable/historical_financial_data/data.taosfs"
+        ValiConfig.BASE_DIR + "/runnable/historical_financial_data/" + filename
     )
     historical_feature_storage = BinaryFileFeatureStorage(
         filename=data_filename,
@@ -49,12 +31,12 @@ def main():
 
     while start_time_ms < end_time_ms:
         sample_count = int((end_time_ms - start_time_ms) / INTERVAL_MS)
-        sample_count = min(sample_count, sample_count_max)
+        sample_count = min(sample_count, SAMPLE_COUNT_MAX)
 
         start_time_datetime = datetime.fromtimestamp_ms(start_time_ms)
         print(f"Requesting historical data for {start_time_datetime}...")
 
-        samples = historical_feature_collector.get_feature_samples(
+        samples = feature_source.get_feature_samples(
             start_time_ms, INTERVAL_MS, sample_count
         )
 
@@ -67,6 +49,40 @@ def main():
         start_time_ms += INTERVAL_MS * sample_count
 
     historical_feature_storage.close()
+
+
+def main() -> None:
+    _TRAINING_LOOKBACK_DAYS = 400
+    _TESTING_LOOKBACK_DAYS = 30
+
+    now = datetime.now()
+    now_time_ms = now.timestamp_ms()
+    now_time_ms = previous_interval_ms(now_time_ms, INTERVAL_MS)
+
+    training_start_time_ms = now_time_ms - time_span_ms(days=_TRAINING_LOOKBACK_DAYS)
+    testing_start_time_ms = now_time_ms + time_span_ms(days=_TESTING_LOOKBACK_DAYS)
+
+    training_end_time_ms = testing_start_time_ms
+    testing_end_time_ms = now_time_ms
+
+    historical_feature_collector = FeatureCollector(
+        sources=historical_sources,
+        feature_ids=historical_feature_ids,
+        cache_results=False,
+    )
+
+    generate_historical_data(
+        historical_feature_collector,
+        training_start_time_ms,
+        training_end_time_ms,
+        "data_training.taosfs",
+    )
+    generate_historical_data(
+        historical_feature_collector,
+        testing_start_time_ms,
+        testing_end_time_ms,
+        "data_testing.taosfs",
+    )
 
     print("Done.")
 

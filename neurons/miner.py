@@ -12,14 +12,17 @@ import numpy as np
 import os
 from streams.btcusd_5m import (
     INTERVAL_MS,
+    legacy_model_feature_ids,
+    legacy_model_feature_sources,
+    legacy_model_feature_scaler,
     model_feature_ids,
-    model_feature_scaler,
     model_feature_sources,
     prediction_feature_ids,
     PREDICTION_COUNT,
     PREDICTION_LENGTH,
     SAMPLE_COUNT,
 )
+from streams.btcusd_5m import model_feature_scaler as new_model_feature_scaler
 import sys
 import template
 import threading
@@ -32,15 +35,10 @@ from vali_objects.request_templates import RequestTemplates
 
 FEATURE_COLLECTOR_TIMEOUT = 10.0
 
-btcusd_5m_feature_source = FeatureCollector(
-    sources=model_feature_sources,
-    feature_ids=model_feature_ids,
-    cache_results=True,
-    timeout=FEATURE_COLLECTOR_TIMEOUT,
-)
-
 base_mining_model: BaseMiningModel | None = None
 base_model_id = None
+model_feature_source: FeatureSource | None = None
+model_feature_scaler: FeatureScaler | None = None
 
 # Cached miner predictions
 miner_preds = {}
@@ -167,7 +165,7 @@ def update_predictions(
 
                     prediction_array = get_predictions(
                         current_time.timestamp_ms(),
-                        btcusd_5m_feature_source,
+                        model_feature_source,
                         model_feature_scaler,
                         base_mining_model,
                     )
@@ -283,6 +281,7 @@ def main(config):
             "filename": "/mining_models/model_v5_1.h5",
             "sample_count": SAMPLE_COUNT,
             "prediction_count": PREDICTION_COUNT,
+            "legacy_model": False,
         },
     }
 
@@ -294,6 +293,8 @@ def main(config):
 
     global base_mining_model
     global base_model_id
+    global model_feature_source
+    global model_feature_scaler
     global miner_preds
     global sent_preds
 
@@ -315,6 +316,24 @@ def main(config):
             prediction_count=model_chosen["prediction_count"],
             prediction_length=PREDICTION_LENGTH,
         )
+
+        legacy = model_chosen.get("legacy", True)
+        if legacy:
+            model_feature_source = FeatureCollector(
+                sources=legacy_model_feature_sources,
+                feature_ids=legacy_model_feature_ids,
+                cache_results=True,
+                timeout=FEATURE_COLLECTOR_TIMEOUT,
+            )
+            model_feature_scaler = legacy_model_feature_scaler
+        else:
+            model_feature_source = FeatureCollector(
+                sources=model_feature_sources,
+                feature_ids=model_feature_ids,
+                cache_results=True,
+                timeout=FEATURE_COLLECTOR_TIMEOUT,
+            )
+            model_feature_scaler = new_model_feature_scaler
 
     else:
         bt.logging.debug("base model not chosen.")

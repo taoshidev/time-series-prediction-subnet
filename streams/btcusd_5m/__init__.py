@@ -194,7 +194,10 @@ spontaneous_feature_ids = get_feature_ids(spontaneous_feature_sources)
 model_feature_sources = historical_sources + spontaneous_feature_sources
 model_feature_ids = historical_feature_ids + spontaneous_feature_ids
 
-_default_scaler = MinMaxScaler(feature_range=(-1, 1), copy=False)
+legacy_model_feature_sources = historical_sources
+legacy_model_feature_ids = historical_feature_ids
+
+_default_scaler = MinMaxScaler(feature_range=(-1.0, 1.0), copy=False)
 model_feature_scaler = FeatureScaler(
     default_scaler=_default_scaler,
     exclude_feature_ids=temporal_feature_ids,
@@ -206,6 +209,9 @@ model_feature_scaler = FeatureScaler(
         ): _default_scaler,
     },
 )
+
+_legacy_default_scaler = MinMaxScaler(feature_range=(0.0, 1.0), copy=False)
+legacy_model_feature_scaler = FeatureScaler(default_scaler=_default_scaler)
 
 prediction_feature_ids = [FeatureID.BTC_USD_CLOSE]
 
