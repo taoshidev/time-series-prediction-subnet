@@ -513,7 +513,7 @@ def main(config):
 
     def lf_hash_blacklist_fn(
         synapse: template.protocol.LiveForwardHash,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         _is_invalid_validator = is_invalid_validator(
             metagraph, synapse.dendrite.hotkey, MinerConfig.ACCEPTABLE_INTERVALS_HASH
         )
