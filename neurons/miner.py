@@ -230,10 +230,7 @@ def get_predictions_stack(
     #feature_scaler.scale_feature_samples(feature_samples)
 
     model_input = feature_source.feature_samples_to_pandas(feature_samples,start_time = lookback_time_ms,interval_ms=INTERVAL_MS)
-    print('Head: ')
-    print(model_input.head(1))
-    print('Tail: ')
-    print(model_input.tail(1))
+
     
     #futr = prepare_futr_datset(model_input)
     last_set = model_input.iloc[-1200:-25] # drop last 100 candles 
@@ -249,7 +246,7 @@ def get_predictions_stack(
 
     print(f"Raw predictions start with: {predicted_closes[0:19]}")
         
-    predictions_linearised = linear_pred(model_input['close'].tail(1),preds=predicted_closes,prediction_size= prediction_size)
+    predictions_linearised = linear_pred(model_input['close'].iloc[-1],preds=predicted_closes,prediction_size= prediction_size)
     print(f"Linearised predictions start with: {predictions_linearised[0:19]}")
 
     return predictions_linearised  # needs to be a list
