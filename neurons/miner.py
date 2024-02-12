@@ -390,6 +390,12 @@ def main(config):
             "sample_count": SAMPLE_COUNT,
             "prediction_count": PREDICTION_COUNT,
         },
+        "chaotic_multi": {
+            "id": "chaotic_multi",
+            "filename": "/mining_models/chaotic_multi/",
+            "sample_count": SAMPLE_COUNT,
+            "prediction_count": PREDICTION_COUNT,
+        },
     }
 
     # Activating Bittensor's logging with the set configurations.
