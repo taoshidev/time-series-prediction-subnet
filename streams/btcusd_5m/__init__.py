@@ -89,10 +89,8 @@ if _INCLUDE_EXCHANGE_KLINES:
             FeatureID.BTC_USD_HIGH: max,
             FeatureID.BTC_USD_LOW: min,
             FeatureID.BTC_USD_VOLUME: sum,
-            FeatureID.BTC_USD_OPEN:fmean,
-           # FeatureID.QUOTE_ASSET_VOLUME:fmean,
-          #  FeatureID.TAKER_BUY_VOLUME_BASE:fmean,
-           # FeatureID.TAKER_BUY_VOLUME_QUOTE :fmean,
+           # FeatureID.BTC_USD_OPEN:fmean,
+
         },#
     )
 
