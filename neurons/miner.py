@@ -508,6 +508,7 @@ def main(config):
     #     synapse.received = True
     #     return synapse
 
+
     def lf_hash_blacklist_fn(
         synapse: template.protocol.LiveForwardHash,
     ) -> tuple[bool, str]:
@@ -550,14 +551,20 @@ def main(config):
                 bt.logging.error(f"miner preds not stored properly in memory")
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
-
-    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> tuple[bool, str]:
-        _is_invalid_validator = is_invalid_validator(
-            metagraph,
-            synapse.dendrite.hotkey,
-            MinerConfig.ACCEPTABLE_INTERVALS_PREDICTIONS,
-        )
-        return _is_invalid_validator, synapse.dendrite.hotkey
+            
+            
+    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
+        _is_invalid_validator = is_invalid_validator(metagraph, synapse.dendrite.hotkey)
+        return _is_invalid_validator, synapse.dendrite.hotkey           
+    
+    # orig -> to reveert
+    #def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> tuple[bool, str]:
+    #    _is_invalid_validator = is_invalid_validator(
+    #        metagraph,
+    #        synapse.dendrite.hotkey,
+    #        MinerConfig.ACCEPTABLE_INTERVALS_PREDICTIONS,
+    #    )
+    #    return _is_invalid_validator, synapse.dendrite.hotkey
 
     def lf_priority_fn(synapse: template.protocol.LiveForward) -> float:
         caller_uid = metagraph.hotkeys.index(synapse.dendrite.hotkey)
