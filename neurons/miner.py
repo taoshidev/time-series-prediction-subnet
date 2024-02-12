@@ -274,7 +274,7 @@ def update_predictions_stack(
                     )
                     bt.logging.info(f"setting predictions for [{stream_type}]")
 
-                    prediction_array = get_predictions(
+                    prediction_array = get_predictions_stack(
                         current_time.timestamp_ms(),
                         btcusd_5m_feature_source,
                         model_feature_scaler,
