@@ -43,7 +43,7 @@ btcusd_5m_feature_source = FeatureCollector(
     feature_ids=model_feature_ids,
     cache_results=True,
     timeout=FEATURE_COLLECTOR_TIMEOUT,
-)n
+)
 
 base_mining_model: MiningModelStack| None = None
 base_model_id = None
