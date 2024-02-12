@@ -282,8 +282,8 @@ def update_predictions_stack(
                     )
 
                     # TODO: Improve validators to allow multiple features in predictions
-                    predicted_closes = prediction_array.flatten()
-
+                    # predicted_closes = prediction_array.flatten()
+                    predicted_closes = np.array(prediction_array).flatten()
                     bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
                     # set preds in memory
