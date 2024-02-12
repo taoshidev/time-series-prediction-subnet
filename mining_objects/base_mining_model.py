@@ -217,8 +217,6 @@ class BaseMiningModel:
 class MiningModelStack:
     def __init__(
         self,
-        model_dir : str,
-        loaded_models , 
         filename: str,
         mode: str,
         feature_count: int,
@@ -235,15 +233,15 @@ class MiningModelStack:
         output_length = prediction_feature_count * prediction_count
         output_shape = (None, output_length)
 
-
-        self._model = model
+    
+        self._model = None
         self._filename = filename
         self.sample_count = sample_count
         self._prediction_feature_count = prediction_feature_count
         self.prediction_count = prediction_count
         self.prediction_length = prediction_length
         self._display_memory_usage = display_memory_usage
-        self.model_dir = None
+        self.model_dir = filename
 
         self.prediction_sparse_indexes = _get_sparse_indexes(
             prediction_length, prediction_count
