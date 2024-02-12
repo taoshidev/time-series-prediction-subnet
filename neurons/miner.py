@@ -688,7 +688,7 @@ def main(config):
     ]
 
     run_update_predictions = threading.Thread(
-        target=update_predictions,
+        target=update_predictions_stack,
         args=(stream_predictions,),
     )
     run_update_predictions.start()
