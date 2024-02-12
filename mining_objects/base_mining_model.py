@@ -252,12 +252,12 @@ class MiningModelStack:
         else:
             self._interpolation_indexes = np.arange(prediction_length)
             
-        def set_model_dir(self, model):
+    def set_model_dir(self, model):
             self.model_dir = model
             return self 
         
         
-        def load_models(self):
+    def load_models(self):
             dirs = os.listdir(self.model_dir) # set to full path
             model_dirs = [os.path.join(self.model_dir, entry) for entry in dirs if os.path.isdir(os.path.join(self.model_dir, entry))]
 
@@ -265,14 +265,14 @@ class MiningModelStack:
             self.loaded_models = dict 
             return self
 
-        def predict(self, df):
+    def predict(self, df):
 
             predictions =  self.loaded_model.predict(df)
     
             return predictions
         
         
-        def select_model(self,df,ground_truth,length=25):
+    def select_model(self,df,ground_truth,length=25):
             length = length - 1
             predictions = [ model.predict(df).drop(columns='ds') for model in self.loaded_models] 
             errors = [ mean_squared_error(prediction.values[0:length],ground_truth.values[0:length] , squared=False)  for prediction in predictions]
