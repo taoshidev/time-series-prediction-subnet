@@ -172,7 +172,7 @@ class FeatureSource(ABC):
             else: 
                 raise ValueError('No matching columns found')
         df['unique_id'] = 'BTCUSD'
-        sample_count = df.shape[0]
+        sample_count = df.shape[0] - 1
         the_time = start_time
         results =[] 
         results.append(the_time) 
