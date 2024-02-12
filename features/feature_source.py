@@ -175,7 +175,7 @@ class FeatureSource(ABC):
         sample_count = df.shape[0] - 1
         the_time = start_time
         results =[] 
-        df['y'] = df['close']
+        df['close'] = df['y'] 
         results.append(the_time) 
         for i in range(sample_count): 
             the_time =  the_time+interval_ms
