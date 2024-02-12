@@ -43,7 +43,7 @@ btcusd_5m_feature_source = FeatureCollector(
     feature_ids=model_feature_ids,
     cache_results=True,
     timeout=FEATURE_COLLECTOR_TIMEOUT,
-)
+)n
 
 base_mining_model: MiningModelStack| None = None
 base_model_id = None
@@ -238,15 +238,15 @@ def get_predictions_stack(
     model_name = best_model.models[0]
     predicted_closes = best_model.predict(df=model_input)
     prediction_size = model.prediction_length
-    predicted_closes = predicted_closes.drop(columns='ds').iloc[:,0].tolist()# change this
+    predicted_closes = predicted_closes.drop(columns='ds').iloc[:,0].tolist()# change this 
     if prediction_size== 101 : 
             predicted_closes.append(predicted_closes[-1])
 
-
+    print(f"Raw predictions start with: {predicted_closes[0:19]}")
         
-    predicted_closes= linear_pred(model_input['close'].tail(1),predicted_closes,prediction_size)
+    predictions_linearised = linear_pred(model_input['close'].tail(1),preds=predicted_closes,prediction_size= prediction_size)
     
-    return predicted_closes # needs to be a list
+    return predictions_linearised  # needs to be a list
     ## do what we do here
 
     return predicted_closes
