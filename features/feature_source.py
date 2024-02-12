@@ -130,6 +130,7 @@ class FeatureSource(ABC):
         start: int = 0,
         stop: int = None,
         dtype: np.dtype = np.float32,
+        interval_ms=int,
         start_time = int,
     ) -> ndarray:
         if feature_ids is None:
@@ -159,15 +160,15 @@ class FeatureSource(ABC):
 
         sample_count = stop - start
         search_string = 'BTC_USD_CLOSE'
+        search_id = 101001
         cols = [str(i) for i in feature_samples]
         df = pd.DataFrame(feature_samples) 
         #df['ds'] = pd.date_range(start=start, periods=sample_count, freq='5T') 
         try: 
             df['y'] = df[search_string]
         except : 
-            matched_columns = [col for col in df.columns if search_string in col]
-            if len(matched_columns) ==1 : 
-                df['y'] = df[matched_columns]
+            if True : 
+                df['y'] = df[search_id]
             else: 
                 raise ValueError('No matching columns found')
         df['unique_id'] = 'BTCUSD'

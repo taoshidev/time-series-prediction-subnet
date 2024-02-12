@@ -229,7 +229,7 @@ def get_predictions_stack(
     # remove 
     #feature_scaler.scale_feature_samples(feature_samples)
 
-    model_input = feature_source.feature_samples_to_pandas(feature_samples,start_time = lookback_time_ms)
+    model_input = feature_source.feature_samples_to_pandas(feature_samples,start_time = lookback_time_ms,interval_ms=INTERVAL_MS)
     #futr = prepare_futr_datset(model_input)
     last_set = input.iloc[-1200:-25] # drop last 100 candles 
 
