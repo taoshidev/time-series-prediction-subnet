@@ -1,62 +1,80 @@
-# developer: Taoshi
-# Copyright © 2023 Taoshi Inc
-import hashlib
-import uuid
-import random
-
-from data_generator.data_generator_handler import DataGeneratorHandler
-from mining_objects.mining_utils import MiningUtils
-
-from time_util.time_util import TimeUtil
-from vali_objects.dataclasses.client_request import ClientRequest
-from vali_objects.utils.vali_utils import ValiUtils
+# developer: taoshi-mbrown
+# Copyright © 2023 Taoshi, LLC
+from features import FeatureCollector
+from feature_sources import BinaryFileFeatureStorage
+from streams.btcusd_5m import (
+    historical_sources,
+    historical_feature_ids,
+    INTERVAL_MS,
+    model_feature_sources,
+    model_feature_ids,
+)
+from time_util import closest_interval_ms, datetime, time_span_ms
 from vali_config import ValiConfig
-from vali_objects.scaling.scaling import Scaling
 
-import bittensor as bt
+
+def main():
+    # choose the range of days to look back
+    # number of days back start
+    _DAYS_BACK_START = 600
+    # number of days forward since end day
+    # for example start from 100 days ago and get 70 days from 100 days ago
+    # (100 days ago, 99 days ago, 98 days ago, ..., up to 30 days ago)
+    _DAYS = 599
+
+    sample_count_max = int(time_span_ms(days=1) / INTERVAL_MS)
+
+    now = datetime.now()
+    now_time_ms = now.timestamp_ms()
+    start_time_ms = now_time_ms - time_span_ms(days=_DAYS_BACK_START)
+    end_time_ms = start_time_ms + time_span_ms(days=_DAYS)
+
+    start_time_ms = closest_interval_ms(start_time_ms, INTERVAL_MS)
+    end_time_ms = closest_interval_ms(end_time_ms, INTERVAL_MS)
+    
+    print(f'hist sources { historical_sources}')
+    print(f'Running from model ids: { model_feature_ids}')
+
+    historical_feature_collector = FeatureCollector(
+        sources=model_feature_sources,
+        feature_ids= model_feature_ids,
+        cache_results=False,
+    )
+
+    print("Opening historical data...")
+
+    data_filename = (
+        ValiConfig.BASE_DIR + "/runnable/historical_financial_data/data2.taosfs"
+    )
+    historical_feature_storage = BinaryFileFeatureStorage(
+        filename=data_filename,
+        mode="w",
+        feature_ids= model_feature_ids,
+    )
+
+    while start_time_ms < end_time_ms:
+        sample_count = int((end_time_ms - start_time_ms) / INTERVAL_MS)
+        sample_count = min(sample_count, sample_count_max)
+
+        start_time_datetime = datetime.fromtimestamp_ms(start_time_ms)
+        print(f"Requesting historical data for {start_time_datetime}...")
+
+        samples = historical_feature_collector.get_feature_samples(
+            start_time_ms, INTERVAL_MS, sample_count
+        )
+
+        print("Storing...")
+
+        historical_feature_storage.set_feature_samples(
+            start_time_ms, INTERVAL_MS, samples
+        )
+
+        start_time_ms += INTERVAL_MS * sample_count
+
+    historical_feature_storage.close()
+
+    print("Done.")
 
 
 if __name__ == "__main__":
-    use_local = False
-    train = False
-    train_new_data = False
-    test = True
-
-    # Testing everything locally outside of the bittensor infra to ensure logic works properly
-
-    client_request = ClientRequest(
-        client_uuid=str(uuid.uuid4()),
-        stream_type="BTCUSD-5m",
-        topic_id=1,
-        schema_id=1,
-        feature_ids=[0.001, 0.002, 0.003, 0.004],
-        prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
-        additional_details = {
-            "tf": 5,
-            "trade_pair": "BTCUSD"
-        }
-    )
-
-    # choose the range of days to look back
-    # number of days back start
-    days_back_start = 200
-    # number of days forward since end day
-    # for example start from 100 days ago and get 70 days from 100 days ago (100 days ago, 99 days ago, 98 days ago, etc.)
-    days_back_end = 199
-
-    ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
-        TimeUtil.generate_range_timestamps(
-            TimeUtil.generate_start_timestamp(days_back_start), days_back_end, True))
-
-    data_structure = ValiUtils.get_standardized_ds()
-
-    data_generator_handler = DataGeneratorHandler()
-    for ts_range in ts_ranges:
-        data_generator_handler.data_generator_handler(client_request.topic_id, 0,
-                                                      client_request.additional_details, data_structure, ts_range)
-
-    vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
-
-    # close timestamp, close, high, low, volume
-    samples = bt.tensor(scaled_data_structure)
-    MiningUtils.write_file("/runnable/historical_financial_data/", "data.pickle", data_structure, True)
+    main()
