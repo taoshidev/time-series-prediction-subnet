@@ -249,7 +249,7 @@ def get_predictions_stack(
     return predictions_linearised  # needs to be a list
     ## do what we do here
 
-    return predicted_closes
+   
 
 
 def update_predictions_stack(
