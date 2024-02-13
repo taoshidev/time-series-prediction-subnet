@@ -271,19 +271,19 @@ def run_time_series_validation(
                     start_time_ms, INTERVAL_MS, sample_count
                 )
 
-                prediction_array = validator_feature_source.feature_samples_to_array(
+                validation_array = validator_feature_source.feature_samples_to_array(
                     feature_samples, prediction_feature_ids
                 )
 
                 # TODO: Improve validators to allow multiple features in predictions
-                prediction_array = prediction_array.flatten()
+                validation_array = validation_array.flatten()
 
                 bt.logging.info(
                     "results gathered sending back to miners via backprop and weighing"
                 )
 
                 # Send back the results for backprop so miners can learn
-                results = bt.tensor(prediction_array)
+                results = bt.tensor(validation_array)
 
                 results_backprop_proto = LiveBackward(
                     request_uuid=request_uuid,
@@ -307,7 +307,7 @@ def run_time_series_validation(
                 for miner_uid, miner_preds in vali_request.predictions.items():
                     try:
                         scores[miner_uid] = Scoring.score_response(
-                            miner_preds, prediction_array
+                            miner_preds, validation_array
                         )
                     except IncorrectPredictionSizeError as e:
                         bt.logging.error(e)
@@ -333,7 +333,7 @@ def run_time_series_validation(
                             weighed_winning_scores_dict,
                             weight,
                         ) = Scoring.update_weights_using_historical_distributions(
-                            weighed_scores, prediction_array
+                            weighed_scores, validation_array
                         )
 
                     else:
@@ -351,7 +351,7 @@ def run_time_series_validation(
                             weighed_winning_scores_dict,
                             weight,
                         ) = Scoring.update_weights_using_historical_distributions(
-                            weighed_scores, prediction_array
+                            weighed_scores, validation_array
                         )
                         # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 

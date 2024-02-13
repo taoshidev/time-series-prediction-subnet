@@ -138,4 +138,5 @@ class FeatureScaler:
             if (scaler is None) and (not ignore_unknown):
                 raise RuntimeError()  # TODO: Implement
             else:
-                scaler.inverse_transform(samples)
+                reshaped_samples = samples.reshape(-1, 1)
+                scaler.inverse_transform(reshaped_samples)

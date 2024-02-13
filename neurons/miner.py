@@ -91,7 +91,7 @@ def get_config():
     return config
 
 
-# TODO: Move this into a stream definition, so that each stream can be predicted using different sources, models, etc...
+# TODO: Move this into a stream object, so that each stream can be predicted using different sources, models, etc...
 def get_predictions(
     tims_ms: int,
     feature_source: FeatureSource,
@@ -123,7 +123,7 @@ def get_predictions(
             samples = feature_samples.get(feature_id)
             if samples is not None:
                 predicted_samples = predicted_feature_samples[feature_id]
-                last_sample = samples[feature_id][-1]
+                last_sample = samples[-1]
                 prediction_sample = predicted_samples[0]
                 increment = (prediction_sample - last_sample) / prediction_length
 
@@ -242,37 +242,37 @@ def main(config):
     base_mining_models = {
         "model_v4_1": {
             "id": "model2308",
-            "model_dir": "/mining_models/model_v4_1.h5",
+            "filename": "/mining_models/model_v4_1.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_2": {
             "id": "model3005",
-            "model_dir": "/mining_models/model_v4_2.h5",
+            "filename": "/mining_models/model_v4_2.h5",
             "sample_count": 500,
             "prediction_count": 1,
         },
         "model_v4_3": {
             "id": "model3103",
-            "model_dir": "/mining_models/model_v4_3.h5",
+            "filename": "/mining_models/model_v4_3.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_4": {
             "id": "model3104",
-            "model_dir": "/mining_models/model_v4_4.h5",
+            "filename": "/mining_models/model_v4_4.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_5": {
             "id": "model3105",
-            "model_dir": "/mining_models/model_v4_5.h5",
+            "filename": "/mining_models/model_v4_5.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_6": {
             "id": "model3106",
-            "model_dir": "/mining_models/model_v4_6.h5",
+            "filename": "/mining_models/model_v4_6.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
@@ -317,8 +317,8 @@ def main(config):
             prediction_length=PREDICTION_LENGTH,
         )
 
-        legacy = model_chosen.get("legacy", True)
-        if legacy:
+        legacy_model = model_chosen.get("legacy_model", True)
+        if legacy_model:
             model_feature_source = FeatureCollector(
                 sources=legacy_model_feature_sources,
                 feature_ids=legacy_model_feature_ids,

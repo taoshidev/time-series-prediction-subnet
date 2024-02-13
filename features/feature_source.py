@@ -153,7 +153,7 @@ class FeatureSource(ABC):
 
         array = array.T
         results = {}
-        for feature_index, feature_id in feature_ids:
+        for feature_index, feature_id in enumerate(feature_ids):
             results[feature_id] = array[feature_index][start:stop]
 
         return results

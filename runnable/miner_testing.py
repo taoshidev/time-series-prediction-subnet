@@ -3,25 +3,26 @@
 import hashlib
 import matplotlib.pyplot as plt
 
-from feature_sources import BinaryFileFeatureStorage
+from features import FeatureCollector
 from mining_objects.base_mining_model import BaseMiningModel
-from mining_objects.mining_utils import MiningUtils
-import numpy as np
 import os
-import random
 from neurons.miner import get_predictions
 from streams.btcusd_5m import (
     INTERVAL_MS,
-    model_feature_ids,
-    model_feature_scaler,
     model_feature_sources,
     prediction_feature_ids,
     PREDICTION_COUNT,
     PREDICTION_LENGTH,
     SAMPLE_COUNT,
-    historical_feature_ids,
+    legacy_model_feature_scaler,
+    legacy_model_feature_sources,
+    legacy_model_feature_ids,
+    validator_feature_source,
 )
+from streams.btcusd_5m import model_feature_scaler as new_model_feature_scaler
+from streams.btcusd_5m import model_feature_ids as new_model_feature_ids
 import time
+from time_util import datetime, time_span_ms
 from time_util.time_util import TimeUtil
 import uuid
 
@@ -38,6 +39,15 @@ from vali_objects.scoring.scoring import Scoring
 
 
 if __name__ == "__main__":
+    _TESTING_LOOKBACK_DAYS = 30
+    _PREDICTION_LENGTH_MS = INTERVAL_MS * PREDICTION_LENGTH
+
+    now = datetime.now()
+    now_time_ms = now.timestamp_ms()
+
+    testing_start_time_ms = now_time_ms - time_span_ms(days=_TESTING_LOOKBACK_DAYS)
+    testing_end_time_ms = now_time_ms - _PREDICTION_LENGTH_MS
+
     # if you'd like to view the output plotted
     plot_predictions = False
 
@@ -54,7 +64,42 @@ if __name__ == "__main__":
     totals = {}
     total_weights = {}
 
-    while True:
+    legacy_feature_source = FeatureCollector(
+        sources=legacy_model_feature_sources,
+        feature_ids=legacy_model_feature_ids,
+        cache_results=True,
+    )
+
+    new_feature_source = FeatureCollector(
+        sources=model_feature_sources,
+        feature_ids=new_model_feature_ids,
+        cache_results=True,
+    )
+
+    """
+    ========================================================================
+    Fill in the mining model you want to test here
+    ========================================================================
+    """
+
+    base_mining_models = {
+        "model_v4_6": {
+            "id": "model3106",
+            "filename": "/mining_models/model_v4_6.h5",
+            "sample_count": 100,
+            "prediction_count": 1,
+        },
+        "model_v5_1": {
+            "id": "model5000",
+            "filename": "/mining_models/model_v5_1.h5",
+            "sample_count": SAMPLE_COUNT,
+            "prediction_count": PREDICTION_COUNT,
+            "legacy_model": False,
+        },
+    }
+
+    start_time_ms = testing_start_time_ms
+    while start_time_ms < testing_end_time_ms:
         try:
             client_request = ClientRequest(
                 client_uuid="test_client_uuid",
@@ -65,70 +110,6 @@ if __name__ == "__main__":
                 prediction_size=100,
                 additional_details={"tf": 5, "trade_pair": "BTCUSD"},
             )
-
-            data_testing_filename = (
-                ValiConfig.BASE_DIR
-                + "/runnable/historical_financial_data/data_training.taosfs"
-            )
-            historical_feature_storage = BinaryFileFeatureStorage(
-                filename=data_testing_filename,
-                mode="r",
-                feature_ids=historical_feature_ids,
-            )
-
-            historical_start_time_ms = historical_feature_storage.get_start_time_ms()
-            historical_sample_count = historical_feature_storage.get_sample_count()
-
-            training_feature_sources = [
-                historical_feature_storage,
-                *spontaneous_feature_sources,
-            ]
-
-            feature_collector = FeatureCollector(training_feature_sources)
-            feature_count = feature_collector.feature_count
-
-            legacy_feature_source = FeatureCollector(
-                sources=legacy_model_feature_sources,
-                feature_ids=[legacy_model_feature_ids],
-                cache_results=True,
-            )
-
-            new_feature_source = FeatureCollector(
-                sources=model_feature_sources,
-                feature_ids=model_feature_ids,
-                cache_results=True,
-            )
-
-            if feature_collector.feature_ids != model_feature_ids:
-                raise RuntimeError("Features of historical data do not match model.")
-
-            iter_add = 601
-
-            data_structure = MiningUtils.get_file(
-                "/runnable/historical_financial_data/data_testing.pickle", True
-            )
-            data_structure = [
-                data_structure[0][curr_iter : curr_iter + iter_add],
-                data_structure[1][curr_iter : curr_iter + iter_add],
-                data_structure[2][curr_iter : curr_iter + iter_add],
-                data_structure[3][curr_iter : curr_iter + iter_add],
-                data_structure[4][curr_iter : curr_iter + iter_add],
-            ]
-            print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
-            print(
-                "end",
-                TimeUtil.millis_to_timestamp(
-                    data_structure[0][len(data_structure[0]) - 1]
-                ),
-            )
-            start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
-            end_dt = TimeUtil.millis_to_timestamp(
-                data_structure[0][len(data_structure[0]) - 1]
-            )
-            curr_iter += iter_add
-
-            data_structure = np.array(data_structure)
-            samples = data_structure
 
             """
             ========================================================================
@@ -144,7 +125,6 @@ if __name__ == "__main__":
             # should be a hash of the vali hotkey & stream type (1 is fine)
             hash_object = hashlib.sha256(client_request.stream_type.encode())
             stream_id = hash_object.hexdigest()
-            ts = TimeUtil.minute_in_millis(client_request.prediction_size * 5)
 
             vm = ValiUtils.get_vali_records()
             client = vm.get_client(client_request.client_uuid)
@@ -169,55 +149,37 @@ if __name__ == "__main__":
 
             print("number of predictions needed", client_request.prediction_size)
 
-            """
-            ========================================================================
-            Fill in the mining model you want to test here
-            ========================================================================
-            """
-
-            base_mining_models = {
-                "model_v4_6": {
-                    "id": "model3106",
-                    "model_dir": "/mining_models/model_v4_6.h5",
-                    "sample_count": 100,
-                    "prediction_count": 1,
-                },
-                "model_v5_1": {
-                    "id": "model5000",
-                    "filename": "/mining_models/model_v5_1.h5",
-                    "sample_count": SAMPLE_COUNT,
-                    "prediction_count": PREDICTION_COUNT,
-                    "legacy_model": False,
-                },
-            }
-
             for model_name, mining_details in base_mining_models.items():
+                model_filename = ValiConfig.BASE_DIR + mining_details["filename"]
+
+                legacy = mining_details.get("legacy_model", True)
+                if legacy:
+                    model_feature_ids = legacy_model_feature_ids
+                    model_feature_source = legacy_feature_source
+                    model_feature_scaler = legacy_model_feature_scaler
+                else:
+                    model_feature_ids = new_model_feature_ids
+                    model_feature_source = new_feature_source
+                    model_feature_scaler = new_model_feature_scaler
+
                 base_mining_model = BaseMiningModel(
-                    filename=mining_details["filename"],
+                    filename=model_filename,
                     mode="r",
                     feature_count=len(model_feature_ids),
                     sample_count=mining_details["sample_count"],
                     prediction_feature_count=len(prediction_feature_ids),
-                    prediction_count=PREDICTION_COUNT,
+                    prediction_count=mining_details["prediction_count"],
                     prediction_length=PREDICTION_LENGTH,
                 )
 
-                legacy = mining_details.get("legacy", True)
-                if legacy:
-                    model_feature_source = legacy_feature_source
-                    model_feature_scaler = legacy_model_feature_scaler
-                else:
-                    model_feature_source = new_feature_source
-                    model_feature_scaler = new_model_feature_scaler
-
-                prediction_array = get_predictions(
-                    current_time.timestamp_ms(),
+                validation_array = get_predictions(
+                    start_time_ms,
                     model_feature_source,
                     model_feature_scaler,
                     base_mining_model,
                 )
 
-                predicted_closes = prediction_array.flatten()
+                predicted_closes = validation_array.flatten()
 
                 output_uuid = str(uuid.uuid4())
                 miner_uuid = "miner" + str(mining_details["id"])
@@ -230,46 +192,13 @@ if __name__ == "__main__":
                     topic_id=client_request.topic_id,
                     request_uuid=request_uuid,
                     miner_uid=miner_uuid,
-                    start=TimeUtil.timestamp_to_millis(end_dt),
-                    end=TimeUtil.timestamp_to_millis(end_dt) + ts,
+                    start=start_time_ms,
+                    end=start_time_ms + _PREDICTION_LENGTH_MS,
                     predictions=predicted_closes,
                     prediction_size=client_request.prediction_size,
                     additional_details=client_request.additional_details,
                 )
 
-                ValiUtils.save_predictions_request(output_uuid, pdf)
-
-            # creating some additional miners who generate noise to compare against
-            for a in range(0, 5):
-                last_close = samples[1][len(samples[1]) - 1]
-                s_predictions = np.array(
-                    [
-                        random.uniform(
-                            last_close - 0.0001 * last_close,
-                            last_close + 0.0001 * last_close,
-                        )
-                        for i in range(0, client_request.prediction_size)
-                    ]
-                )
-
-                predictions = s_predictions
-
-                output_uuid = str(uuid.uuid4())
-                miner_uuid = str(a)
-
-                pdf = PredictionDataFile(
-                    client_uuid=client_request.client_uuid,
-                    stream_type=client_request.stream_type,
-                    stream_id=stream_id,
-                    topic_id=client_request.topic_id,
-                    request_uuid=request_uuid,
-                    miner_uid=miner_uuid,
-                    start=TimeUtil.timestamp_to_millis(end_dt),
-                    end=TimeUtil.timestamp_to_millis(end_dt) + ts,
-                    predictions=np.array(predictions),
-                    prediction_size=client_request.prediction_size,
-                    additional_details=client_request.additional_details,
-                )
                 ValiUtils.save_predictions_request(output_uuid, pdf)
 
             print("remove stale files")
@@ -294,50 +223,23 @@ if __name__ == "__main__":
             # logic to gather and score predictions
             for request_details in predictions_to_complete:
                 request_df = request_details.df
-                data_structure = ValiUtils.get_standardized_ds()
-                data_generator_handler = DataGeneratorHandler()
 
-                data_structure = MiningUtils.get_file(
-                    "/runnable/historical_financial_data/data.pickle", True
+                feature_samples = validator_feature_source.get_feature_samples(
+                    request_df.start, INTERVAL_MS, PREDICTION_LENGTH
                 )
-                data_structure = [
-                    data_structure[0][
-                        curr_iter : curr_iter + client_request.prediction_size
-                    ],
-                    data_structure[1][
-                        curr_iter : curr_iter + client_request.prediction_size
-                    ],
-                    data_structure[2][
-                        curr_iter : curr_iter + client_request.prediction_size
-                    ],
-                    data_structure[3][
-                        curr_iter : curr_iter + client_request.prediction_size
-                    ],
-                    data_structure[4][
-                        curr_iter : curr_iter + client_request.prediction_size
-                    ],
-                ]
-                print("start", TimeUtil.millis_to_timestamp(data_structure[0][0]))
-                print(
-                    "end",
-                    TimeUtil.millis_to_timestamp(
-                        data_structure[0][len(data_structure[0]) - 1]
-                    ),
-                )
-                start_dt = TimeUtil.millis_to_timestamp(data_structure[0][0])
-                end_dt = TimeUtil.millis_to_timestamp(
-                    data_structure[0][len(data_structure[0]) - 1]
-                )
-                # vmins, vmaxs, dp_decimal_places, scaled_data_structure = Scaling.scale_ds_with_ts(data_structure)
 
-                print("number of results gathered: ", len(data_structure[1]))
+                validation_array = validator_feature_source.feature_samples_to_array(
+                    feature_samples, prediction_feature_ids
+                )
+
+                validation_array = validation_array.flatten()
 
                 scores = {}
 
                 NUM_COLORS = 10
                 cm = plt.get_cmap("gist_rainbow")
                 colors = [cm(1.0 * i / NUM_COLORS) for i in range(NUM_COLORS)]
-                x_values = range(len(data_structure[1]))
+                x_values = range(len(validation_array))
 
                 color_chosen = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
@@ -350,14 +252,14 @@ if __name__ == "__main__":
                         )
                         color_chosen += 1
                     scores[miner_uid] = Scoring.score_response(
-                        miner_preds, data_structure[1]
+                        miner_preds, validation_array
                     )
 
                 print("scores ", scores)
                 if plot_predictions:
                     plt.plot(
                         x_values,
-                        data_structure[1],
+                        validation_array,
                         label="results",
                         color=colors[color_chosen],
                     )
@@ -380,7 +282,7 @@ if __name__ == "__main__":
                     weighed_winning_scores_dict,
                     weight,
                 ) = Scoring.update_weights_using_historical_distributions(
-                    weighed_scores, data_structure
+                    weighed_scores, validation_array
                 )
                 # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
 
@@ -424,7 +326,7 @@ if __name__ == "__main__":
                 for file in request_details.files:
                     os.remove(file)
 
-                curr_iter -= 501
+                start_time_ms += INTERVAL_MS
 
             # end results are stored in the path validation/backups/valiconfig.json (same as it goes on the subnet)
             # ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(updated_vm))

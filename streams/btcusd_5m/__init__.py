@@ -240,20 +240,11 @@ validator_coinbase_source = CoinbaseKlineFeatureSource(
     },
 )
 
-validator_kraken_source = KrakenKlineFeatureSource(
-    symbol="BTC-USD",
-    interval_ms=time_span_ms(minutes=5),
-    feature_mappings={
-        FeatureID.BTC_USD_CLOSE: KrakenKlineField.PRICE_CLOSE,
-    },
-)
-
 validator_aggregator = FeatureAggregator(
     sources=[
         validator_binance_source,
         validator_bybit_source,
         validator_coinbase_source,
-        validator_kraken_source,
     ],
     aggregation_map={
         FeatureID.BTC_USD_CLOSE: fmean,

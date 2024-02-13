@@ -65,7 +65,7 @@ class BaseMiningModel:
         display_memory_usage: bool = False,
         dtype: np.dtype | Policy = Policy("float32"),
     ):
-        input_shape = (sample_count, feature_count)
+        input_shape = (None, sample_count, feature_count)
         output_length = prediction_feature_count * prediction_count
         output_shape = (None, output_length)
 
@@ -105,7 +105,7 @@ class BaseMiningModel:
                     first_layer = LSTM(
                         dtype=dtype,
                         units=lstm_units,
-                        input_shape=input_shape,
+                        input_shape=(sample_count, feature_count),
                         return_sequences=return_sequences,
                     )
                     model.add(first_layer)
@@ -129,6 +129,7 @@ class BaseMiningModel:
 
         self._model = model
         self._filename = filename
+        self._feature_count = feature_count
         self.sample_count = sample_count
         self._prediction_feature_count = prediction_feature_count
         self.prediction_count = prediction_count
@@ -178,7 +179,7 @@ class BaseMiningModel:
     def predict(self, model_input: ndarray, dtype: np.dtype = np.float32) -> ndarray:
         window = model_input[-self.sample_count :]
         # TODO: Necessary?
-        # window = window.reshape(1, self.sample_count, self._feature_count)
+        window = window.reshape(1, self.sample_count, self._feature_count)
 
         prediction = self._model.predict(window)
         prediction.shape = (self.prediction_count, self._prediction_feature_count)
