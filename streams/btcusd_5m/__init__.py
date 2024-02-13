@@ -51,7 +51,7 @@ if _INCLUDE_EXCHANGE_KLINES:
             FeatureID.BTC_USD_HIGH: BinanceKlineField.PRICE_HIGH,
             FeatureID.BTC_USD_LOW: BinanceKlineField.PRICE_LOW,
             FeatureID.BTC_USD_VOLUME: BinanceKlineField.VOLUME,
-            FeatureID.BTC_USD_OPEN: BinanceKlineField.PRICE_OPEN,
+            #FeatureID.BTC_USD_OPEN: BinanceKlineField.PRICE_OPEN,
             FeatureID.BTC_QUOTE_ASSET_VOLUME : BinanceKlineField.QUOTE_ASSET_VOLUME,
             FeatureID.BTC_TAKER_BUY_VOLUME_BASE: BinanceKlineField.TAKER_BUY_VOLUME_BASE,
             FeatureID.BTC_TAKER_BUY_VOLUME_QUOTE: BinanceKlineField.TAKER_BUY_VOLUME_QUOTE,
