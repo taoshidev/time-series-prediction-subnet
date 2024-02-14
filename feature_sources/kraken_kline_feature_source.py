@@ -10,7 +10,7 @@ from numpy import ndarray
 import requests
 import statistics
 import time
-from time_util import time_span_ms
+from time_util import current_interval_ms, time_span_ms
 
 
 class KrakenKlineField(IntEnum):
@@ -146,8 +146,9 @@ class KrakenKlineFeatureSource(FeatureSource):
 
         # Kraken uses open time for queries
         open_start_time_ms = start_time_ms - interval_ms
-        if interval_ms < self._interval_ms:
-            open_start_time_ms -= self._interval_ms
+
+        # Align on interval so queries for 1 sample include at least 1 sample
+        open_start_time_ms = current_interval_ms(open_start_time_ms, self._interval_ms)
 
         open_end_time_ms = open_start_time_ms + (interval_ms * (sample_count - 2))
 

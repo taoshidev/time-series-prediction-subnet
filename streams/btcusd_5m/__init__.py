@@ -29,7 +29,7 @@ from sklearn.preprocessing import MinMaxScaler
 from statistics import fmean
 from time_util import time_span_ms
 
-SAMPLE_COUNT = 1500
+SAMPLE_COUNT = 200
 INTERVAL_MS = time_span_ms(minutes=5)
 PREDICTION_COUNT = 10
 PREDICTION_LENGTH = 100
@@ -197,7 +197,7 @@ model_feature_ids = historical_feature_ids + spontaneous_feature_ids
 legacy_model_feature_sources = historical_sources
 legacy_model_feature_ids = historical_feature_ids
 
-_default_scaler = MinMaxScaler(feature_range=(-1.0, 1.0), copy=False)
+_default_scaler = MinMaxScaler(feature_range=(-1.0, 1.0))
 model_feature_scaler = FeatureScaler(
     default_scaler=_default_scaler,
     exclude_feature_ids=temporal_feature_ids,
@@ -210,7 +210,7 @@ model_feature_scaler = FeatureScaler(
     },
 )
 
-_legacy_default_scaler = MinMaxScaler(feature_range=(0.0, 1.0), copy=False)
+_legacy_default_scaler = MinMaxScaler(feature_range=(0.0, 1.0))
 legacy_model_feature_scaler = FeatureScaler(default_scaler=_default_scaler)
 
 prediction_feature_ids = [FeatureID.BTC_USD_CLOSE]

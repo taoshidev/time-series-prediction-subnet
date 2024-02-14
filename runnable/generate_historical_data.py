@@ -52,16 +52,17 @@ def generate_historical_data(
 
 
 def main() -> None:
-    _TRAINING_LOOKBACK_DAYS = 400
-    _TESTING_LOOKBACK_DAYS = 30
+    _TRAINING_LOOKBACK_DAYS = 250
+    _TESTING_LOOKBACK_DAYS = 15
 
     now = datetime.now()
     now_time_ms = now.timestamp_ms()
-    now_time_ms = previous_interval_ms(now_time_ms, INTERVAL_MS)
 
     training_start_time_ms = now_time_ms - time_span_ms(days=_TRAINING_LOOKBACK_DAYS)
-    testing_start_time_ms = now_time_ms + time_span_ms(days=_TESTING_LOOKBACK_DAYS)
+    testing_start_time_ms = now_time_ms - time_span_ms(days=_TESTING_LOOKBACK_DAYS)
+
     training_end_time_ms = testing_start_time_ms
+    testing_end_time_ms = now_time_ms
 
     historical_feature_collector = FeatureCollector(
         sources=historical_sources,
@@ -74,6 +75,12 @@ def main() -> None:
         training_start_time_ms,
         training_end_time_ms,
         "data_training.taosfs",
+    )
+    generate_historical_data(
+        historical_feature_collector,
+        testing_start_time_ms,
+        testing_end_time_ms,
+        "data_testing.taosfs",
     )
 
     print("Done.")

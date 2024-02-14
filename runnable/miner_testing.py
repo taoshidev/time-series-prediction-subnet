@@ -49,7 +49,7 @@ if __name__ == "__main__":
     testing_end_time_ms = now_time_ms - _PREDICTION_LENGTH_MS
 
     # if you'd like to view the output plotted
-    plot_predictions = False
+    plot_predictions = True
 
     # if you'd like to view weights over time being set
     plot_weights = True
@@ -67,13 +67,11 @@ if __name__ == "__main__":
     legacy_feature_source = FeatureCollector(
         sources=legacy_model_feature_sources,
         feature_ids=legacy_model_feature_ids,
-        cache_results=True,
     )
 
     new_feature_source = FeatureCollector(
         sources=model_feature_sources,
         feature_ids=new_model_feature_ids,
-        cache_results=True,
     )
 
     """
@@ -266,6 +264,7 @@ if __name__ == "__main__":
 
                     plt.legend()
                     plt.show()
+                    # plt.interactive(False)
 
                 scaled_scores = Scoring.simple_scale_scores(scores)
                 stream_id = updated_vm.get_client(request_df.client_uuid).get_stream(
@@ -310,6 +309,7 @@ if __name__ == "__main__":
                             color_chosen += 1
                         plt.legend()
                         plt.show()
+                        # plt.interactive(False)
 
                 # for key, score in weighed_winning_scores_dict.items():
                 #     if key not in total_weights:

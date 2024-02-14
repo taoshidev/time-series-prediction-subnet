@@ -105,9 +105,9 @@ def get_predictions(
         lookback_time_ms, INTERVAL_MS, model.sample_count
     )
 
-    feature_scaler.scale_feature_samples(feature_samples)
+    scaled_feature_samples = feature_scaler.scale_feature_samples(feature_samples)
 
-    model_input = feature_source.feature_samples_to_array(feature_samples)
+    model_input = feature_source.feature_samples_to_array(scaled_feature_samples)
     predictions = model.predict(model_input)
 
     predicted_feature_samples = feature_source.array_to_feature_samples(
@@ -118,24 +118,36 @@ def get_predictions(
     # The predicted features must also exist in the sampled features. If it does not,
     # then the prediction will be flat across the prediction length.
     prediction_length = model.prediction_length
-    if (model.prediction_count == 1) and (prediction_length > 1):
+    if model.prediction_count == 1:
+        if prediction_length > 1:
+            for feature_id in prediction_feature_ids:
+                samples = scaled_feature_samples.get(feature_id)
+                if samples is not None:
+                    predicted_samples = predicted_feature_samples[feature_id]
+                    last_sample = samples[-1]
+                    prediction_sample = predicted_samples[0]
+                    increment = (prediction_sample - last_sample) / prediction_length
+
+                    extrapolation = last_sample
+                    for i in range(prediction_length):
+                        extrapolation += increment
+                        predicted_samples[i] = extrapolation
+    else:
         for feature_id in prediction_feature_ids:
-            samples = feature_samples.get(feature_id)
+            samples = scaled_feature_samples.get(feature_id)
             if samples is not None:
                 predicted_samples = predicted_feature_samples[feature_id]
                 last_sample = samples[-1]
-                prediction_sample = predicted_samples[0]
-                increment = (prediction_sample - last_sample) / prediction_length
+                predicted_last = (2 * predicted_samples[0]) - predicted_samples[1]
+                offset = predicted_last - last_sample
+                predicted_samples -= offset
 
-                extrapolation = last_sample
-                for i in range(prediction_length):
-                    extrapolation += increment
-                    predicted_samples[i] = extrapolation
-
-    feature_scaler.unscale_feature_samples(predicted_feature_samples)
+    unscaled_feature_samples = feature_scaler.unscale_feature_samples(
+        predicted_feature_samples
+    )
 
     prediction_array = feature_source.feature_samples_to_array(
-        predicted_feature_samples, prediction_feature_ids
+        unscaled_feature_samples, prediction_feature_ids
     )
 
     return prediction_array
@@ -322,7 +334,6 @@ def main(config):
             model_feature_source = FeatureCollector(
                 sources=legacy_model_feature_sources,
                 feature_ids=legacy_model_feature_ids,
-                cache_results=True,
                 timeout=FEATURE_COLLECTOR_TIMEOUT,
             )
             model_feature_scaler = legacy_model_feature_scaler
@@ -330,7 +341,6 @@ def main(config):
             model_feature_source = FeatureCollector(
                 sources=model_feature_sources,
                 feature_ids=model_feature_ids,
-                cache_results=True,
                 timeout=FEATURE_COLLECTOR_TIMEOUT,
             )
             model_feature_scaler = new_model_feature_scaler
