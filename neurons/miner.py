@@ -7,6 +7,7 @@
 
 # Step 1: Import necessary libraries and modules
 import datetime
+import hashlib
 import os
 import sys
 import threading
@@ -21,6 +22,7 @@ import traceback
 import bittensor as bt
 
 from data_generator.data_generator_handler import DataGeneratorHandler
+from hashing_utils import HashingUtils
 from miner_config import MinerConfig
 from mining_objects.base_mining_model import BaseMiningModel,MiningModelNHITS,MiningModelStack
 from mining_objects.mining_utils import MiningUtils
@@ -123,7 +125,7 @@ def get_model_dir(model):
     return ValiConfig.BASE_DIR + model
 
 
-def is_invalid_validator(metagraph, hotkey):
+def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
     """
     - step 1: check to see if the vali is in the metagraph
     - step 2: check to see if the vali has min threshold
@@ -151,13 +153,13 @@ def is_invalid_validator(metagraph, hotkey):
         bt.logging.info(f"Denied due to low stake. Min threshold [{MinerConfig.MIN_VALI_SIZE}]")
         return True
 
-    # ADDING WITH V5.0.0
+    # ADDING WITH V5.1.0
     # step 3: ensure the request is in the required time window
     # current_time = datetime.datetime.now()
     #
-    # bt.logging.debug(f"Acceptable intervals for requests [{MinerConfig.ACCEPTABLE_INTERVALS}]")
+    # bt.logging.debug(f"Acceptable intervals for requests [{acceptable_intervals}]")
     #
-    # if current_time.minute not in MinerConfig.ACCEPTABLE_INTERVALS:
+    # if current_time.minute not in acceptable_intervals:
     #     bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
     #     return True
 
@@ -234,9 +236,11 @@ def main( config ):
     global base_mining_model
     global base_model_id
     global miner_preds
+    global sent_preds
 
     # where we'll store miner predictions in memory and reference
     miner_preds = {}
+    sent_preds = {}
 
     base_mining_model = None
     base_model_id = config.base_model
@@ -324,8 +328,44 @@ def main( config ):
     #     synapse.received = True
     #     return synapse
 
+    def lf_hash_blacklist_fn(synapse: template.protocol.LiveForwardHash) -> Tuple[bool, str]:
+        _is_invalid_validator = is_invalid_validator(metagraph,
+                                                     synapse.dendrite.hotkey,
+                                                     MinerConfig.ACCEPTABLE_INTERVALS_HASH)
+        return _is_invalid_validator, synapse.dendrite.hotkey
+
+    def lf_hash_priority_fn(synapse: template.protocol.LiveForwardHash) -> float:
+        caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey )
+        priority = float( metagraph.S[ caller_uid ] )
+        bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', priority)
+        return priority
+
+    def live_hash_f(synapse: template.protocol.LiveForwardHash) -> template.protocol.LiveForwardHash:
+
+        bt.logging.debug(f"received lf hash request on stream type [{synapse.stream_id}] "
+                         f"by vali [{synapse.dendrite.hotkey}]")
+        # Convert the string back to a list using literal_eval
+        try:
+            if synapse.stream_id in miner_preds:
+                if synapse.stream_id not in sent_preds:
+                    sent_preds[synapse.stream_id] = {}
+                stream_preds = miner_preds[synapse.stream_id]
+                sent_preds[synapse.stream_id][synapse.dendrite.hotkey] = stream_preds
+                hashed_preds = HashingUtils.hash_predictions(wallet.hotkey.ss58_address, str(stream_preds))
+
+                synapse.hashed_predictions = hashed_preds
+                bt.logging.debug(f"sending hash lf [{stream_preds}]")
+                bt.logging.debug(f'sending hash lf with length [{len(stream_preds)}]')
+                return synapse
+            else:
+                bt.logging.error(f"miner preds not stored properly in memory")
+        except Exception as e:
+            bt.logging.error(f"error returning synapse to vali: {e}")
+
     def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
-        _is_invalid_validator = is_invalid_validator(metagraph, synapse.dendrite.hotkey)
+        _is_invalid_validator = is_invalid_validator(metagraph,
+                                                     synapse.dendrite.hotkey,
+                                                     MinerConfig.ACCEPTABLE_INTERVALS_PREDICTIONS)
         return _is_invalid_validator, synapse.dendrite.hotkey
 
     def lf_priority_fn(synapse: template.protocol.LiveForward) -> float:
@@ -336,18 +376,22 @@ def main( config ):
 
     def live_f(synapse: template.protocol.LiveForward) -> template.protocol.LiveForward:
 
-        bt.logging.debug(f"received lf request on stream type [{synapse.stream_id}]")
+        bt.logging.debug(f"received lf request on stream type [{synapse.stream_id}] "
+                         f"by vali [{synapse.dendrite.hotkey}]")
 
-        # Convert the string back to a list using literal_eval
+        # need to determine if the validator has correctly updated to the latest logic. This is
+        # important for backward compatibility so miners dont lose incentive
         try:
-            if synapse.stream_id in miner_preds:
+            if synapse.stream_id in sent_preds and synapse.dendrite.hotkey in sent_preds[synapse.stream_id]:
+                stream_preds = sent_preds[synapse.stream_id][synapse.dendrite.hotkey]
+                synapse.predictions = bt.tensor(np.array(stream_preds))
+            else:
+                bt.logging.warning(f"suspecting validator has not updated to V5, sending back non-hash based preds")
                 stream_preds = miner_preds[synapse.stream_id]
                 synapse.predictions = bt.tensor(np.array(stream_preds))
-                bt.logging.debug(f"sending lf [{stream_preds}]")
-                bt.logging.debug(f'sending lf with length [{len(stream_preds)}]')
-                return synapse
-            else:
-                bt.logging.error(f"miner preds not stored properly in memory")
+            bt.logging.debug(f"sending lf [{stream_preds}]")
+            bt.logging.debug(f'sending lf with length [{len(stream_preds)}]')
+            return synapse
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
@@ -374,7 +418,7 @@ def main( config ):
     bt.logging.info(f"Axon {axon}")
 
     # Attach determiners which functions are called when servicing a request.
-    bt.logging.info(f"Attaching forward function to axon.")
+    bt.logging.info(f"Attaching live forward functions to axon.")
     # axon.attach(
     #     forward_fn = training_f,
     #     blacklist_fn = tf_blacklist_fn,
@@ -390,6 +434,12 @@ def main( config ):
         blacklist_fn = lf_blacklist_fn,
         priority_fn = lf_priority_fn,
     )
+    axon.attach(
+        forward_fn = live_hash_f,
+        blacklist_fn = lf_hash_blacklist_fn,
+        priority_fn = lf_hash_priority_fn,
+    )
+
 
     # will leave live backward running from valis in case as a miner you'd like to use. Left out for majority of miners.
 

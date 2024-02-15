@@ -21,24 +21,29 @@ class Forward(BaseProtocol):
     feature_ids: List[float]
     prediction_size: int = Field(..., allow_mutation=False)
     schema_id: typing.Optional[int] = Field(..., allow_mutation=False)
+
+
+class ForwardPrediction(Forward):
     predictions: typing.Optional[bt.Tensor] = None
 
-    # def deserialize(self) -> bt.Tensor:
-    #     return self.predictions
+
+class ForwardHash(Forward):
+    hashed_predictions: typing.Optional[str] = None
 
 
 class Backward(BaseProtocol):
     received: bool = None
 
-    # def deserialize(self) -> bool:
-    #     return self.received
 
-
-class TrainingForward(Forward):
+class TrainingForward(ForwardPrediction):
     pass
 
 
-class LiveForward(Forward):
+class LiveForward(ForwardPrediction):
+    pass
+
+
+class LiveForwardHash(ForwardHash):
     pass
 
 
