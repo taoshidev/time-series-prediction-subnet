@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import os
 from abc import abstractmethod
 from coinmetrics.api_client import CoinMetricsClient, DataCollection

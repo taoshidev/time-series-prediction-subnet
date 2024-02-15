@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 from keras.callbacks import Callback, EarlyStopping
 from keras.layers import Dense, Dropout, Layer, LSTM
 from keras.mixed_precision import Policy

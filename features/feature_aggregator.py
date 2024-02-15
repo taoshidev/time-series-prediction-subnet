@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from concurrent.futures import as_completed, ThreadPoolExecutor

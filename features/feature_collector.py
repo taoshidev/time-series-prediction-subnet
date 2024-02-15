@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from features import FeatureID, FeatureSource
 import numpy as np

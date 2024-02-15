@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import argparse
 import bittensor as bt
 from features import FeatureCollector, FeatureSource, FeatureScaler

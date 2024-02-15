@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from abc import ABC, abstractmethod
 from enum import IntEnum
 from features import FeatureID
@@ -64,8 +64,6 @@ class FeatureSource(ABC):
         return feature_samples
 
     # Returns: dict with FeatureID keys and 1-dimensional dtype sample array values
-    #
-    # start_time_ms should always be a multiple of interval_ms
     #
     # Gaps in the samples are automatically filled in with previous values or
     # extrapolations as appropriate for the feature.

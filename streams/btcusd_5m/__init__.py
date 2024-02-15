@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from features import (
     FeatureAggregator,
     FeatureCollector,
@@ -21,8 +21,6 @@ from feature_sources import (
     BybitKlineFeatureSource,
     CoinbaseKlineFeatureSource,
     CoinbaseKlineField,
-    KrakenKlineFeatureSource,
-    KrakenKlineField,
     TemporalFeatureSource,
 )
 from sklearn.preprocessing import MinMaxScaler
@@ -181,7 +179,6 @@ temporal_feature_ids = [
     FeatureID.TIME_OF_DAY,
     FeatureID.TIME_OF_WEEK,
     FeatureID.TIME_OF_MONTH,
-    FeatureID.TIME_OF_YEAR,
 ]
 temporal_feature_source = TemporalFeatureSource(temporal_feature_ids)
 

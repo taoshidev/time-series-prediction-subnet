@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 from features import FeatureCollector, FeatureSource
 from feature_sources import BinaryFileFeatureStorage
 from streams.btcusd_5m import (
@@ -7,7 +7,7 @@ from streams.btcusd_5m import (
     historical_feature_ids,
     INTERVAL_MS,
 )
-from time_util import datetime, time_span_ms, previous_interval_ms
+from time_util import datetime, time_span_ms
 from vali_config import ValiConfig
 
 SAMPLE_COUNT_MAX = 1000

@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import datetime as native_datetime
 import pendulum
 from pendulum.tz.timezone import Timezone

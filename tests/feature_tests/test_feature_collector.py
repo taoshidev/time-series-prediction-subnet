@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from features import FeatureID, FeatureCollector
 from feature_sources import TemporalFeatureSource, TestFeatureSource
 from time_util import datetime, time_span_ms

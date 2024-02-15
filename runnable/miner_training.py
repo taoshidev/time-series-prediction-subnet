@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from features import FeatureCollector
 from feature_sources import BinaryFileFeatureStorage
 from keras.mixed_precision import Policy
@@ -35,10 +35,10 @@ def main():
 
     _SCENARIOS_PER_BATCH = 500
     # Adjust to a multiple of the number of GPUs
-    _BATCHES_PER_CHUNK = 64
+    _BATCHES_PER_CHUNK = 128
     _LAYER_UNITS = 2048
     _LEARNING_RATE = 0.0000001
-    _TRAINING_PASSES = 1
+    _TRAINING_PASSES = 50
     _TRAINING_EPOCHS = 25
     _TRAINING_PATIENCE = 10
 

@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from enum import IntEnum
 from features import FeatureCompaction, FeatureSource, FeatureID
 from http import HTTPStatus
