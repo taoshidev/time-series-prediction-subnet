@@ -1,18 +1,15 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
-import os
-import unittest
-
 import math
 import numpy as np
-
-from data_generator.data_generator_handler import DataGeneratorHandler
+import os
 from tests.vali_tests.samples.testing_data import TestingData
 from tests.vali_tests.base_objects.test_base import TestBase
-from tests.vali_tests.test_exchange_data import TestExchangeData
-from time_util.time_util import TimeUtil
+import unittest
 from vali_config import ValiConfig
-from vali_objects.exceptions.incorrect_prediction_size_error import IncorrectPredictionSizeError
+from vali_objects.exceptions.incorrect_prediction_size_error import (
+    IncorrectPredictionSizeError,
+)
 from vali_objects.exceptions.min_responses_exception import MinResponsesException
 from vali_objects.scoring.scoring import Scoring
 from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
@@ -20,7 +17,6 @@ from vali_objects.utils.vali_utils import ValiUtils
 
 
 class TestScoring(TestBase):
-
     def test_calculate_weighted_rmse(self):
         predictions = []
         actual = []
@@ -72,32 +68,54 @@ class TestScoring(TestBase):
 
     def test_simple_scale_scores(self):
         try:
-            sample_scores = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 34.54618500386289}
+            sample_scores = {
+                "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd": 34.54618500386289
+            }
             scaled_scores = Scoring.simple_scale_scores(sample_scores)
         except Exception as e:
             self.assertIsInstance(e, MinResponsesException)
-        sample_scores = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 33.54618500386289,
-                         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe': 34.54618500386289,
-                         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 35.54618500386289,
-                         '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 36.54618500386289}
-        scaled_scores_results = {'5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd': 1.0,
-                                 '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe': 0.6666666666666667,
-                                 '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf': 0.33333333333333337,
-                                 '5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg': 0.0}
+        sample_scores = {
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd": 33.54618500386289,
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe": 34.54618500386289,
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf": 35.54618500386289,
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg": 36.54618500386289,
+        }
+        scaled_scores_results = {
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhd": 1.0,
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhe": 0.6666666666666667,
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhf": 0.33333333333333337,
+            "5F7GYJfDNRccc2ZTFXqjWVEQ96Vjv2yEsa1wzr3ULijD8Qhg": 0.0,
+        }
 
         scaled_scores = Scoring.simple_scale_scores(sample_scores)
         self.assertEqual(scaled_scores_results, scaled_scores)
 
     def test_get_percentile(self):
-        self.assertEqual(0.01, Scoring.get_percentile(0, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
-        self.assertEqual(0.02, Scoring.get_percentile(1.004, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
-        self.assertEqual(0.14, Scoring.get_percentile(1.01, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
-        self.assertEqual(1, Scoring.get_percentile(1.05, ValiConfig.MIN_MAX_RANGES_PERCENTILED))
+        self.assertEqual(
+            0.01, Scoring.get_percentile(0, ValiConfig.MIN_MAX_RANGES_PERCENTILED)
+        )
+        self.assertEqual(
+            0.02, Scoring.get_percentile(1.004, ValiConfig.MIN_MAX_RANGES_PERCENTILED)
+        )
+        self.assertEqual(
+            0.14, Scoring.get_percentile(1.01, ValiConfig.MIN_MAX_RANGES_PERCENTILED)
+        )
+        self.assertEqual(
+            1, Scoring.get_percentile(1.05, ValiConfig.MIN_MAX_RANGES_PERCENTILED)
+        )
 
-        self.assertEqual(0.01, Scoring.get_percentile(0, ValiConfig.STD_DEV_RANGES_PERCENTILED))
-        self.assertEqual(0.11, Scoring.get_percentile(45, ValiConfig.STD_DEV_RANGES_PERCENTILED))
-        self.assertEqual(0.29, Scoring.get_percentile(100, ValiConfig.STD_DEV_RANGES_PERCENTILED))
-        self.assertEqual(1, Scoring.get_percentile(1000, ValiConfig.STD_DEV_RANGES_PERCENTILED))
+        self.assertEqual(
+            0.01, Scoring.get_percentile(0, ValiConfig.STD_DEV_RANGES_PERCENTILED)
+        )
+        self.assertEqual(
+            0.11, Scoring.get_percentile(45, ValiConfig.STD_DEV_RANGES_PERCENTILED)
+        )
+        self.assertEqual(
+            0.29, Scoring.get_percentile(100, ValiConfig.STD_DEV_RANGES_PERCENTILED)
+        )
+        self.assertEqual(
+            1, Scoring.get_percentile(1000, ValiConfig.STD_DEV_RANGES_PERCENTILED)
+        )
 
     def test_get_geometric_mean_of_percentile(self):
         ds = [[], [30000, 30100, 30150, 30200]]
@@ -108,34 +126,51 @@ class TestScoring(TestBase):
 
         min_max = 1.006666666666667
 
-        min_max_percentage = Scoring.get_percentile(min_max, ValiConfig.MIN_MAX_RANGES_PERCENTILED)
-        std_dev_percentage = Scoring.get_percentile(std_dev, ValiConfig.STD_DEV_RANGES_PERCENTILED)
+        min_max_percentage = Scoring.get_percentile(
+            min_max, ValiConfig.MIN_MAX_RANGES_PERCENTILED
+        )
+        std_dev_percentage = Scoring.get_percentile(
+            std_dev, ValiConfig.STD_DEV_RANGES_PERCENTILED
+        )
 
-        geometric_mean_of_percentiles = math.sqrt(min_max_percentage * std_dev_percentage)
+        geometric_mean_of_percentiles = math.sqrt(
+            min_max_percentage * std_dev_percentage
+        )
 
-        self.assertEqual(geometric_mean_of_percentiles,
-                         Scoring.get_geometric_mean_of_percentile(ds))
+        self.assertEqual(
+            geometric_mean_of_percentiles, Scoring.get_geometric_mean_of_percentile(ds)
+        )
 
     def test_update_weights_using_historical_distributions(self):
         try:
-            os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
+            os.remove(
+                ValiBkpUtils.get_vali_weights_dir()
+                + ValiBkpUtils.get_vali_weights_file()
+            )
         except:
             pass
 
         scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
         ds = [[], [30000, 30100, 30150, 30200]]
 
-        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+        (
+            vweights,
+            geometric_mean_of_percentile,
+        ) = Scoring.update_weights_using_historical_distributions(scores, ds)
 
         gmop = 0.11224972160321824
 
         self.assertEqual(gmop, geometric_mean_of_percentile)
 
-        self.assertEqual({'miner1': 0.0004119237974115415,
-                          'miner2': 0.000823847594823083,
-                          'miner3': 0.0012357713922346242,
-                          'miner4': 0.001647695189646166},
-                         vweights)
+        self.assertEqual(
+            {
+                "miner1": 0.0004119237974115415,
+                "miner2": 0.000823847594823083,
+                "miner3": 0.0012357713922346242,
+                "miner4": 0.001647695189646166,
+            },
+            vweights,
+        )
 
         set_vweights = ValiUtils.get_vali_weights_json()
         self.assertEqual(vweights, set_vweights)
@@ -145,13 +180,20 @@ class TestScoring(TestBase):
 
         # testing if we remove a miner their score begins to drop
 
-        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+        (
+            vweights,
+            geometric_mean_of_percentile,
+        ) = Scoring.update_weights_using_historical_distributions(scores, ds)
 
-        self.assertEqual({'miner1': 0.0006828611697138493,
-                          'miner2': 0.0013657223394276986,
-                          'miner3': 0.002048583509141548,
-                          'miner4': 0.0016432125023400094},
-                         vweights)
+        self.assertEqual(
+            {
+                "miner1": 0.0006828611697138493,
+                "miner2": 0.0013657223394276986,
+                "miner3": 0.002048583509141548,
+                "miner4": 0.0016432125023400094,
+            },
+            vweights,
+        )
 
         # testing adding a new miner that they fit to the average even if the scores
         # have a larger magnitude move
@@ -159,27 +201,42 @@ class TestScoring(TestBase):
         ds = [[], [30000, 3100, 32000]]
         scores.append(("miner5", 0.5))
 
-        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+        (
+            vweights,
+            geometric_mean_of_percentile,
+        ) = Scoring.update_weights_using_historical_distributions(scores, ds)
 
-        self.assertEqual({'miner1': 0.002709741554005403,
-                          'miner2': 0.005419483108010806,
-                          'miner3': 0.00812922466201621,
-                          'miner4': 0.0016096775533126623,
-                          'miner5': 0.011609888862193414},
-                         vweights)
+        self.assertEqual(
+            {
+                "miner1": 0.002709741554005403,
+                "miner2": 0.005419483108010806,
+                "miner3": 0.00812922466201621,
+                "miner4": 0.0016096775533126623,
+                "miner5": 0.011609888862193414,
+            },
+            vweights,
+        )
 
-        os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
+        os.remove(
+            ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file()
+        )
 
     def test_update_weights_remove_deregistrations(self):
         try:
-            os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
+            os.remove(
+                ValiBkpUtils.get_vali_weights_dir()
+                + ValiBkpUtils.get_vali_weights_file()
+            )
         except:
             pass
 
         scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
         ds = [[], [30000, 30100, 30150, 30200]]
 
-        vweights, geometric_mean_of_percentile = Scoring.update_weights_using_historical_distributions(scores, ds)
+        (
+            vweights,
+            geometric_mean_of_percentile,
+        ) = Scoring.update_weights_using_historical_distributions(scores, ds)
 
         gmop = 0.11224972160321824
 
@@ -195,12 +252,16 @@ class TestScoring(TestBase):
 
         self.assertEqual(set_vweights, vweights)
 
-        os.remove(ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file())
+        os.remove(
+            ValiBkpUtils.get_vali_weights_dir() + ValiBkpUtils.get_vali_weights_file()
+        )
 
     def test_update_weights_using_historical_distributions_with_dummy_data(self):
         scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
         data = [[], [10, 20, 30, 40]]
-        updated_scores = Scoring.update_weights_using_historical_distributions(scores, data)
+        updated_scores = Scoring.update_weights_using_historical_distributions(
+            scores, data
+        )
 
     def test_calculate_directional_accuracy(self):
         predictions = [1, 2, 1, 3, 4, 5, 6, 7, 6, 7, 8]
@@ -251,5 +312,5 @@ class TestScoring(TestBase):
         self.assertEqual(score, 0.04999999999999829)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

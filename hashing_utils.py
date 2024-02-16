@@ -1,3 +1,7 @@
+
+# developer: Taoshi
+# Copyright © 2024 Taoshi Inc
+
 import hashlib
 
 
