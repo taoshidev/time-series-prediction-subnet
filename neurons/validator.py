@@ -248,7 +248,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_hash_proto,
                     deserialize=True,
-                    timeout=30
+                    timeout=45
                 )
 
                 # wait to allow sending at correct expected intervals
@@ -258,7 +258,7 @@ def run_time_series_validation(wallet, config, metagraph, vali_requests: List[Ba
                     metagraph.axons,
                     live_proto,
                     deserialize=True,
-                    timeout=30
+                    timeout=45
                 )
 
                 # # check to see # of responses

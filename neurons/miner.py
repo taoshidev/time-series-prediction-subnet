@@ -78,41 +78,45 @@ def get_config():
 
 def update_predictions(stream_predictions, data_generator_handler, model_chosen):
     while True:
-        current_time = datetime.datetime.now()
-        if current_time.second < 15:
-            bt.logging.debug(f"running update of predictions [{current_time}]")
-            # for each template
-            for stream_prediction in stream_predictions:
-                if stream_prediction.stream_type not in miner_preds:
-                    bt.logging.info(
-                        f"stream type doesn't exist, setting to an empty list for [{stream_prediction.stream_type}]")
-                    miner_preds[stream_prediction.stream_type] = []
-                bt.logging.debug(
-                    f"current predicted closes in memory [{miner_preds[stream_prediction.stream_type]}]")
-                bt.logging.info(f"setting predictions for [{stream_prediction.stream_type}]")
-                # get lookback data
-                ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
-                    TimeUtil.generate_range_timestamps(
-                        TimeUtil.generate_start_timestamp(MinerConfig.STD_LOOKBACK), MinerConfig.STD_LOOKBACK))
-                ds = ValiUtils.get_standardized_ds()
-                for ts_range in ts_ranges:
-                    data_generator_handler.data_generator_handler(stream_prediction.topic_id,
-                                                                  0,
-                                                                  stream_prediction.additional_details,
-                                                                  ds,
-                                                                  ts_range)
-                np_ds = np.array(ds)
+            current_time = datetime.datetime.now()
+            if current_time.second < 15:
+                try:
+                    bt.logging.debug(f"running update of predictions [{current_time}]")
+                    # for each template
+                    for stream_prediction in stream_predictions:
+                        if stream_prediction.stream_type not in miner_preds:
+                            bt.logging.info(
+                                f"stream type doesn't exist, setting to an empty list for [{stream_prediction.stream_type}]")
+                            miner_preds[stream_prediction.stream_type] = []
+                        bt.logging.debug(
+                            f"current predicted closes in memory [{miner_preds[stream_prediction.stream_type]}]")
+                        bt.logging.info(f"setting predictions for [{stream_prediction.stream_type}]")
+                        # get lookback data
+                        ts_ranges = TimeUtil.convert_range_timestamps_to_millis(
+                            TimeUtil.generate_range_timestamps(
+                                TimeUtil.generate_start_timestamp(MinerConfig.STD_LOOKBACK), MinerConfig.STD_LOOKBACK))
+                        ds = ValiUtils.get_standardized_ds()
+                        for ts_range in ts_ranges:
+                            data_generator_handler.data_generator_handler(stream_prediction.topic_id,
+                                                                          0,
+                                                                          stream_prediction.additional_details,
+                                                                          ds,
+                                                                          ts_range)
+                        np_ds = np.array(ds)
 
-                # generate stream predictions
-                predicted_closes = MiningUtils.open_model_prediction_generation(np_ds, model_chosen,
-                                                                                stream_prediction.prediction_size)
-                bt.logging.debug(f"predicted closes [{predicted_closes}]")
+                        # generate stream predictions
+                        predicted_closes = MiningUtils.open_model_prediction_generation(np_ds, model_chosen,
+                                                                                        stream_prediction.prediction_size)
+                        bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
-                # set preds in memory
-                miner_preds[stream_prediction.stream_type] = predicted_closes
-                bt.logging.info(f"done setting predictions for [{stream_prediction.stream_type}] in memory "
-                                f"with length [{len(predicted_closes)}]")
-            time.sleep(15)
+                        # set preds in memory
+                        miner_preds[stream_prediction.stream_type] = predicted_closes
+                        bt.logging.info(f"done setting predictions for [{stream_prediction.stream_type}] in memory "
+                                        f"with length [{len(predicted_closes)}]")
+                    time.sleep(15)
+                except Exception as e:
+                    bt.logging.warning(f"error updating predictions, will sleep & retry: {e}")
+                    time.sleep(15)
 
 
 def get_model_dir(model):
@@ -147,15 +151,14 @@ def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
         bt.logging.info(f"Denied due to low stake. Min threshold [{MinerConfig.MIN_VALI_SIZE}]")
         return True
 
-    # ADDING WITH V5.1.0
     # step 3: ensure the request is in the required time window
-    # current_time = datetime.datetime.now()
-    #
-    # bt.logging.debug(f"Acceptable intervals for requests [{acceptable_intervals}]")
-    #
-    # if current_time.minute not in acceptable_intervals:
-    #     bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
-    #     return True
+    current_time = datetime.datetime.now()
+
+    bt.logging.debug(f"Acceptable intervals for requests [{acceptable_intervals}]")
+
+    if current_time.minute not in acceptable_intervals:
+        bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
+        return True
 
     return False
 
