@@ -1,9 +1,12 @@
+
 # developer: Taoshi
 # Copyright © 2024 Taoshi Inc
+
 import hashlib
 
 
 class HashingUtils:
+
     @staticmethod
     def hash_predictions(hotkey_address, predictions):
         hash_predictions = hotkey_address + "-" + str(predictions)
