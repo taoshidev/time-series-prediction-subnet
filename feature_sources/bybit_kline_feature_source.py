@@ -70,15 +70,15 @@ class BybitKlineFeatureSource(FeatureSource):
         self,
         category: str,
         symbol: str,
-        interval_ms: int,
+        source_interval_ms: int,
         feature_mappings: dict[FeatureID, BybitKlineField],
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
         retries: int = DEFAULT_RETRIES,
     ):
-        query_interval = self._INTERVALS.get(interval_ms)
+        query_interval = self._INTERVALS.get(source_interval_ms)
         if query_interval is None:
-            raise ValueError(f"interval_ms {interval_ms} is not supported.")
+            raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
@@ -86,7 +86,7 @@ class BybitKlineFeatureSource(FeatureSource):
 
         self._category = category
         self._symbol = symbol
-        self._interval_ms = interval_ms
+        self._source_interval_ms = source_interval_ms
         self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._fields = list(feature_mappings.values())
@@ -143,7 +143,9 @@ class BybitKlineFeatureSource(FeatureSource):
         open_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        open_start_time_ms = current_interval_ms(open_start_time_ms, self._interval_ms)
+        open_start_time_ms = current_interval_ms(
+            open_start_time_ms, self._source_interval_ms
+        )
 
         data_rows = []
         retries = self._retries
@@ -202,7 +204,9 @@ class BybitKlineFeatureSource(FeatureSource):
             if samples_left <= 0:
                 break
 
-            open_start_time_ms = int(data_rows[-1][_OPEN_TIME]) + self._interval_ms
+            open_start_time_ms = (
+                int(data_rows[-1][_OPEN_TIME]) + self._source_interval_ms
+            )
 
         row_count = len(data_rows)
         if row_count == 0:
@@ -219,7 +223,7 @@ class BybitKlineFeatureSource(FeatureSource):
         for sample_index in range(sample_count):
             while True:
                 row = data_rows[row_index]
-                row_time_ms = row[_OPEN_TIME] + self._interval_ms
+                row_time_ms = row[_OPEN_TIME] + self._source_interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)

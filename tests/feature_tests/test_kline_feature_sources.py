@@ -24,7 +24,7 @@ class TestKlineFeatureSource(unittest.TestCase):
 
         test_source = BinanceKlineFeatureSource(
             symbol="BTCUSDT",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: BinanceKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: BinanceKlineField.PRICE_HIGH,
@@ -87,7 +87,7 @@ class TestKlineFeatureSource(unittest.TestCase):
         test_source = BybitKlineFeatureSource(
             category="spot",
             symbol="BTCUSDT",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: BybitKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: BybitKlineField.PRICE_HIGH,
@@ -149,7 +149,7 @@ class TestKlineFeatureSource(unittest.TestCase):
 
         test_source = CoinbaseKlineFeatureSource(
             symbol="BTC-USD",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: CoinbaseKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: CoinbaseKlineField.PRICE_HIGH,
@@ -215,7 +215,7 @@ class TestKlineFeatureSource(unittest.TestCase):
 
         test_source = KrakenKlineFeatureSource(
             symbol="XXBTZUSD",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: KrakenKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: KrakenKlineField.PRICE_HIGH,

@@ -106,16 +106,16 @@ class CoinMetricsFeatureSource(FeatureSource):
     def __init__(
         self,
         kind: str,
-        interval_ms: int,
+        source_interval_ms: int,
         feature_mappings: dict[FeatureID, CoinMetric],
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
         api_key: str = None,
         **kwargs,
     ):
-        frequency = self._FREQUENCIES.get(interval_ms)
+        frequency = self._FREQUENCIES.get(source_interval_ms)
         if frequency is None:
-            raise ValueError(f"interval_ms {interval_ms} is not supported.")
+            raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
@@ -125,7 +125,7 @@ class CoinMetricsFeatureSource(FeatureSource):
             api_key = os.environ.get("CM_API_KEY")
 
         self._kind = kind
-        self._interval_ms = interval_ms
+        self._source_interval_ms = source_interval_ms
         self._frequency = frequency
         self._feature_mappings = feature_mappings
         self._metrics = list(feature_mappings.values())
@@ -220,7 +220,7 @@ class CoinMetricsFeatureSource(FeatureSource):
 
         # Align on interval so queries for 1 sample include at least 1 sample
         query_start_time_ms = current_interval_ms(
-            query_start_time_ms, self._interval_ms
+            query_start_time_ms, self._source_interval_ms
         )
 
         # Times must be preformatted because Coin Metrics rejects times with

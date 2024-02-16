@@ -43,7 +43,7 @@ historical_sources = []
 if _INCLUDE_EXCHANGE_KLINES:
     binance_source = BinanceKlineFeatureSource(
         symbol="BTCUSDT",
-        interval_ms=time_span_ms(minutes=5),
+        source_interval_ms=time_span_ms(minutes=5),
         feature_mappings={
             FeatureID.BTC_USD_CLOSE: BinanceKlineField.PRICE_CLOSE,
             FeatureID.BTC_USD_HIGH: BinanceKlineField.PRICE_HIGH,
@@ -55,7 +55,7 @@ if _INCLUDE_EXCHANGE_KLINES:
     bybit_source = BybitKlineFeatureSource(
         category="spot",
         symbol="BTCUSDT",
-        interval_ms=time_span_ms(minutes=5),
+        source_interval_ms=time_span_ms(minutes=5),
         feature_mappings={
             FeatureID.BTC_USD_CLOSE: BybitKlineField.PRICE_CLOSE,
             FeatureID.BTC_USD_HIGH: BybitKlineField.PRICE_HIGH,
@@ -66,7 +66,7 @@ if _INCLUDE_EXCHANGE_KLINES:
 
     coinbase_source = CoinbaseKlineFeatureSource(
         symbol="BTC-USD",
-        interval_ms=time_span_ms(minutes=5),
+        source_interval_ms=time_span_ms(minutes=5),
         feature_mappings={
             FeatureID.BTC_USD_CLOSE: CoinbaseKlineField.PRICE_CLOSE,
             FeatureID.BTC_USD_HIGH: CoinbaseKlineField.PRICE_HIGH,
@@ -97,7 +97,7 @@ if _INCLUDE_COIN_METRICS:
     if not _INCLUDE_EXCHANGE_KLINES:
         btc_usd_candles_feature_source = CoinMetricsMarketCandles(
             kind=COIN_METRICS_MARKET,
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: CoinMetric.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: CoinMetric.PRICE_HIGH,
@@ -109,7 +109,7 @@ if _INCLUDE_COIN_METRICS:
 
     btc_usd_volatility_feature_source = CoinMetricsAssetMetrics(
         kind=COIN_METRICS_ASSET,
-        interval_ms=time_span_ms(minutes=10),
+        source_interval_ms=time_span_ms(minutes=10),
         feature_mappings={
             FeatureID.BTC_USD_VOLATILITY: CoinMetric.VOLATILITY_REALIZED_USD_ROLLING_24H,
         },
@@ -117,7 +117,7 @@ if _INCLUDE_COIN_METRICS:
 
     btc_address_count_feature_source = CoinMetricsAssetMetrics(
         kind=COIN_METRICS_ASSET,
-        interval_ms=time_span_ms(days=1),
+        source_interval_ms=time_span_ms(days=1),
         feature_mappings={
             FeatureID.BTC_HASH_RATE: CoinMetric.HASH_RATE,
             FeatureID.BTC_ADDR_COUNT_100K_USD: CoinMetric.ADDR_COUNT_100K_USD,
@@ -132,7 +132,7 @@ if _INCLUDE_COIN_METRICS:
 
     btc_usd_spread_feature_source = CoinMetricsMarketMetrics(
         kind=COIN_METRICS_MARKET,
-        interval_ms=time_span_ms(minutes=1),
+        source_interval_ms=time_span_ms(minutes=1),
         feature_mappings={
             FeatureID.BTC_USD_SPREAD: CoinMetric.LIQUIDITY_BID_ASK_SPREAD_PERCENT_1M,
         },
@@ -140,7 +140,7 @@ if _INCLUDE_COIN_METRICS:
 
     btc_usd_open_interest_feature_source = CoinMetricsMarketOpenInterest(
         kind=COIN_METRICS_FUTURE_MARKET,
-        interval_ms=time_span_ms(minutes=1),
+        source_interval_ms=time_span_ms(minutes=1),
         feature_mappings={
             FeatureID.BTC_USD_FUTURES_OPEN_CONTRACTS: CoinMetric.CONTRACT_COUNT,
         },
@@ -148,7 +148,7 @@ if _INCLUDE_COIN_METRICS:
 
     btc_usd_liquidation_feature_source = CoinMetricsExchangeMetrics(
         kind=COIN_METRICS_EXCHANGE,
-        interval_ms=time_span_ms(hours=1),
+        source_interval_ms=time_span_ms(hours=1),
         feature_mappings={
             FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY: CoinMetric.LIQUIDATIONS_BUY_UNITS_5M,
             FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY_USD: CoinMetric.LIQUIDATIONS_BUY_USD_5M,
@@ -159,7 +159,7 @@ if _INCLUDE_COIN_METRICS:
 
     btc_usd_funding_rate_feature_source = CoinMetricsMarketFundingRates(
         kind=COIN_METRICS_FUTURE_MARKET,
-        interval_ms=time_span_ms(hours=1),
+        source_interval_ms=time_span_ms(hours=1),
         feature_mappings={
             FeatureID.BTC_USD_FUTURES_FUNDING_RATE: CoinMetric.RATE,
         },
@@ -214,7 +214,7 @@ prediction_feature_ids = [FeatureID.BTC_USD_CLOSE]
 
 validator_binance_source = BinanceKlineFeatureSource(
     symbol="BTCUSDT",
-    interval_ms=time_span_ms(minutes=5),
+    source_interval_ms=time_span_ms(minutes=5),
     feature_mappings={
         FeatureID.BTC_USD_CLOSE: BinanceKlineField.PRICE_CLOSE,
     },
@@ -223,7 +223,7 @@ validator_binance_source = BinanceKlineFeatureSource(
 validator_bybit_source = BybitKlineFeatureSource(
     category="spot",
     symbol="BTCUSDT",
-    interval_ms=time_span_ms(minutes=5),
+    source_interval_ms=time_span_ms(minutes=5),
     feature_mappings={
         FeatureID.BTC_USD_CLOSE: BybitKlineField.PRICE_CLOSE,
     },
@@ -231,7 +231,7 @@ validator_bybit_source = BybitKlineFeatureSource(
 
 validator_coinbase_source = CoinbaseKlineFeatureSource(
     symbol="BTC-USD",
-    interval_ms=time_span_ms(minutes=5),
+    source_interval_ms=time_span_ms(minutes=5),
     feature_mappings={
         FeatureID.BTC_USD_CLOSE: CoinbaseKlineField.PRICE_CLOSE,
     },

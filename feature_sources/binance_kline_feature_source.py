@@ -80,22 +80,22 @@ class BinanceKlineFeatureSource(FeatureSource):
     def __init__(
         self,
         symbol: str,
-        interval_ms: int,
+        source_interval_ms: int,
         feature_mappings: dict[FeatureID, BinanceKlineField],
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
         retries: int = DEFAULT_RETRIES,
     ):
-        query_interval = self._INTERVALS.get(interval_ms)
+        query_interval = self._INTERVALS.get(source_interval_ms)
         if query_interval is None:
-            raise ValueError(f"interval_ms {interval_ms} is not supported.")
+            raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
 
         self._symbol = symbol
-        self._interval_ms = interval_ms
+        self._source_interval_ms = source_interval_ms
         self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._fields = list(feature_mappings.values())
@@ -151,7 +151,9 @@ class BinanceKlineFeatureSource(FeatureSource):
         open_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        open_start_time_ms = current_interval_ms(open_start_time_ms, self._interval_ms)
+        open_start_time_ms = current_interval_ms(
+            open_start_time_ms, self._source_interval_ms
+        )
 
         open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
 
@@ -209,7 +211,7 @@ class BinanceKlineFeatureSource(FeatureSource):
             if response_row_count != self._QUERY_LIMIT:
                 break
 
-            open_start_time_ms = data_rows[-1][_OPEN_TIME] + self._interval_ms
+            open_start_time_ms = data_rows[-1][_OPEN_TIME] + self._source_interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:
@@ -226,7 +228,7 @@ class BinanceKlineFeatureSource(FeatureSource):
         for sample_index in range(sample_count):
             while True:
                 row = data_rows[row_index]
-                row_time_ms = row[_OPEN_TIME] + self._interval_ms
+                row_time_ms = row[_OPEN_TIME] + self._source_interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)

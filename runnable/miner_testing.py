@@ -1,12 +1,12 @@
 # developer: taoshi-mbrown
 # Copyright © 2024 Taoshi Inc
 import hashlib
+from features import FeatureCollector
 import matplotlib.pyplot as plt
 from matplotlib.colors import TABLEAU_COLORS
-from features import FeatureCollector
 from mining_objects.base_mining_model import BaseMiningModel
-import os
 from neurons.miner import get_predictions
+import os
 from streams.btcusd_5m import (
     INTERVAL_MS,
     model_feature_sources,
@@ -25,7 +25,6 @@ import time
 from time_util import datetime, time_span_ms
 from time_util.time_util import TimeUtil
 import uuid
-
 from vali_config import ValiConfig
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
@@ -38,11 +37,22 @@ from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.scoring.scoring import Scoring
 
 
+_PLOT_COLORS = list(TABLEAU_COLORS.values())
+_PLOT_COLORS_COUNT = len(_PLOT_COLORS)
+_PLOT_LINE_STYLES = ("solid", "dotted", "dashed", "dashdot")
+_PLOT_LINE_STYLES_COUNT = len(_PLOT_LINE_STYLES)
+
+
+def get_plot_color_line_style(series_index: int) -> (str, str):
+    color_index = series_index % _PLOT_COLORS_COUNT
+    line_style_index = int(series_index / _PLOT_COLORS_COUNT) % _PLOT_LINE_STYLES_COUNT
+    return _PLOT_COLORS[color_index], _PLOT_LINE_STYLES[line_style_index]
+
+
 if __name__ == "__main__":
     TESTING_LOOKBACK_DAYS = 30
     PREDICTION_LENGTH_MS = INTERVAL_MS * PREDICTION_LENGTH
 
-    GRAPH_SERIES_COLORS = list(TABLEAU_COLORS.values())
     PLOT_WEIGHT_ITERATIONS = 20
 
     now = datetime.now()
@@ -286,28 +296,27 @@ if __name__ == "__main__":
                 scores = {}
 
                 x_values = range(len(validation_array))
-                graph_series_index = 0
+                plot_series_index = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
                     if plot_predictions and "miner" in miner_uid:
+                        plot_color, plot_style = get_plot_color_line_style(
+                            plot_series_index
+                        )
                         plt.plot(
                             x_values,
                             miner_preds,
                             label=miner_uid,
-                            color=GRAPH_SERIES_COLORS[graph_series_index],
+                            color=plot_color,
+                            linestyle=plot_style,
                         )
-                        graph_series_index += 1
+                        plot_series_index += 1
                     scores[miner_uid] = Scoring.score_response(
                         miner_preds, validation_array
                     )
 
                 print("scores ", scores)
                 if plot_predictions:
-                    plt.plot(
-                        x_values,
-                        validation_array,
-                        label="results",
-                        color="k",
-                    )
+                    plt.plot(x_values, validation_array, label="results", color="k")
 
                     plt.legend()
                     plt.show()
@@ -348,16 +357,20 @@ if __name__ == "__main__":
 
                     if (plot_weight_iteration % PLOT_WEIGHT_ITERATIONS) == 0:
                         x_values = range(len(weights))
-                        graph_series_index = 0
+                        plot_series_index = 0
                         for key, value in historical_weights.items():
                             print(key, sum(value))
+                            plot_color, plot_style = get_plot_color_line_style(
+                                plot_series_index
+                            )
                             plt.plot(
                                 x_values,
                                 value,
                                 label=key,
-                                color=GRAPH_SERIES_COLORS[graph_series_index],
+                                color=plot_color,
+                                linestyle=plot_style,
                             )
-                            graph_series_index += 1
+                            plot_series_index += 1
                         plt.legend()
                         plt.show()
 
