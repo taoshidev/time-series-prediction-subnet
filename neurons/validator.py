@@ -52,7 +52,7 @@ def get_config():
     parser.add_argument('--continuous_data_feed', default=0, help='this will have the validator ping every 5 mins '
                                                                   'for updated predictions')
     # Adds override arguments for network and netuid.
-    parser.add_argument('--netuid', type=int, default=1, help="The chain subnet uid.")
+    parser.add_argument('--netuid', type=int, default=8, help="The chain subnet uid.")
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
     bt.subtensor.add_args(parser)
     # Adds logging specific arguments i.e. --logging.debug ..., --logging.trace .. or --logging.logging_dir ...
