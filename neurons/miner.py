@@ -202,7 +202,7 @@ def update_predictions(
 
 
 def get_model_dir(model):
-    return ValiConfig.BASE_DIR + model
+    return ValiConfig.BASE_DIR + "/mining_models/" + model
 
 
 def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
@@ -252,43 +252,43 @@ def main(config):
     base_mining_models = {
         "model_v4_1": {
             "id": "model2308",
-            "filename": "/mining_models/model_v4_1.h5",
+            "filename": "model_v4_1.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_2": {
             "id": "model3005",
-            "filename": "/mining_models/model_v4_2.h5",
+            "filename": "model_v4_2.h5",
             "sample_count": 500,
             "prediction_count": 1,
         },
         "model_v4_3": {
             "id": "model3103",
-            "filename": "/mining_models/model_v4_3.h5",
+            "filename": "model_v4_3.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_4": {
             "id": "model3104",
-            "filename": "/mining_models/model_v4_4.h5",
+            "filename": "model_v4_4.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_5": {
             "id": "model3105",
-            "filename": "/mining_models/model_v4_5.h5",
+            "filename": "model_v4_5.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_6": {
             "id": "model3106",
-            "filename": "/mining_models/model_v4_6.h5",
+            "filename": "model_v4_6.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v5_1": {
             "id": "model5000",
-            "filename": "/mining_models/model_v5_1.h5",
+            "filename": "model_v5_1.h5",
             "sample_count": SAMPLE_COUNT,
             "prediction_count": PREDICTION_COUNT,
             "legacy_model": False,
