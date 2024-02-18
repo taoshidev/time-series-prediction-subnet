@@ -1,9 +1,7 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
-
 import json
 from typing import Dict
-
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner

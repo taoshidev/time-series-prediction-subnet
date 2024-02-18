@@ -60,7 +60,7 @@ def get_config():
         "--base_model",
         type=str,
         default="model_v5_1",
-        help="Choose the base model you want to run (if youre not using a custom one).",
+        help="Choose the base model you want to run (if you're not using a custom one).",
     )
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
     bt.subtensor.add_args(parser)

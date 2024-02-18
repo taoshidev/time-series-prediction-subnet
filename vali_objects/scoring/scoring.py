@@ -1,24 +1,19 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
-
 import math
-from typing import List, Tuple, Dict
-
 import numpy as np
 from numpy import ndarray
-
 from vali_config import ValiConfig
 from vali_objects.exceptions.incorrect_prediction_size_error import (
     IncorrectPredictionSizeError,
 )
 from vali_objects.exceptions.min_responses_exception import MinResponsesException
-from vali_objects.utils.vali_bkp_utils import ValiBkpUtils
 from vali_objects.utils.vali_utils import ValiUtils
 
 
 class Scoring:
     @staticmethod
-    def calculate_weighted_rmse(predictions: np, actual: np) -> float:
+    def calculate_weighted_rmse(predictions, actual) -> float:
         predictions = np.array(predictions)
         actual = np.array(actual)
 
@@ -31,7 +26,7 @@ class Scoring:
         return weighted_rmse
 
     @staticmethod
-    def calculate_directional_accuracy(predictions: np, actual: np) -> float:
+    def calculate_directional_accuracy(predictions, actual) -> float:
         pred_len = len(predictions)
 
         pred_dir = np.sign(
@@ -46,7 +41,7 @@ class Scoring:
         return correct_directions / (pred_len - 1)
 
     @staticmethod
-    def score_response(predictions: np, actual: np) -> float:
+    def score_response(predictions, actual) -> float:
         if len(predictions) != len(actual) or len(predictions) == 0 or len(actual) < 2:
             raise IncorrectPredictionSizeError(
                 f"the number of predictions or the number of responses "
@@ -59,7 +54,7 @@ class Scoring:
         return rmse
 
     @staticmethod
-    def scale_scores(scores: Dict[str, float]) -> Dict[str, float]:
+    def scale_scores(scores: dict[str, float]) -> dict[str, float]:
         avg_score = sum([score for miner_uid, score in scores.items()]) / len(scores)
         scaled_scores_map = {}
         for miner_uid, score in scores.items():
@@ -70,7 +65,7 @@ class Scoring:
         return scaled_scores_map
 
     @staticmethod
-    def weigh_miner_scores(scores: List[Tuple[str, float]]) -> List[Tuple[str, float]]:
+    def weigh_miner_scores(scores: list[tuple[str, float]]) -> list[tuple[str, float]]:
         if len(scores) == 1:
             return [(scores[0][0], 1.0)]
 
@@ -91,7 +86,7 @@ class Scoring:
         return normalized_scores
 
     @staticmethod
-    def simple_scale_scores(scores: Dict[str, float]) -> Dict[str, float]:
+    def simple_scale_scores(scores: dict[str, float]) -> dict[str, float]:
         if len(scores) <= 1:
             raise MinResponsesException("not enough responses")
         score_values = [score for miner_uid, score in scores.items()]
@@ -104,7 +99,7 @@ class Scoring:
         }
 
     @staticmethod
-    def history_of_values() -> None | Dict[str, float]:
+    def history_of_values() -> None | dict[str, float]:
         # attempt to rebuild state using cmw objects
         pass
 
@@ -135,7 +130,7 @@ class Scoring:
 
     @staticmethod
     def update_weights_using_historical_distributions(
-        scores: List[Tuple[str, float]], ds: ndarray
+        scores: list[tuple[str, float]], ds: ndarray
     ):
         vweights = ValiUtils.get_vali_weights_json()
         geometric_mean_of_percentile = Scoring.get_geometric_mean_of_percentile(ds)
@@ -170,7 +165,7 @@ class Scoring:
         return vweights, geometric_mean_of_percentile
 
     @staticmethod
-    def update_weights_remove_deregistrations(miner_uids: List[str]):
+    def update_weights_remove_deregistrations(miner_uids: list[str]):
         vweights = ValiUtils.get_vali_weights_json()
         for miner_uid in miner_uids:
             if miner_uid in vweights:
