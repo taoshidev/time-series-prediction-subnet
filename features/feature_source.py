@@ -101,13 +101,11 @@ class FeatureSource(ABC):
                     f" samples when {sample_count} expected."
                 )
 
-        if stop is None:
+        if (stop is None) or (stop > sample_count):
             stop = sample_count
-        elif stop > sample_count:
-            raise ValueError()  # TODO: Implement
 
-        if start >= stop:
-            raise ValueError  # TODO: Implement
+        if start > stop:
+            start = stop
 
         sample_count = stop - start
 
@@ -135,19 +133,16 @@ class FeatureSource(ABC):
 
         shape = array.shape
         if len(shape) != 2:
-            raise ValueError()  # TODO: Implement
+            raise ValueError("array must be 2 dimensional.")
 
         if shape[1] != feature_count:
-            raise ValueError()  # TODO: Implement
+            raise ValueError(
+                f"array has {shape[1]} features when {feature_count} expected."
+            )
 
         sample_count = shape[0]
-        if stop is None:
+        if (stop is None) or (stop > sample_count):
             stop = sample_count
-        elif stop > sample_count:
-            raise ValueError()  # TODO: Implement
-
-        if start >= stop:
-            raise ValueError  # TODO: Implement
 
         array = array.T
         results = {}

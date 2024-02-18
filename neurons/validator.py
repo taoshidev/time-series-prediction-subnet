@@ -24,6 +24,7 @@ from time_util import datetime
 from time_util.time_util import TimeUtil
 import traceback
 import uuid
+from vali_config import ValiConfig
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
@@ -138,14 +139,14 @@ def run_time_series_validation(
 
             try:
                 hashed_responses = dendrite.query(
-                    metagraph.axons, live_hash_proto, deserialize=True, timeout=30
+                    metagraph.axons, live_hash_proto, deserialize=True, timeout=45
                 )
 
                 # wait to allow sending at correct expected intervals
                 time.sleep(60)
 
                 responses = dendrite.query(
-                    metagraph.axons, live_proto, deserialize=True, timeout=30
+                    metagraph.axons, live_proto, deserialize=True, timeout=45
                 )
 
                 # # check to see # of responses
@@ -571,11 +572,14 @@ if __name__ == "__main__":
     bt.logging.info("Starting validator loop.")
     while True:
         current_time = datetime.now().time()
-        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
+
+        if current_time.minute in ValiConfig.METAGRAPH_UPDATE_INTERVALS:
+            bt.logging.info("Updating metagraph.")
             # updating metagraph before run
             metagraph.sync(subtensor=subtensor)
-            bt.logging.info(f"Metagraph: {metagraph}")
+            bt.logging.info(f"Metagraph updated: {metagraph}")
 
+        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(

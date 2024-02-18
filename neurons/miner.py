@@ -91,7 +91,7 @@ def get_config():
     return config
 
 
-# TODO: Move this into a stream object, so that each stream can be predicted using different sources, models, etc...
+# TODO: Move this into a stream mining solution class, so each stream can be predicted using different sources, models, etc...
 def get_predictions(
     tims_ms: int,
     feature_source: FeatureSource,
@@ -195,9 +195,8 @@ def update_predictions(
                     )
 
                 # Log errors and continue operations
-                except Exception:  # noqa
-                    bt.logging.error(traceback.format_exc())
-                continue
+                except Exception as e:  # noqa
+                    bt.logging.warning(f"error updating prediction: {e}")
 
             time.sleep(15)
 

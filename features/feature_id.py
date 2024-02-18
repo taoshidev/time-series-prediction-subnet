@@ -2,8 +2,7 @@
 # Copyright © 2024 Taoshi Inc
 from enum import IntEnum
 
-# TODO: Change "feature_ids: List[float]" to "feature_ids: list[int]" in protocols
-# TODO: Change "feature_ids = [0.001," to use FeatureID.
+# TODO: Remove feature_ids property from protocols
 
 
 class FeatureID(IntEnum):
