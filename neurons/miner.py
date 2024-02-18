@@ -15,7 +15,6 @@ from streams.btcusd_5m import (
     legacy_model_feature_ids,
     legacy_model_feature_sources,
     legacy_model_feature_scaler,
-    model_feature_ids,
     model_feature_sources,
     prediction_feature_ids,
     PREDICTION_COUNT,
@@ -23,12 +22,14 @@ from streams.btcusd_5m import (
     SAMPLE_COUNT,
 )
 from streams.btcusd_5m import model_feature_scaler as new_model_feature_scaler
+from streams.btcusd_5m import model_feature_ids as new_model_feature_ids
 import sys
 import template
 import threading
 import time
 from time_util import datetime
 import traceback
+from typing import Tuple
 from vali_config import ValiConfig
 from vali_objects.dataclasses.stream_prediction import StreamPrediction
 from vali_objects.request_templates import RequestTemplates
@@ -43,6 +44,8 @@ model_feature_scaler: FeatureScaler | None = None
 # Cached miner predictions
 miner_preds = {}
 sent_preds = {}
+
+stopping = False
 
 
 def get_config():
@@ -156,7 +159,7 @@ def get_predictions(
 def update_predictions(
     stream_predictions: list[StreamPrediction],
 ):
-    while True:
+    while not stopping:
         current_time = datetime.now()
         if current_time.second < 15:
             bt.logging.debug(f"running update of predictions [{current_time}]")
@@ -183,7 +186,7 @@ def update_predictions(
                     )
 
                     # TODO: Improve validators to allow multiple features in predictions
-                    predicted_closes = prediction_array.flatten()
+                    predicted_closes = prediction_array.flatten().tolist()
 
                     bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
@@ -307,6 +310,7 @@ def main(config):
     global model_feature_scaler
     global miner_preds
     global sent_preds
+    global stopping
 
     base_mining_model = None
     base_model_id = config.base_model
@@ -317,6 +321,24 @@ def main(config):
         model_chosen = base_mining_models[base_model_id]
         model_filename = get_model_dir(model_chosen["filename"])
 
+        legacy_model = model_chosen.get("legacy_model", True)
+        if legacy_model:
+            model_feature_ids = legacy_model_feature_ids
+            model_feature_source = FeatureCollector(
+                sources=legacy_model_feature_sources,
+                feature_ids=model_feature_ids,
+                timeout=FEATURE_COLLECTOR_TIMEOUT,
+            )
+            model_feature_scaler = legacy_model_feature_scaler
+        else:
+            model_feature_ids = new_model_feature_ids
+            model_feature_source = FeatureCollector(
+                sources=model_feature_sources,
+                feature_ids=model_feature_ids,
+                timeout=FEATURE_COLLECTOR_TIMEOUT,
+            )
+            model_feature_scaler = new_model_feature_scaler
+
         base_mining_model = BaseMiningModel(
             filename=model_filename,
             mode="r",
@@ -326,22 +348,6 @@ def main(config):
             prediction_count=model_chosen["prediction_count"],
             prediction_length=PREDICTION_LENGTH,
         )
-
-        legacy_model = model_chosen.get("legacy_model", True)
-        if legacy_model:
-            model_feature_source = FeatureCollector(
-                sources=legacy_model_feature_sources,
-                feature_ids=legacy_model_feature_ids,
-                timeout=FEATURE_COLLECTOR_TIMEOUT,
-            )
-            model_feature_scaler = legacy_model_feature_scaler
-        else:
-            model_feature_source = FeatureCollector(
-                sources=model_feature_sources,
-                feature_ids=model_feature_ids,
-                timeout=FEATURE_COLLECTOR_TIMEOUT,
-            )
-            model_feature_scaler = new_model_feature_scaler
 
     else:
         bt.logging.debug("base model not chosen.")
@@ -375,7 +381,7 @@ def main(config):
     my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
     bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
-    # def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> tuple[bool, str]:
+    # def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> Tuple[bool, str]:
     #     # standardizing not accepting tf and tb for now
     #     return False, synapse.dendrite.hotkey
     #
@@ -392,7 +398,7 @@ def main(config):
     #     bt.logging.debug(f'sending tf with length {len(predictions)}')
     #     return synapse
     #
-    # def tb_blacklist_fn( synapse: template.protocol.TrainingBackward ) -> tuple[bool, str]:
+    # def tb_blacklist_fn( synapse: template.protocol.TrainingBackward ) -> Tuple[bool, str]:
     #     # standardizing not accepting tf and tb for now
     #     return False, synapse.dendrite.hotkey
     #
@@ -409,7 +415,7 @@ def main(config):
 
     def lf_hash_blacklist_fn(
         synapse: template.protocol.LiveForwardHash,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         _is_invalid_validator = is_invalid_validator(
             metagraph, synapse.dendrite.hotkey, MinerConfig.ACCEPTABLE_INTERVALS_HASH
         )
@@ -450,7 +456,7 @@ def main(config):
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
-    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> tuple[bool, str]:
+    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
         _is_invalid_validator = is_invalid_validator(
             metagraph,
             synapse.dendrite.hotkey,
@@ -493,7 +499,7 @@ def main(config):
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
-    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> tuple[bool, str]:
+    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
     #     # standardizing not accepting lb for now. Miner can override if they'd like.
     #     return False, synapse.dendrite.hotkey
     #
@@ -613,7 +619,7 @@ def main(config):
             bt.logging.error(traceback.format_exc())
             continue
 
-    run_update_predictions.join()
+    stopping = True
 
 
 # This is the main function, which runs the miner.

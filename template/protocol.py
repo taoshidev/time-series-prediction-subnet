@@ -2,10 +2,9 @@
 # Copyright © 2023 Yuma Rao
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
-
 import bittensor as bt
 from pydantic import Field
-from typing import Optional
+from typing import List, Optional
 
 
 class BaseProtocol(bt.Synapse):
@@ -16,7 +15,7 @@ class BaseProtocol(bt.Synapse):
 
 
 class Forward(BaseProtocol):
-    feature_ids: list[float]
+    feature_ids: List[float]
     prediction_size: int = Field(..., allow_mutation=False)
     schema_id: Optional[int] = Field(..., allow_mutation=False)
 
