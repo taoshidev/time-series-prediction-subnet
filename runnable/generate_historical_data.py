@@ -62,7 +62,6 @@ def main() -> None:
     testing_start_time_ms = now_time_ms - time_span_ms(days=_TESTING_LOOKBACK_DAYS)
 
     training_end_time_ms = testing_start_time_ms
-    testing_end_time_ms = now_time_ms
 
     historical_feature_collector = FeatureCollector(
         sources=historical_sources,
@@ -75,12 +74,6 @@ def main() -> None:
         training_start_time_ms,
         training_end_time_ms,
         "data_training.taosfs",
-    )
-    generate_historical_data(
-        historical_feature_collector,
-        testing_start_time_ms,
-        testing_end_time_ms,
-        "data_testing.taosfs",
     )
 
     print("Done.")

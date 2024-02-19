@@ -33,13 +33,13 @@ def main():
     _DATA_PRECISION = np.float32
     _MODEL_PRECISION = Policy("mixed_float16")
 
-    _SCENARIOS_PER_BATCH = 500
+    _SCENARIOS_PER_BATCH = 128
     # Adjust to a multiple of the number of GPUs
-    _BATCHES_PER_CHUNK = 128
-    _LAYER_UNITS = 2048
-    _LEARNING_RATE = 0.0000001
-    _TRAINING_PASSES = 50
-    _TRAINING_EPOCHS = 25
+    _BATCHES_PER_CHUNK = 64
+    _LAYER_UNITS = 1024
+    _LEARNING_RATE = 0.000001
+    _TRAINING_PASSES = 10
+    _TRAINING_EPOCHS = 20
     _TRAINING_PATIENCE = 10
 
     prediction_feature_count = len(prediction_feature_ids)
@@ -84,6 +84,7 @@ def main():
             prediction_length=PREDICTION_LENGTH,
             layers=[
                 [_LAYER_UNITS, 0],
+                [_LAYER_UNITS, 0.3],
             ],
             learning_rate=_LEARNING_RATE,
             dtype=_MODEL_PRECISION,

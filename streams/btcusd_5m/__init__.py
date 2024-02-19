@@ -27,7 +27,7 @@ from sklearn.preprocessing import MinMaxScaler
 from statistics import fmean
 from time_util import time_span_ms
 
-SAMPLE_COUNT = 200
+SAMPLE_COUNT = 500
 INTERVAL_MS = time_span_ms(minutes=5)
 PREDICTION_COUNT = 10
 PREDICTION_LENGTH = 100
