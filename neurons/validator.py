@@ -139,14 +139,14 @@ def run_time_series_validation(
 
             try:
                 hashed_responses = dendrite.query(
-                    metagraph.axons, live_hash_proto, deserialize=True, timeout=45
+                    metagraph.axons, live_hash_proto, deserialize=True, timeout=30
                 )
 
                 # wait to allow sending at correct expected intervals
                 time.sleep(60)
 
                 responses = dendrite.query(
-                    metagraph.axons, live_proto, deserialize=True, timeout=45
+                    metagraph.axons, live_proto, deserialize=True, timeout=30
                 )
 
                 # # check to see # of responses
