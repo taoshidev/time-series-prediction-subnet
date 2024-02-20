@@ -1,72 +1,216 @@
-# developer: Taoshidev
-# Copyright © 2023 Taoshi Inc
-
-import random
-
+# developer: taoshi-mbrown
+# Copyright © 2024 Taoshi Inc
+from features import FeatureCollector
+from feature_sources import BinaryFileFeatureStorage
+from keras.mixed_precision import Policy
+from keras.preprocessing import timeseries_dataset_from_array
+from mining_objects import BaseMiningModel
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-
-from mining_objects.base_mining_model import BaseMiningModel
-from mining_objects.mining_utils import MiningUtils
-from time_util.time_util import TimeUtil
-from vali_objects.dataclasses.client_request import ClientRequest
+from streams.btcusd_5m import (
+    historical_feature_ids,
+    INTERVAL_MS,
+    model_feature_ids,
+    model_feature_scaler,
+    prediction_feature_ids,
+    PREDICTION_COUNT,
+    PREDICTION_LENGTH,
+    SAMPLE_COUNT,
+    spontaneous_feature_sources,
+)
+import tensorflow as tf
+from time_util import datetime
 from vali_config import ValiConfig
 
-import bittensor as bt
+
+def main():
+    process_start_time = datetime.now()
+    print(f"Training started at {process_start_time}")
+
+    # Prevents main memory leak and consequent slowdown
+    # Remove if this leak is fixed in later versions of TensorFlow
+    tf.config.run_functions_eagerly(False)
+
+    _DATA_PRECISION = np.float32
+    _MODEL_PRECISION = Policy("mixed_float16")
+
+    _SCENARIOS_PER_BATCH = 128
+    # Adjust to a multiple of the number of GPUs
+    _BATCHES_PER_CHUNK = 64
+    _LAYER_UNITS = 1024
+    _LEARNING_RATE = 0.000001
+    _TRAINING_PASSES = 10
+    _TRAINING_EPOCHS = 20
+    _TRAINING_PATIENCE = 10
+
+    prediction_feature_count = len(prediction_feature_ids)
+
+    print("Opening historical data...")
+
+    data_training_filename = (
+        ValiConfig.BASE_DIR + "/runnable/historical_financial_data/data_training.taosfs"
+    )
+    historical_feature_storage = BinaryFileFeatureStorage(
+        filename=data_training_filename,
+        mode="r",
+        feature_ids=historical_feature_ids,
+    )
+
+    historical_start_time_ms = historical_feature_storage.get_start_time_ms()
+    historical_sample_count = historical_feature_storage.get_sample_count()
+
+    training_feature_sources = [
+        historical_feature_storage,
+        *spontaneous_feature_sources,
+    ]
+
+    feature_collector = FeatureCollector(training_feature_sources)
+    feature_count = feature_collector.feature_count
+
+    if feature_collector.feature_ids != model_feature_ids:
+        raise RuntimeError("Features of historical data do not match model.")
+
+    print("Creating model...")
+
+    model_filename = ValiConfig.BASE_DIR + "/runnable/mining_models/model_v5.h5"
+    strategy = tf.distribute.MirroredStrategy()
+    with strategy.scope():
+        model = BaseMiningModel(
+            filename=model_filename,
+            mode="w",
+            feature_count=feature_count,
+            sample_count=SAMPLE_COUNT,
+            prediction_feature_count=prediction_feature_count,
+            prediction_count=PREDICTION_COUNT,
+            prediction_length=PREDICTION_LENGTH,
+            layers=[
+                [_LAYER_UNITS, 0],
+                [_LAYER_UNITS, 0.3],
+            ],
+            learning_rate=_LEARNING_RATE,
+            dtype=_MODEL_PRECISION,
+        )
+
+    training_pass = 1
+    while training_pass <= _TRAINING_PASSES:
+        print(f"Starting training pass {training_pass}...")
+
+        # A chunk contains batches.
+        # A batch contains scenarios.
+        # A scenario contains a training sequence and targets.
+        #
+        # Example of chunks containing 3 batches, with 2 scenarios per batch:
+        #
+        # start |--------| chunk n                         |--------------------------| end
+        # of    |        |training data        |           |                          | of
+        # file  |        |                |target data     |                          | file
+        #       |batch 1:|scenario 1      |targets    |    |                          |
+        #       |         |scenario 2     .|targets    |   |                          |
+        #       |batch 2:  |scenario 3    . |targets    |  |                          |
+        #       |           |scenario 4   .  |targets    | |                          |
+        #       |batch 3:    |scenario 5  .   |targets    ||                          |
+        #       |             |scenario 6 .    |targets    |                          |
+        #       |------------------------------| chunk n+1                       |----|
+        # (additional chunks)
+        scenarios_per_chunk = _BATCHES_PER_CHUNK * _SCENARIOS_PER_BATCH
+        training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
+        target_data_length = PREDICTION_LENGTH + scenarios_per_chunk - 1
+        chunk_length = training_data_length + target_data_length
+
+        targets = np.empty(
+            shape=(scenarios_per_chunk, PREDICTION_COUNT, prediction_feature_count),
+            dtype=_DATA_PRECISION,
+        )
+
+        chunk_start_ms = historical_start_time_ms
+        chunk_start = 0
+        chunk_end = chunk_length
+        while True:
+            if chunk_end > historical_sample_count:
+                chunk_end = historical_sample_count
+                chunk_length = chunk_end - chunk_start
+                scenarios_per_chunk = (
+                    int((chunk_length - SAMPLE_COUNT - PREDICTION_LENGTH) / 2) + 1
+                )
+
+                if scenarios_per_chunk <= 0:
+                    break
+
+                training_data_length = SAMPLE_COUNT + scenarios_per_chunk - 1
+                targets = np.empty(
+                    shape=(
+                        scenarios_per_chunk,
+                        PREDICTION_COUNT,
+                        prediction_feature_count,
+                    ),
+                    dtype=_DATA_PRECISION,
+                )
+
+            chunk_start_datetime = datetime.fromtimestamp_ms(chunk_start_ms)
+            print(f"Reading historical data for {chunk_start_datetime}...")
+
+            chunk_samples = feature_collector.get_feature_samples(
+                chunk_start_ms, INTERVAL_MS, chunk_length
+            )
+
+            chunk_samples = model_feature_scaler.scale_feature_samples(chunk_samples)
+
+            training_data = feature_collector.feature_samples_to_array(
+                chunk_samples, stop=training_data_length, dtype=_DATA_PRECISION
+            )
+
+            target_data = feature_collector.feature_samples_to_array(
+                chunk_samples,
+                feature_ids=prediction_feature_ids,
+                start=training_data_length,
+                dtype=_DATA_PRECISION,
+            )
+
+            # Shape to simplify including multiple features in predictions
+            targets.shape = (
+                scenarios_per_chunk,
+                PREDICTION_COUNT,
+                prediction_feature_count,
+            )
+
+            # Populate the training targets
+            sparse_indexes = model.prediction_sparse_indexes
+            for scenario_index in range(scenarios_per_chunk):
+                for prediction_index in range(PREDICTION_COUNT):
+                    target_data_index = (
+                        scenario_index + sparse_indexes[prediction_index]
+                    )
+                    targets[scenario_index, prediction_index] = target_data[
+                        target_data_index
+                    ]
+
+            # Flatten to interlace features within predictions to match flat model output
+            targets.shape = (
+                scenarios_per_chunk,
+                PREDICTION_COUNT * prediction_feature_count,
+            )
+
+            training_dataset = timeseries_dataset_from_array(
+                training_data,
+                targets,
+                sequence_length=SAMPLE_COUNT,
+                batch_size=_SCENARIOS_PER_BATCH,
+            )
+
+            print("Training...")
+
+            model.train(
+                training_dataset, epochs=_TRAINING_EPOCHS, patience=_TRAINING_PATIENCE
+            )
+
+            chunk_start_ms += INTERVAL_MS * (chunk_length - PREDICTION_LENGTH)
+            chunk_start += chunk_length
+            chunk_end += chunk_length
+
+        training_pass += 1
+
+    process_end_time = datetime.now()
+    print(f"Training ended at {process_end_time}")
 
 
 if __name__ == "__main__":
-
-    # if you want the data to start from a certain location
-    curr_iter = 0
-
-    while True:
-        # if you want to use the local historical btc data file
-        use_local = True
-
-        client_request = ClientRequest(
-            client_uuid="test_client_uuid",
-            stream_type="BTCUSD-5m",
-            topic_id=1,
-            schema_id=1,
-            feature_ids=[0.001, 0.002, 0.003, 0.004],
-            prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
-            additional_details={
-                "tf": 5,
-                "trade_pair": "BTCUSD"
-            }
-        )
-
-        # numbers of rows to use in each sequence
-        iter_add = 1000
-
-        print("current iteradd " + str(iter_add))
-        print("next iter " + str(curr_iter))
-
-        data_structure = MiningUtils.get_file(
-            "/runnable/historical_financial_data/data_training.pickle", True)
-        data_structure = [data_structure[0][curr_iter:curr_iter + iter_add],
-                          data_structure[1][curr_iter:curr_iter + iter_add],
-                          data_structure[2][curr_iter:curr_iter + iter_add],
-                          data_structure[3][curr_iter:curr_iter + iter_add],
-                          data_structure[4][curr_iter:curr_iter + iter_add]]
-        print("start " + str(TimeUtil.millis_to_timestamp(data_structure[0][0])))
-        print("end " + str(TimeUtil.millis_to_timestamp(data_structure[0][len(data_structure[0]) - 1])))
-        curr_iter += iter_add
-
-        sds_ndarray = np.array(data_structure).T
-
-        scaler = MinMaxScaler(feature_range=(0, 1))
-
-        scaled_data = scaler.fit_transform(sds_ndarray)
-        scaled_data = scaled_data.T
-        prep_dataset = BaseMiningModel.base_model_dataset(scaled_data)
-
-        base_mining_model = BaseMiningModel(len(prep_dataset.T)) \
-            .set_neurons([[128, 0], [128, 0.2], [128, 0.4], [128, 0.6]]) \
-            .set_window_size(100) \
-            .set_learning_rate(0.0001) \
-            .set_batch_size(iter_add) \
-            .set_model_dir(f'mining_models/model1.h5')
-        base_mining_model.train(prep_dataset, epochs=25)
-
+    main()
