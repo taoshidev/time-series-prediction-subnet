@@ -20,4 +20,4 @@
 #   Advanced Options:
 #     Uncheck "Auto-save edited files to trigger the watcher"
 #     Uncheck "Trigger the watcher on external changes"
-black
+black>=24.2.0
