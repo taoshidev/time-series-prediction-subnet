@@ -186,6 +186,12 @@ def run_time_series_validation(
                         miner_hotkey = metagraph.axons[i].hotkey
                         try:
                             predictions = resp_i.predictions.numpy()
+
+                            # check for invalid miner pred
+                            for miner_pred in predictions:
+                                if math.isnan(miner_pred):
+                                    raise ValueError(f"invalid miner preds [{miner_pred}]")
+
                             hashed_predictions = HashingUtils.hash_predictions(
                                 miner_hotkey, str(predictions.tolist())
                             )
@@ -237,11 +243,11 @@ def run_time_series_validation(
                                     f"or shape [{len(predictions.shape)}] "
                                     f"for miner [{miner_hotkey}]"
                                 )
-                        except Exception:  # noqa
+                        except Exception as e:
                             bt.logging.debug(
                                 f"not correctly configured predictions: [{miner_hotkey}]"
+                                f" with message [{e}]"
                             )
-                            continue
                 bt.logging.info(
                     f"all hotkeys of accurately formatted predictions received {pred_metagraph_hotkeys}"
                 )
