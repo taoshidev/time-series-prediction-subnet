@@ -63,6 +63,67 @@ class FeatureSource(ABC):
             feature_samples.append(np.empty(sample_count, dtype))
         return feature_samples
 
+    # noinspection PyMethodMayBeStatic
+    def _raise_check_exception(
+        self,
+        problem_name: str,
+        problem_check: callable,
+        feature_id: FeatureID,
+        samples: ndarray,
+        start_time_ms: int | None,
+        interval_ms: int | None,
+    ) -> None:
+        for i in range(len(samples)):
+            if problem_check(samples[i]):
+                if (start_time_ms is not None) and (interval_ms is not None):
+                    index_time_ms = start_time_ms + (i * interval_ms)
+                    time_information = f" (at {index_time_ms})"
+                else:
+                    time_information = ""
+                raise RuntimeError(
+                    f"{problem_name} found in feature {feature_id} "
+                    f"at index {i}{time_information}."
+                )
+
+    def _check_feature_samples(
+        self,
+        feature_samples: dict[FeatureID, ndarray],
+        start_time_ms: int | None,
+        interval_ms: int | None,
+    ) -> None:
+        for feature_id, samples in feature_samples.items():
+            samples_min = samples.min()
+
+            if np.isnan(samples_min):
+                self._raise_check_exception(
+                    "NaN",
+                    np.isnan,
+                    feature_id,
+                    samples,
+                    start_time_ms,
+                    interval_ms,
+                )
+
+            if np.isneginf(samples_min):
+                self._raise_check_exception(
+                    "Negative infinity",
+                    np.isneginf,
+                    feature_id,
+                    samples,
+                    start_time_ms,
+                    interval_ms,
+                )
+
+            if np.isinf(samples.max()):
+                self._raise_check_exception(
+                    "Infinity",
+                    np.isposinf,
+                    feature_id,
+                    samples,
+                    start_time_ms,
+                    interval_ms,
+                )
+
     # Returns: dict with FeatureID keys and 1-dimensional dtype sample array values
     #
     # Gaps in the samples are automatically filled in with previous values or

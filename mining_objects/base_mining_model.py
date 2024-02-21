@@ -181,6 +181,7 @@ class BaseMiningModel:
         window = window.reshape(1, self.sample_count, self._feature_count)
 
         prediction = self._model.predict(window)
+        np.nan_to_num(prediction, copy=False, nan=0, posinf=1, neginf=-1)
         prediction.shape = (self.prediction_count, self._prediction_feature_count)
 
         if self._interpolation_indexes is None:

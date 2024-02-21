@@ -204,6 +204,8 @@ class BinaryFileFeatureStorage(FeatureStorage):
                 feature_dtype, copy=False
             )
 
+        self._check_feature_samples(results, start_time_ms, interval_ms)
+
         return results
 
     def set_feature_samples(
