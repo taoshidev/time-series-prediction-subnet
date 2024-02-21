@@ -161,6 +161,13 @@ class Scoring:
                 previous_ema,
             )
 
+        for k, v in vweights.items():
+            if math.isnan(v):
+                print(f"bad data provided.")
+                print(f"geometric mean of percentile [{geometric_mean_of_percentile}]")
+                print(f"scores [{scores}]")
+                raise ValueError("nan set in vweights file")
+
         ValiUtils.set_vali_weights_bkp(vweights)
         return vweights, geometric_mean_of_percentile
 
