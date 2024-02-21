@@ -248,4 +248,6 @@ class BybitKlineFeatureSource(FeatureSource):
             for feature_index in range(self.feature_count)
         }
 
+        self._check_feature_samples(results, start_time_ms, interval_ms)
+
         return results
