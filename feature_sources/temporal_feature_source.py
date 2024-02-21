@@ -95,4 +95,6 @@ class TemporalFeatureSource(FeatureSource):
 
             results[feature_id] = samples
 
+        self._check_feature_samples(results, start_time_ms, interval_ms)
+
         return results

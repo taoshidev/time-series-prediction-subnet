@@ -250,4 +250,6 @@ class FeatureAggregator(FeatureSource):
                 sample_count, sources_feature_samples
             )
 
+        self._check_feature_samples(feature_samples, start_time_ms, interval_ms)
+
         return feature_samples
