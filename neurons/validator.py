@@ -186,6 +186,12 @@ def run_time_series_validation(
                         miner_hotkey = metagraph.axons[i].hotkey
                         try:
                             predictions = resp_i.predictions.numpy()
+
+                            # check for invalid miner pred
+                            for miner_pred in predictions:
+                                if math.isnan(miner_pred):
+                                    raise ValueError(f"invalid miner preds [{miner_pred}]")
+
                             hashed_predictions = HashingUtils.hash_predictions(
                                 miner_hotkey, str(predictions.tolist())
                             )
@@ -237,11 +243,11 @@ def run_time_series_validation(
                                     f"or shape [{len(predictions.shape)}] "
                                     f"for miner [{miner_hotkey}]"
                                 )
-                        except Exception:  # noqa
+                        except Exception as e:
                             bt.logging.debug(
                                 f"not correctly configured predictions: [{miner_hotkey}]"
+                                f" with message [{e}]"
                             )
-                            continue
                 bt.logging.info(
                     f"all hotkeys of accurately formatted predictions received {pred_metagraph_hotkeys}"
                 )
@@ -309,12 +315,20 @@ def run_time_series_validation(
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():
                     try:
+                        for miner_pred in miner_preds:
+                            if math.isnan(miner_pred):
+                                raise ValueError(
+                                    f"invalid miner [{miner_uid}] preds [{miner_pred}]"
+                                )
                         scores[miner_uid] = Scoring.score_response(
                             miner_preds, validation_array
                         )
-                    except IncorrectPredictionSizeError as e:
-                        bt.logging.error(e)
-                        traceback.print_exc()
+                    except IncorrectPredictionSizeError as ipse:
+                        bt.logging.warning(
+                            f"miner [{miner_uid}] provided incorrect prediction size [{ipse}]"
+                        )
+                    except ValueError as ve:
+                        bt.logging.warning(ve)
 
                 if len(scores) > 0:
                     bt.logging.debug(f"unscaled scores [{scores}]")
@@ -524,9 +538,7 @@ def run_time_series_validation(
                 bt.logging.error(e)
                 traceback.print_exc()
             except ValueError as e:
-                bt.logging.info(
-                    "value error during live result weight setting process"
-                )
+                bt.logging.info("value error during live result weight setting process")
                 for file in vali_request.files:
                     os.remove(file)
                 bt.logging.error(e)
@@ -596,8 +608,10 @@ if __name__ == "__main__":
             vweights = ValiUtils.get_vali_weights_json()
             for k, v in vweights.items():
                 if math.isnan(v):
-                    valiweights_file_path = (ValiBkpUtils.get_vali_weights_dir() +
-                                             ValiBkpUtils.get_vali_weights_file())
+                    valiweights_file_path = (
+                        ValiBkpUtils.get_vali_weights_dir()
+                        + ValiBkpUtils.get_vali_weights_file()
+                    )
                     try:
                         os.remove(valiweights_file_path)
                         print(f"File '{valiweights_file_path}' successfully deleted.")

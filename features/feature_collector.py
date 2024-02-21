@@ -147,6 +147,8 @@ class FeatureCollector(FeatureSource):
                     samples[cached_sample_count:] = uncached_samples[feature_id]
                 feature_samples[feature_id] = samples
 
+        self._check_feature_samples(feature_samples, start_time_ms, interval_ms)
+
         if save_cache_results:
             self._cache = self.FeatureSamplesCache(
                 feature_samples, start_time_ms, interval_ms, sample_count
