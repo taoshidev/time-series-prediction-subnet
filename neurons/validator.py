@@ -348,6 +348,9 @@ def run_time_series_validation(
 
                         # choose top 10
                         weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+
+                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
+                        bt.logging.debug(f"validation array [{validation_array}]")
                         (
                             weighed_winning_scores_dict,
                             weight,
