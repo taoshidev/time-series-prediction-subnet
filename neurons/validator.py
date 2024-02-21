@@ -521,6 +521,14 @@ def run_time_series_validation(
                     os.remove(file)
                 bt.logging.error(e)
                 traceback.print_exc()
+            except ValueError as e:
+                bt.logging.info(
+                    "value error during live result weight setting process"
+                )
+                for file in vali_request.files:
+                    os.remove(file)
+                bt.logging.error(e)
+                traceback.print_exc()
             except Exception as e:
                 bt.logging.error(e)
                 traceback.print_exc()
