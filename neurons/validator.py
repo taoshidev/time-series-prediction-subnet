@@ -4,6 +4,8 @@
 # Copyright © 2023 Taoshi Inc
 import argparse
 import bittensor as bt
+import math
+
 from hashing_utils import HashingUtils
 from miner_config import MinerConfig
 import numpy as np
@@ -591,6 +593,17 @@ if __name__ == "__main__":
             bt.logging.info(f"Metagraph updated: {metagraph}")
 
         if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
+            vweights = ValiUtils.get_vali_weights_json()
+            for k, v in vweights.items():
+                if math.isnan(v):
+                    valiweights_file_path = (ValiBkpUtils.get_vali_weights_dir() +
+                                             ValiBkpUtils.get_vali_weights_file())
+                    try:
+                        os.remove(valiweights_file_path)
+                        print(f"File '{valiweights_file_path}' successfully deleted.")
+                    except OSError as e:
+                        print(f"Error: {valiweights_file_path} : {e.strerror}")
+
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
             all_files = ValiBkpUtils.get_all_files_in_dir(
