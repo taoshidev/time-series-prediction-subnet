@@ -118,11 +118,11 @@ class TestScoring(TestBase):
         )
 
     def test_get_geometric_mean_of_percentile(self):
-        ds = [[], [30000, 30100, 30150, 30200]]
+        ds = np.array([30000, 30100, 30150, 30200])
 
-        mean = np.mean(ds[1])
-        squared_diff = np.sum((ds[1] - mean) ** 2)
-        std_dev = np.sqrt(squared_diff / len(ds[1]))
+        mean = np.mean(ds)
+        squared_diff = np.sum((ds - mean) ** 2)
+        std_dev = np.sqrt(squared_diff / len(ds))
 
         min_max = 1.006666666666667
 
@@ -151,7 +151,7 @@ class TestScoring(TestBase):
             pass
 
         scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
-        ds = [[], [30000, 30100, 30150, 30200]]
+        ds = np.array([30000, 30100, 30150, 30200])
 
         (
             vweights,
@@ -176,7 +176,7 @@ class TestScoring(TestBase):
         self.assertEqual(vweights, set_vweights)
 
         scores.pop()
-        ds = [[], [30000, 30100, 30150]]
+        ds = np.array([30000, 30100, 30150])
 
         # testing if we remove a miner their score begins to drop
 
@@ -198,7 +198,7 @@ class TestScoring(TestBase):
         # testing adding a new miner that they fit to the average even if the scores
         # have a larger magnitude move
 
-        ds = [[], [30000, 3100, 32000]]
+        ds = np.array([30000, 3100, 32000])
         scores.append(("miner5", 0.5))
 
         (
@@ -231,7 +231,7 @@ class TestScoring(TestBase):
             pass
 
         scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
-        ds = [[], [30000, 30100, 30150, 30200]]
+        ds = np.array([30000, 30100, 30150, 30200])
 
         (
             vweights,
@@ -257,11 +257,26 @@ class TestScoring(TestBase):
         )
 
     def test_update_weights_using_historical_distributions_with_dummy_data(self):
-        scores = [("miner1", 0.1), ("miner2", 0.2), ("miner3", 0.3), ("miner4", 0.4)]
-        data = [[], [10, 20, 30, 40]]
-        updated_scores = Scoring.update_weights_using_historical_distributions(
-            scores, data
-        )
+        scores = [
+            ("miner1", 0.1),
+            ("miner2", 0.2),
+            ("miner3", 0.3),
+            ("miner4", 0.4),
+        ]
+        expected_scores = {
+            "miner1": 0.0003710575139146568,
+            "miner2": 0.0007421150278293136,
+            "miner3": 0.00111317254174397,
+            "miner4": 0.0014842300556586272,
+        }
+        expected_gmof = 0.1
+        data = np.array([10, 20, 30, 40])
+        (
+            updated_scores,
+            geometric_mean_of_percentile,
+        ) = Scoring.update_weights_using_historical_distributions(scores, data)
+        self.assertEqual(geometric_mean_of_percentile, expected_gmof)
+        self.assertEqual(updated_scores, expected_scores)
 
     def test_calculate_directional_accuracy(self):
         predictions = [1, 2, 1, 3, 4, 5, 6, 7, 6, 7, 8]
