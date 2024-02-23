@@ -519,7 +519,7 @@ def main(config):
     bt.logging.info(f"setting port [{config.axon.port}]")
     bt.logging.info(f"setting external port [{config.axon.external_port}]")
     axon = bt.axon(
-        wallet=wallet, port=config.axon.port, external_port=config.axon.external_port
+        wallet=wallet, port=config.axon.port, external_port=config.axon.external_port, external_ip=config.axon.external_ip
     )
     bt.logging.info(f"Axon {axon}")
 
