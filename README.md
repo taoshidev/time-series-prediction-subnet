@@ -262,7 +262,7 @@ $ nohup python neurons/validator.py --netuid 8 --wallet.name <wallet> --wallet.h
 
 # Running a Miner
 
-If you're running a miner, you should see three types of requests: LiveForwardHash, LiveForward, and LiveBackward. 
+If you're running a miner, you should see two types of requests: LiveForwardHash and LiveForward. 
 
 LiveForwardHash is requested first, which will be a hash of your predictions. LiveForward will be requested 60 seconds later which
 will request the actual predictions made (non-hashed). Using the hash and the actual predictions, validators can validate the 
@@ -270,7 +270,6 @@ authenticity of the predictions made, ensuring no participants are copying anoth
 
 - **LiveForwardHash** - will be when you provide a hash of your predictions.
 - **LiveForward** - will be when your miner provides your actual predictions.
-- **LiveBackward** - will receive the results that occurred live if you want to use them for any updating purposes.
 
 You'll receive rewards for your predictions `~10 hours` after making them. Therefore, if you start running on the network, you should expect a lag in receiving rewards. Predictions are reviewed and rewarded every 30 minutes.
 

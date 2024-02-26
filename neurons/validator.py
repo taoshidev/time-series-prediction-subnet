@@ -18,7 +18,6 @@ from streams.btcusd_5m import (
 )
 from template.protocol import (
     LiveForward,
-    LiveBackward,
     LiveForwardHash,
 )
 import time
@@ -190,7 +189,9 @@ def run_time_series_validation(
                             # check for invalid miner pred
                             for miner_pred in predictions:
                                 if math.isnan(miner_pred):
-                                    raise ValueError(f"invalid miner preds [{miner_pred}]")
+                                    raise ValueError(
+                                        f"invalid miner preds [{miner_pred}]"
+                                    )
 
                             hashed_predictions = HashingUtils.hash_predictions(
                                 miner_hotkey, str(predictions.tolist())
@@ -287,30 +288,7 @@ def run_time_series_validation(
                 # TODO: Improve validators to allow multiple features in predictions
                 validation_array = validation_array.flatten()
 
-                bt.logging.info(
-                    "results gathered sending back to miners via backprop and weighing"
-                )
-
-                # Send back the results for backprop so miners can learn
-                results = bt.tensor(validation_array)
-
-                results_backprop_proto = LiveBackward(
-                    request_uuid=request_uuid,
-                    stream_id=stream_type,
-                    samples=results,
-                    topic_id=request_df.topic_id,
-                )
-
-                try:
-                    dendrite.query(
-                        metagraph.axons, results_backprop_proto, deserialize=True
-                    )
-                    bt.logging.info("live results sent back to miners")
-                except Exception:  # noqa
-                    traceback.print_exc()
-                    bt.logging.info(
-                        "failed sending back results to miners and continuing..."
-                    )
+                bt.logging.info("results gathered sending back to miners via weighing")
 
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():

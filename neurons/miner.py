@@ -499,21 +499,6 @@ def main(config):
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
-    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
-    #     # standardizing not accepting lb for now. Miner can override if they'd like.
-    #     return False, synapse.dendrite.hotkey
-    #
-    # def lb_priority_fn(synapse: template.protocol.LiveBackward) -> float:
-    #     caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
-    #     prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
-    #     bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
-    #     return prirority
-
-    # def live_b(synapse: template.protocol.LiveBackward) -> template.protocol.LiveBackward:
-    #     bt.logging.debug(f'received lb with length {len(synapse.samples.numpy())}')
-    #     synapse.received = True
-    #     return synapse
-
     # Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
     bt.logging.info(f"setting port [{config.axon.port}]")
