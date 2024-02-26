@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import os
 import time
 from http import HTTPStatus
@@ -9,17 +9,24 @@ from logging import getLogger
 from enum import Enum
 from typing import Dict
 
-import requests
 
 from features import FeatureID, FeatureSource
 import numpy as np
 from numpy import ndarray
+import requests
+from time_util import (
+    current_interval_ms,
+    datetime,
+    time_span_ms,
+    parse_time_interval_ms,
+)
 
 
-class LunarCrush(str, Enum):
+class LunarCrushMetric(str, Enum):
     """
     add in any reusable static values
     """
+
     TIME = "time"
     HOUR = "hour"
     DAY = "day"
@@ -28,15 +35,6 @@ class LunarCrush(str, Enum):
     INTERVAL = "interval"
     START = "start"
     END = "end"
-
-    ONE_DAY = "1d"
-    ONE_WEEK = "1w"
-    ONE_MONTH = "1m"
-    THREE_MONTHS = "3m"
-    SIX_MONTHS = "6m"
-    ONE_YEAR = "1y"
-    FIVE_YEARS = "5y"
-    ALL = "all"
 
     POSTS_CREATED = "posts_created"
     POSTS_ACTIVE = "posts_active"
@@ -64,31 +62,29 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
     DEFAULT_RETRIES = 3
     RETRY_DELAY = 1.0
 
-    _BUCKET = [
-        LunarCrush.HOUR,
-        LunarCrush.DAY
-    ]
-
-    _INTERVAL = [
-        LunarCrush.ONE_DAY,
-        LunarCrush.ONE_WEEK,
-        LunarCrush.ONE_MONTH,
-        LunarCrush.THREE_MONTHS,
-        LunarCrush.SIX_MONTHS,
-        LunarCrush.ONE_YEAR,
-        LunarCrush.FIVE_YEARS,
-        LunarCrush.ALL
-    ]
+    _INTERVALS = {
+        time_span_ms(days=1): "1d",
+        time_span_ms(weeks=1): "1w",
+        time_span_ms(days=30): "1m",
+        time_span_ms(days=90): "3m",
+        time_span_ms(days=180): "6m",
+        time_span_ms(days=365): "1y",
+        time_span_ms(days=1825): "5y",
+    }
 
     def __init__(
-            self,
-            feature_mappings: dict[LunarCrush],
-            feature_dtypes: list[np.dtype] = None,
-            default_dtype: np.dtype = np.dtype(np.float32),
-            api_key: str = None,
-            retries: int = DEFAULT_RETRIES,
-            **kwargs,
-        ):
+        self,
+        source_interval_ms: int,
+        feature_mappings: dict[FeatureID, LunarCrushMetric],
+        feature_dtypes: list[np.dtype] = None,
+        default_dtype: np.dtype = np.dtype(np.float32),
+        api_key: str = None,
+        retries: int = DEFAULT_RETRIES,
+        **kwargs,
+    ):
+        query_interval = self._INTERVALS.get(source_interval_ms)
+        if query_interval is None:
+            raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
@@ -97,20 +93,21 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         if api_key is None:
             api_key = os.environ.get("LC_API_KEY")
 
-        self._api_key = api_key
+        self._source_interval_ms = source_interval_ms
+        self._query_interval = query_interval
         self._retries = retries
         self._metrics = list(feature_mappings.values())
+        self._api_key = api_key
         self._logger = getLogger(self.__class__.__name__)
 
     def get_feature_samples(
-            self,
-            bucket: str,
-            endpoint: str,
-            start_ms: int = None,
-            end_ms: int = None,
-            interval: str = None,
-        ) -> dict[FeatureID, ndarray]:
-
+        self,
+        bucket: str,
+        endpoint: str,
+        start_ms: int = None,
+        end_ms: int = None,
+        interval: str = None,
+    ) -> dict[FeatureID, ndarray]:
         params = {}
 
         # has to provide a bucket value
@@ -122,9 +119,11 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         # user can choose to send start/end timestamp or standardized
         # lookback periods (interval)
         if start_ms is None and end_ms is None:
-            if interval not in self._INTERVAL:
-                raise ValueError(f"start and end ms are not provided"
-                            f" and invalid interval provided [{interval}]")
+            if interval not in self._INTERVALS:
+                raise ValueError(
+                    f"start and end ms are not provided"
+                    f" and invalid interval provided [{interval}]"
+                )
             else:
                 params[LunarCrush.INTERVAL] = interval
         elif start_ms is None and end_ms is not None:
@@ -188,6 +187,8 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
             for feature_index in range(self.feature_count)
         }
 
+        self._check_feature_samples(results, start_time_ms, interval_ms)
+
         return results
 
 
@@ -199,10 +200,7 @@ class LunarCrushTimeSeriesTopic(LunarCrushTimeSeriesFeatureSource):
     def query(self, topic: str, bucket: str, start_ms: int, end_ms: int) -> Dict:
         endpoint = f"https://lunarcrush.com/api4/public/{topic}/bitcoin/time-series/v1"
         return self.get_feature_samples(
-            bucket=bucket,
-            endpoint=endpoint,
-            start_ms=start_ms,
-            end_ms=end_ms
+            bucket=bucket, endpoint=endpoint, start_ms=start_ms, end_ms=end_ms
         )
 
 
@@ -212,12 +210,11 @@ class LunarCrushTimeSeriesCategory(LunarCrushTimeSeriesFeatureSource):
     # have it automatically request from get feature samples
     # and have it not be private
     def query(self, category: str, bucket: str, start_ms: int, end_ms: int) -> Dict:
-        endpoint = f"https://lunarcrush.com/api4/public/category/{category}/time-series/v1"
+        endpoint = (
+            f"https://lunarcrush.com/api4/public/category/{category}/time-series/v1"
+        )
         return self.get_feature_samples(
-            bucket=bucket,
-            endpoint=endpoint,
-            start_ms=start_ms,
-            end_ms=end_ms
+            bucket=bucket, endpoint=endpoint, start_ms=start_ms, end_ms=end_ms
         )
 
 
@@ -229,8 +226,5 @@ class LunarCrushTimeSeriesCoinV2(LunarCrushTimeSeriesFeatureSource):
     def query(self, coin_id: int, bucket: str, start_ms: int, end_ms: int) -> Dict:
         endpoint = f"https://lunarcrush.com/api4/public/coins/{coin_id}/time-series/v2"
         return self.get_feature_samples(
-            bucket=bucket,
-            endpoint=endpoint,
-            start_ms=start_ms,
-            end_ms=end_ms
+            bucket=bucket, endpoint=endpoint, start_ms=start_ms, end_ms=end_ms
         )
