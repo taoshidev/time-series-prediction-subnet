@@ -96,13 +96,13 @@ def get_config():
 
 # TODO: Move this into a stream mining solution class, so each stream can be predicted using different sources, models, etc...
 def get_predictions(
-    tims_ms: int,
+    time_ms: int,
     feature_source: FeatureSource,
     feature_scaler: FeatureScaler,
     model: BaseMiningModel,
 ):
     # TODO: interval should come from the stream definition
-    lookback_time_ms = tims_ms - (model.sample_count * INTERVAL_MS)
+    lookback_time_ms = time_ms - (model.sample_count * INTERVAL_MS)
 
     feature_samples = feature_source.get_feature_samples(
         lookback_time_ms, INTERVAL_MS, model.sample_count
