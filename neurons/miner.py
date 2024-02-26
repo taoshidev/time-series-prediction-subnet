@@ -96,13 +96,13 @@ def get_config():
 
 # TODO: Move this into a stream mining solution class, so each stream can be predicted using different sources, models, etc...
 def get_predictions(
-    tims_ms: int,
+    time_ms: int,
     feature_source: FeatureSource,
     feature_scaler: FeatureScaler,
     model: BaseMiningModel,
 ):
     # TODO: interval should come from the stream definition
-    lookback_time_ms = tims_ms - (model.sample_count * INTERVAL_MS)
+    lookback_time_ms = time_ms - (model.sample_count * INTERVAL_MS)
 
     feature_samples = feature_source.get_feature_samples(
         lookback_time_ms, INTERVAL_MS, model.sample_count
@@ -498,21 +498,6 @@ def main(config):
             return synapse
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
-
-    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
-    #     # standardizing not accepting lb for now. Miner can override if they'd like.
-    #     return False, synapse.dendrite.hotkey
-    #
-    # def lb_priority_fn(synapse: template.protocol.LiveBackward) -> float:
-    #     caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
-    #     prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
-    #     bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
-    #     return prirority
-
-    # def live_b(synapse: template.protocol.LiveBackward) -> template.protocol.LiveBackward:
-    #     bt.logging.debug(f'received lb with length {len(synapse.samples.numpy())}')
-    #     synapse.received = True
-    #     return synapse
 
     # Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
