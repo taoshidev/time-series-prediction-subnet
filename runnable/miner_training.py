@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from features import FeatureCollector
 from feature_sources import BinaryFileFeatureStorage
 from keras.mixed_precision import Policy
@@ -35,11 +35,11 @@ def main():
 
     _SCENARIOS_PER_BATCH = 128
     # Adjust to a multiple of the number of GPUs
-    _BATCHES_PER_CHUNK = 32
-    _LAYER_UNITS = 512
-    _LEARNING_RATE = 0.001
-    _TRAINING_PASSES = 3
-    _TRAINING_EPOCHS = 100
+    _BATCHES_PER_CHUNK = 64
+    _LAYER_UNITS = 1024
+    _LEARNING_RATE = 0.000001
+    _TRAINING_PASSES = 10
+    _TRAINING_EPOCHS = 20
     _TRAINING_PATIENCE = 10
 
     prediction_feature_count = len(prediction_feature_ids)
@@ -84,9 +84,7 @@ def main():
             prediction_length=PREDICTION_LENGTH,
             layers=[
                 [_LAYER_UNITS, 0],
-                [_LAYER_UNITS, 0.2],
-                [_LAYER_UNITS, 0.4],
-                [_LAYER_UNITS, 0.6],
+                [_LAYER_UNITS, 0.3],
             ],
             learning_rate=_LEARNING_RATE,
             dtype=_MODEL_PRECISION,
@@ -154,7 +152,7 @@ def main():
                 chunk_start_ms, INTERVAL_MS, chunk_length
             )
 
-            model_feature_scaler.scale_feature_samples(chunk_samples)
+            chunk_samples = model_feature_scaler.scale_feature_samples(chunk_samples)
 
             training_data = feature_collector.feature_samples_to_array(
                 chunk_samples, stop=training_data_length, dtype=_DATA_PRECISION
@@ -196,7 +194,6 @@ def main():
                 targets,
                 sequence_length=SAMPLE_COUNT,
                 batch_size=_SCENARIOS_PER_BATCH,
-                shuffle=True,
             )
 
             print("Training...")

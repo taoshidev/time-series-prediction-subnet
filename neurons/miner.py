@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import argparse
 import bittensor as bt
 from features import FeatureCollector, FeatureSource, FeatureScaler
@@ -15,7 +15,6 @@ from streams.btcusd_5m import (
     legacy_model_feature_ids,
     legacy_model_feature_sources,
     legacy_model_feature_scaler,
-    model_feature_ids,
     model_feature_sources,
     prediction_feature_ids,
     PREDICTION_COUNT,
@@ -23,12 +22,14 @@ from streams.btcusd_5m import (
     SAMPLE_COUNT,
 )
 from streams.btcusd_5m import model_feature_scaler as new_model_feature_scaler
+from streams.btcusd_5m import model_feature_ids as new_model_feature_ids
 import sys
 import template
 import threading
 import time
 from time_util import datetime
 import traceback
+from typing import Tuple
 from vali_config import ValiConfig
 from vali_objects.dataclasses.stream_prediction import StreamPrediction
 from vali_objects.request_templates import RequestTemplates
@@ -43,6 +44,8 @@ model_feature_scaler: FeatureScaler | None = None
 # Cached miner predictions
 miner_preds = {}
 sent_preds = {}
+
+stopping = False
 
 
 def get_config():
@@ -60,7 +63,7 @@ def get_config():
         "--base_model",
         type=str,
         default="model_v5_1",
-        help="Choose the base model you want to run (if youre not using a custom one).",
+        help="Choose the base model you want to run (if you're not using a custom one).",
     )
     # Adds subtensor specific arguments i.e. --subtensor.chain_endpoint ... --subtensor.network ...
     bt.subtensor.add_args(parser)
@@ -91,7 +94,7 @@ def get_config():
     return config
 
 
-# TODO: Move this into a stream object, so that each stream can be predicted using different sources, models, etc...
+# TODO: Move this into a stream mining solution class, so each stream can be predicted using different sources, models, etc...
 def get_predictions(
     tims_ms: int,
     feature_source: FeatureSource,
@@ -105,9 +108,9 @@ def get_predictions(
         lookback_time_ms, INTERVAL_MS, model.sample_count
     )
 
-    feature_scaler.scale_feature_samples(feature_samples)
+    scaled_feature_samples = feature_scaler.scale_feature_samples(feature_samples)
 
-    model_input = feature_source.feature_samples_to_array(feature_samples)
+    model_input = feature_source.feature_samples_to_array(scaled_feature_samples)
     predictions = model.predict(model_input)
 
     predicted_feature_samples = feature_source.array_to_feature_samples(
@@ -118,24 +121,36 @@ def get_predictions(
     # The predicted features must also exist in the sampled features. If it does not,
     # then the prediction will be flat across the prediction length.
     prediction_length = model.prediction_length
-    if (model.prediction_count == 1) and (prediction_length > 1):
+    if model.prediction_count == 1:
+        if prediction_length > 1:
+            for feature_id in prediction_feature_ids:
+                samples = scaled_feature_samples.get(feature_id)
+                if samples is not None:
+                    predicted_samples = predicted_feature_samples[feature_id]
+                    last_sample = samples[-1]
+                    prediction_sample = predicted_samples[0]
+                    increment = (prediction_sample - last_sample) / prediction_length
+
+                    extrapolation = last_sample
+                    for i in range(prediction_length):
+                        extrapolation += increment
+                        predicted_samples[i] = extrapolation
+    else:
         for feature_id in prediction_feature_ids:
-            samples = feature_samples.get(feature_id)
+            samples = scaled_feature_samples.get(feature_id)
             if samples is not None:
                 predicted_samples = predicted_feature_samples[feature_id]
                 last_sample = samples[-1]
-                prediction_sample = predicted_samples[0]
-                increment = (prediction_sample - last_sample) / prediction_length
+                predicted_last = (2 * predicted_samples[0]) - predicted_samples[1]
+                offset = predicted_last - last_sample
+                predicted_samples -= offset
 
-                extrapolation = last_sample
-                for i in range(prediction_length):
-                    extrapolation += increment
-                    predicted_samples[i] = extrapolation
-
-    feature_scaler.unscale_feature_samples(predicted_feature_samples)
+    unscaled_feature_samples = feature_scaler.unscale_feature_samples(
+        predicted_feature_samples
+    )
 
     prediction_array = feature_source.feature_samples_to_array(
-        predicted_feature_samples, prediction_feature_ids
+        unscaled_feature_samples, prediction_feature_ids
     )
 
     return prediction_array
@@ -144,7 +159,7 @@ def get_predictions(
 def update_predictions(
     stream_predictions: list[StreamPrediction],
 ):
-    while True:
+    while not stopping:
         current_time = datetime.now()
         if current_time.second < 15:
             bt.logging.debug(f"running update of predictions [{current_time}]")
@@ -171,7 +186,7 @@ def update_predictions(
                     )
 
                     # TODO: Improve validators to allow multiple features in predictions
-                    predicted_closes = prediction_array.flatten()
+                    predicted_closes = prediction_array.flatten().tolist()
 
                     bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
@@ -183,15 +198,14 @@ def update_predictions(
                     )
 
                 # Log errors and continue operations
-                except Exception:  # noqa
-                    bt.logging.error(traceback.format_exc())
-                continue
+                except Exception as e:  # noqa
+                    bt.logging.warning(f"error updating prediction: {e}")
 
             time.sleep(15)
 
 
 def get_model_dir(model):
-    return ValiConfig.BASE_DIR + model
+    return ValiConfig.BASE_DIR + "/mining_models/" + model
 
 
 def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
@@ -224,15 +238,14 @@ def is_invalid_validator(metagraph, hotkey, acceptable_intervals):
         )
         return True
 
-    # ADDING WITH V5.1.0
     # step 3: ensure the request is in the required time window
-    # current_time = datetime.datetime.now()
-    #
-    # bt.logging.debug(f"Acceptable intervals for requests [{acceptable_intervals}]")
-    #
-    # if current_time.minute not in acceptable_intervals:
-    #     bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
-    #     return True
+    current_time = datetime.now()
+
+    bt.logging.debug(f"Acceptable intervals for requests [{acceptable_intervals}]")
+
+    if current_time.minute not in acceptable_intervals:
+        bt.logging.info(f"Denied due to incorrect interval [{current_time.minute}m]")
+        return True
 
     return False
 
@@ -242,43 +255,43 @@ def main(config):
     base_mining_models = {
         "model_v4_1": {
             "id": "model2308",
-            "filename": "/mining_models/model_v4_1.h5",
+            "filename": "model_v4_1.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_2": {
             "id": "model3005",
-            "filename": "/mining_models/model_v4_2.h5",
+            "filename": "model_v4_2.h5",
             "sample_count": 500,
             "prediction_count": 1,
         },
         "model_v4_3": {
             "id": "model3103",
-            "filename": "/mining_models/model_v4_3.h5",
+            "filename": "model_v4_3.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_4": {
             "id": "model3104",
-            "filename": "/mining_models/model_v4_4.h5",
+            "filename": "model_v4_4.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_5": {
             "id": "model3105",
-            "filename": "/mining_models/model_v4_5.h5",
+            "filename": "model_v4_5.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v4_6": {
             "id": "model3106",
-            "filename": "/mining_models/model_v4_6.h5",
+            "filename": "model_v4_6.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v5_1": {
             "id": "model5000",
-            "filename": "/mining_models/model_v5_1.h5",
+            "filename": "model_v5_1.h5",
             "sample_count": SAMPLE_COUNT,
             "prediction_count": PREDICTION_COUNT,
             "legacy_model": False,
@@ -297,6 +310,7 @@ def main(config):
     global model_feature_scaler
     global miner_preds
     global sent_preds
+    global stopping
 
     base_mining_model = None
     base_model_id = config.base_model
@@ -307,6 +321,24 @@ def main(config):
         model_chosen = base_mining_models[base_model_id]
         model_filename = get_model_dir(model_chosen["filename"])
 
+        legacy_model = model_chosen.get("legacy_model", True)
+        if legacy_model:
+            model_feature_ids = legacy_model_feature_ids
+            model_feature_source = FeatureCollector(
+                sources=legacy_model_feature_sources,
+                feature_ids=model_feature_ids,
+                timeout=FEATURE_COLLECTOR_TIMEOUT,
+            )
+            model_feature_scaler = legacy_model_feature_scaler
+        else:
+            model_feature_ids = new_model_feature_ids
+            model_feature_source = FeatureCollector(
+                sources=model_feature_sources,
+                feature_ids=model_feature_ids,
+                timeout=FEATURE_COLLECTOR_TIMEOUT,
+            )
+            model_feature_scaler = new_model_feature_scaler
+
         base_mining_model = BaseMiningModel(
             filename=model_filename,
             mode="r",
@@ -316,24 +348,6 @@ def main(config):
             prediction_count=model_chosen["prediction_count"],
             prediction_length=PREDICTION_LENGTH,
         )
-
-        legacy_model = model_chosen.get("legacy_model", True)
-        if legacy_model:
-            model_feature_source = FeatureCollector(
-                sources=legacy_model_feature_sources,
-                feature_ids=legacy_model_feature_ids,
-                cache_results=True,
-                timeout=FEATURE_COLLECTOR_TIMEOUT,
-            )
-            model_feature_scaler = legacy_model_feature_scaler
-        else:
-            model_feature_source = FeatureCollector(
-                sources=model_feature_sources,
-                feature_ids=model_feature_ids,
-                cache_results=True,
-                timeout=FEATURE_COLLECTOR_TIMEOUT,
-            )
-            model_feature_scaler = new_model_feature_scaler
 
     else:
         bt.logging.debug("base model not chosen.")
@@ -367,7 +381,7 @@ def main(config):
     my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
     bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
-    # def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> tuple[bool, str]:
+    # def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> Tuple[bool, str]:
     #     # standardizing not accepting tf and tb for now
     #     return False, synapse.dendrite.hotkey
     #
@@ -384,7 +398,7 @@ def main(config):
     #     bt.logging.debug(f'sending tf with length {len(predictions)}')
     #     return synapse
     #
-    # def tb_blacklist_fn( synapse: template.protocol.TrainingBackward ) -> tuple[bool, str]:
+    # def tb_blacklist_fn( synapse: template.protocol.TrainingBackward ) -> Tuple[bool, str]:
     #     # standardizing not accepting tf and tb for now
     #     return False, synapse.dendrite.hotkey
     #
@@ -401,7 +415,7 @@ def main(config):
 
     def lf_hash_blacklist_fn(
         synapse: template.protocol.LiveForwardHash,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         _is_invalid_validator = is_invalid_validator(
             metagraph, synapse.dendrite.hotkey, MinerConfig.ACCEPTABLE_INTERVALS_HASH
         )
@@ -442,7 +456,7 @@ def main(config):
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
-    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> tuple[bool, str]:
+    def lf_blacklist_fn(synapse: template.protocol.LiveForward) -> Tuple[bool, str]:
         _is_invalid_validator = is_invalid_validator(
             metagraph,
             synapse.dendrite.hotkey,
@@ -485,7 +499,7 @@ def main(config):
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
-    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> tuple[bool, str]:
+    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
     #     # standardizing not accepting lb for now. Miner can override if they'd like.
     #     return False, synapse.dendrite.hotkey
     #
@@ -605,7 +619,7 @@ def main(config):
             bt.logging.error(traceback.format_exc())
             continue
 
-    run_update_predictions.join()
+    stopping = True
 
 
 # This is the main function, which runs the miner.

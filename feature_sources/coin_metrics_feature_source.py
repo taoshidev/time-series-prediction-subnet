@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import os
 from abc import abstractmethod
 from coinmetrics.api_client import CoinMetricsClient, DataCollection
@@ -9,7 +9,12 @@ from features import FeatureCompaction, FeatureID, FeatureSource
 import math
 import numpy as np
 from numpy import ndarray
-from time_util import datetime, time_span_ms, parse_time_interval_ms
+from time_util import (
+    current_interval_ms,
+    datetime,
+    time_span_ms,
+    parse_time_interval_ms,
+)
 import statistics
 
 
@@ -101,16 +106,16 @@ class CoinMetricsFeatureSource(FeatureSource):
     def __init__(
         self,
         kind: str,
-        interval_ms: int,
+        source_interval_ms: int,
         feature_mappings: dict[FeatureID, CoinMetric],
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
         api_key: str = None,
         **kwargs,
     ):
-        frequency = self._FREQUENCIES.get(interval_ms)
+        frequency = self._FREQUENCIES.get(source_interval_ms)
         if frequency is None:
-            raise ValueError(f"interval_ms {interval_ms} is not supported.")
+            raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
@@ -120,7 +125,7 @@ class CoinMetricsFeatureSource(FeatureSource):
             api_key = os.environ.get("CM_API_KEY")
 
         self._kind = kind
-        self._interval_ms = interval_ms
+        self._source_interval_ms = source_interval_ms
         self._frequency = frequency
         self._feature_mappings = feature_mappings
         self._metrics = list(feature_mappings.values())
@@ -212,8 +217,11 @@ class CoinMetricsFeatureSource(FeatureSource):
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
         query_start_time_ms = start_time_ms
-        if interval_ms < self._interval_ms:
-            query_start_time_ms -= self._interval_ms
+
+        # Align on interval so queries for 1 sample include at least 1 sample
+        query_start_time_ms = current_interval_ms(
+            query_start_time_ms, self._source_interval_ms
+        )
 
         # Times must be preformatted because Coin Metrics rejects times with
         # the ISO timezone suffix for UTC ("+00:00") and their Python

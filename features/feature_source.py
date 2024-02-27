@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from abc import ABC, abstractmethod
 from enum import IntEnum
 from features import FeatureID
@@ -65,8 +65,6 @@ class FeatureSource(ABC):
 
     # Returns: dict with FeatureID keys and 1-dimensional dtype sample array values
     #
-    # start_time_ms should always be a multiple of interval_ms
-    #
     # Gaps in the samples are automatically filled in with previous values or
     # extrapolations as appropriate for the feature.
     @abstractmethod
@@ -103,13 +101,11 @@ class FeatureSource(ABC):
                     f" samples when {sample_count} expected."
                 )
 
-        if stop is None:
+        if (stop is None) or (stop > sample_count):
             stop = sample_count
-        elif stop > sample_count:
-            raise ValueError()  # TODO: Implement
 
-        if start >= stop:
-            raise ValueError  # TODO: Implement
+        if start > stop:
+            start = stop
 
         sample_count = stop - start
 
@@ -137,19 +133,16 @@ class FeatureSource(ABC):
 
         shape = array.shape
         if len(shape) != 2:
-            raise ValueError()  # TODO: Implement
+            raise ValueError("array must be 2 dimensional.")
 
         if shape[1] != feature_count:
-            raise ValueError()  # TODO: Implement
+            raise ValueError(
+                f"array has {shape[1]} features when {feature_count} expected."
+            )
 
         sample_count = shape[0]
-        if stop is None:
+        if (stop is None) or (stop > sample_count):
             stop = sample_count
-        elif stop > sample_count:
-            raise ValueError()  # TODO: Implement
-
-        if start >= stop:
-            raise ValueError  # TODO: Implement
 
         array = array.T
         results = {}

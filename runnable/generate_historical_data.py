@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 from features import FeatureCollector, FeatureSource
 from feature_sources import BinaryFileFeatureStorage
 from streams.btcusd_5m import (
@@ -7,7 +7,7 @@ from streams.btcusd_5m import (
     historical_feature_ids,
     INTERVAL_MS,
 )
-from time_util import datetime, time_span_ms, previous_interval_ms
+from time_util import datetime, time_span_ms
 from vali_config import ValiConfig
 
 SAMPLE_COUNT_MAX = 1000
@@ -52,15 +52,15 @@ def generate_historical_data(
 
 
 def main() -> None:
-    _TRAINING_LOOKBACK_DAYS = 400
-    _TESTING_LOOKBACK_DAYS = 30
+    _TRAINING_LOOKBACK_DAYS = 250
+    _TESTING_LOOKBACK_DAYS = 15
 
     now = datetime.now()
     now_time_ms = now.timestamp_ms()
-    now_time_ms = previous_interval_ms(now_time_ms, INTERVAL_MS)
 
     training_start_time_ms = now_time_ms - time_span_ms(days=_TRAINING_LOOKBACK_DAYS)
-    testing_start_time_ms = now_time_ms + time_span_ms(days=_TESTING_LOOKBACK_DAYS)
+    testing_start_time_ms = now_time_ms - time_span_ms(days=_TESTING_LOOKBACK_DAYS)
+
     training_end_time_ms = testing_start_time_ms
 
     historical_feature_collector = FeatureCollector(

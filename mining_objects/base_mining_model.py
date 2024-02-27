@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2023 Taoshi, LLC
+# Copyright © 2023 Taoshi Inc
 from keras.callbacks import Callback, EarlyStopping
 from keras.layers import Dense, Dropout, Layer, LSTM
 from keras.mixed_precision import Policy
@@ -178,7 +178,6 @@ class BaseMiningModel:
 
     def predict(self, model_input: ndarray, dtype: np.dtype = np.float32) -> ndarray:
         window = model_input[-self.sample_count :]
-        # TODO: Necessary?
         window = window.reshape(1, self.sample_count, self._feature_count)
 
         prediction = self._model.predict(window)

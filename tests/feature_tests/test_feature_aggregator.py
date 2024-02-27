@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from features import FeatureID, FeatureAggregator
 from feature_sources import (
     BinanceKlineFeatureSource,
@@ -23,7 +23,7 @@ class TestFeatureAggregator(unittest.TestCase):
 
         binance_source = BinanceKlineFeatureSource(
             symbol="BTCUSDT",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: BinanceKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: BinanceKlineField.PRICE_HIGH,
@@ -35,7 +35,7 @@ class TestFeatureAggregator(unittest.TestCase):
         bybit_source = BybitKlineFeatureSource(
             category="spot",
             symbol="BTCUSDT",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: BybitKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: BybitKlineField.PRICE_HIGH,
@@ -46,7 +46,7 @@ class TestFeatureAggregator(unittest.TestCase):
 
         coinbase_source = CoinbaseKlineFeatureSource(
             symbol="BTC-USD",
-            interval_ms=time_span_ms(minutes=5),
+            source_interval_ms=time_span_ms(minutes=5),
             feature_mappings={
                 FeatureID.BTC_USD_CLOSE: CoinbaseKlineField.PRICE_CLOSE,
                 FeatureID.BTC_USD_HIGH: CoinbaseKlineField.PRICE_HIGH,

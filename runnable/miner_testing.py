@@ -1,12 +1,12 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import hashlib
-import matplotlib.pyplot as plt
-
 from features import FeatureCollector
+import matplotlib.pyplot as plt
+from matplotlib.colors import TABLEAU_COLORS
 from mining_objects.base_mining_model import BaseMiningModel
-import os
 from neurons.miner import get_predictions
+import os
 from streams.btcusd_5m import (
     INTERVAL_MS,
     model_feature_sources,
@@ -25,7 +25,6 @@ import time
 from time_util import datetime, time_span_ms
 from time_util.time_util import TimeUtil
 import uuid
-
 from vali_config import ValiConfig
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_stream_type import CMWStreamType
@@ -38,18 +37,32 @@ from vali_objects.dataclasses.prediction_data_file import PredictionDataFile
 from vali_objects.scoring.scoring import Scoring
 
 
+_PLOT_COLORS = list(TABLEAU_COLORS.values())
+_PLOT_COLORS_COUNT = len(_PLOT_COLORS)
+_PLOT_LINE_STYLES = ("solid", "dotted", "dashed", "dashdot")
+_PLOT_LINE_STYLES_COUNT = len(_PLOT_LINE_STYLES)
+
+
+def get_plot_color_line_style(series_index: int) -> (str, str):
+    color_index = series_index % _PLOT_COLORS_COUNT
+    line_style_index = int(series_index / _PLOT_COLORS_COUNT) % _PLOT_LINE_STYLES_COUNT
+    return _PLOT_COLORS[color_index], _PLOT_LINE_STYLES[line_style_index]
+
+
 if __name__ == "__main__":
-    _TESTING_LOOKBACK_DAYS = 30
-    _PREDICTION_LENGTH_MS = INTERVAL_MS * PREDICTION_LENGTH
+    TESTING_LOOKBACK_DAYS = 30
+    PREDICTION_LENGTH_MS = INTERVAL_MS * PREDICTION_LENGTH
+
+    PLOT_WEIGHT_ITERATIONS = 20
 
     now = datetime.now()
     now_time_ms = now.timestamp_ms()
 
-    testing_start_time_ms = now_time_ms - time_span_ms(days=_TESTING_LOOKBACK_DAYS)
-    testing_end_time_ms = now_time_ms - _PREDICTION_LENGTH_MS
+    testing_start_time_ms = now_time_ms - time_span_ms(days=TESTING_LOOKBACK_DAYS)
+    testing_end_time_ms = now_time_ms - PREDICTION_LENGTH_MS
 
     # if you'd like to view the output plotted
-    plot_predictions = False
+    plot_predictions = True
 
     # if you'd like to view weights over time being set
     plot_weights = True
@@ -57,7 +70,7 @@ if __name__ == "__main__":
     historical_weights = {}
 
     days_processed = []
-    curr_iter = 0
+    plot_weight_iteration = 0
 
     start_iter = []
 
@@ -67,13 +80,11 @@ if __name__ == "__main__":
     legacy_feature_source = FeatureCollector(
         sources=legacy_model_feature_sources,
         feature_ids=legacy_model_feature_ids,
-        cache_results=True,
     )
 
     new_feature_source = FeatureCollector(
         sources=model_feature_sources,
         feature_ids=new_model_feature_ids,
-        cache_results=True,
     )
 
     """
@@ -83,20 +94,86 @@ if __name__ == "__main__":
     """
 
     base_mining_models = {
+        "model_v4_1": {
+            "filename": "model_v4_1.h5",
+            "sample_count": 100,
+            "id": "model2308",
+            "prediction_count": 1,
+        },
+        "model_v4_2": {
+            "filename": "model_v4_2.h5",
+            "sample_count": 500,
+            "id": "model3005",
+            "prediction_count": 1,
+        },
+        "model_v4_3": {
+            "filename": "model_v4_3.h5",
+            "sample_count": 100,
+            "id": "model3103",
+            "prediction_count": 1,
+        },
+        "model_v4_4": {
+            "filename": "model_v4_4.h5",
+            "sample_count": 100,
+            "id": "model3104",
+            "prediction_count": 1,
+        },
+        "model_v4_5": {
+            "filename": "model_v4_5.h5",
+            "sample_count": 100,
+            "id": "model3105",
+            "prediction_count": 1,
+        },
         "model_v4_6": {
             "id": "model3106",
-            "filename": "/mining_models/model_v4_6.h5",
+            "filename": "model_v4_6.h5",
             "sample_count": 100,
             "prediction_count": 1,
         },
         "model_v5_1": {
             "id": "model5000",
-            "filename": "/mining_models/model_v5_1.h5",
+            "filename": "model_v5_1.h5",
             "sample_count": SAMPLE_COUNT,
             "prediction_count": PREDICTION_COUNT,
             "legacy_model": False,
         },
     }
+
+    stream_mining_solutions = []
+
+    for model_name, mining_details in base_mining_models.items():
+        legacy = mining_details.get("legacy_model", True)
+        if legacy:
+            model_feature_ids = legacy_model_feature_ids
+            model_feature_source = legacy_feature_source
+            model_feature_scaler = legacy_model_feature_scaler
+        else:
+            model_feature_ids = new_model_feature_ids
+            model_feature_source = new_feature_source
+            model_feature_scaler = new_model_feature_scaler
+
+        model_filename = (
+            ValiConfig.BASE_DIR + "/mining_models/" + mining_details["filename"]
+        )
+
+        model = BaseMiningModel(
+            filename=model_filename,
+            mode="r",
+            feature_count=len(model_feature_ids),
+            sample_count=mining_details["sample_count"],
+            prediction_feature_count=len(prediction_feature_ids),
+            prediction_count=mining_details["prediction_count"],
+            prediction_length=PREDICTION_LENGTH,
+        )
+
+        stream_mining_solutions.append(
+            {
+                "id": mining_details["id"],
+                "model": model,
+                "feature_source": model_feature_source,
+                "feature_scaler": model_feature_scaler,
+            }
+        )
 
     start_time_ms = testing_start_time_ms
     while start_time_ms < testing_end_time_ms:
@@ -149,40 +226,22 @@ if __name__ == "__main__":
 
             print("number of predictions needed", client_request.prediction_size)
 
-            for model_name, mining_details in base_mining_models.items():
-                model_filename = ValiConfig.BASE_DIR + mining_details["filename"]
+            for stream_mining_solution in stream_mining_solutions:
+                model = stream_mining_solution["model"]
+                feature_source = stream_mining_solution["feature_source"]
+                feature_scaler = stream_mining_solution["feature_scaler"]
 
-                legacy = mining_details.get("legacy_model", True)
-                if legacy:
-                    model_feature_ids = legacy_model_feature_ids
-                    model_feature_source = legacy_feature_source
-                    model_feature_scaler = legacy_model_feature_scaler
-                else:
-                    model_feature_ids = new_model_feature_ids
-                    model_feature_source = new_feature_source
-                    model_feature_scaler = new_model_feature_scaler
-
-                base_mining_model = BaseMiningModel(
-                    filename=model_filename,
-                    mode="r",
-                    feature_count=len(model_feature_ids),
-                    sample_count=mining_details["sample_count"],
-                    prediction_feature_count=len(prediction_feature_ids),
-                    prediction_count=mining_details["prediction_count"],
-                    prediction_length=PREDICTION_LENGTH,
-                )
-
-                validation_array = get_predictions(
+                prediction_array = get_predictions(
                     start_time_ms,
-                    model_feature_source,
-                    model_feature_scaler,
-                    base_mining_model,
+                    feature_source,
+                    feature_scaler,
+                    model,
                 )
 
-                predicted_closes = validation_array.flatten()
+                predicted_closes = prediction_array.flatten()
 
                 output_uuid = str(uuid.uuid4())
-                miner_uuid = "miner" + str(mining_details["id"])
+                miner_uuid = "miner" + str(stream_mining_solution["id"])
                 # just the vali hotkey for now
 
                 pdf = PredictionDataFile(
@@ -193,7 +252,7 @@ if __name__ == "__main__":
                     request_uuid=request_uuid,
                     miner_uid=miner_uuid,
                     start=start_time_ms,
-                    end=start_time_ms + _PREDICTION_LENGTH_MS,
+                    end=start_time_ms + PREDICTION_LENGTH_MS,
                     predictions=predicted_closes,
                     prediction_size=client_request.prediction_size,
                     additional_details=client_request.additional_details,
@@ -236,33 +295,28 @@ if __name__ == "__main__":
 
                 scores = {}
 
-                NUM_COLORS = 10
-                cm = plt.get_cmap("gist_rainbow")
-                colors = [cm(1.0 * i / NUM_COLORS) for i in range(NUM_COLORS)]
                 x_values = range(len(validation_array))
-
-                color_chosen = 0
+                plot_series_index = 0
                 for miner_uid, miner_preds in request_details.predictions.items():
                     if plot_predictions and "miner" in miner_uid:
+                        plot_color, plot_style = get_plot_color_line_style(
+                            plot_series_index
+                        )
                         plt.plot(
                             x_values,
                             miner_preds,
                             label=miner_uid,
-                            color=colors[color_chosen],
+                            color=plot_color,
+                            linestyle=plot_style,
                         )
-                        color_chosen += 1
+                        plot_series_index += 1
                     scores[miner_uid] = Scoring.score_response(
                         miner_preds, validation_array
                     )
 
                 print("scores ", scores)
                 if plot_predictions:
-                    plt.plot(
-                        x_values,
-                        validation_array,
-                        label="results",
-                        color=colors[color_chosen],
-                    )
+                    plt.plot(x_values, validation_array, label="results", color="k")
 
                     plt.legend()
                     plt.show()
@@ -292,6 +346,8 @@ if __name__ == "__main__":
                     totals[key] += score
 
                 if plot_weights:
+                    plot_weight_iteration += 1
+
                     for key, value in weighed_winning_scores_dict.items():
                         if key not in historical_weights:
                             historical_weights[key] = []
@@ -299,15 +355,22 @@ if __name__ == "__main__":
 
                     weights.append(weight)
 
-                    print("curr iter", curr_iter)
-                    if (curr_iter - 1) % 10000 == 0:
+                    if (plot_weight_iteration % PLOT_WEIGHT_ITERATIONS) == 0:
                         x_values = range(len(weights))
+                        plot_series_index = 0
                         for key, value in historical_weights.items():
                             print(key, sum(value))
-                            plt.plot(
-                                x_values, value, label=key, color=colors[color_chosen]
+                            plot_color, plot_style = get_plot_color_line_style(
+                                plot_series_index
                             )
-                            color_chosen += 1
+                            plt.plot(
+                                x_values,
+                                value,
+                                label=key,
+                                color=plot_color,
+                                linestyle=plot_style,
+                            )
+                            plot_series_index += 1
                         plt.legend()
                         plt.show()
 

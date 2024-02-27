@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from bz2 import BZ2File
 from features import FeatureID, FeatureStorage
 import io
@@ -20,7 +20,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
     _FEATURE_ID_SIZE = 4
     _DTYPE_NUM_SIZE = 1
     _START_TIME_SIZE = 8
-    _INTERVAL_SIZE = 8
+    _SOURCE_INTERVAL_SIZE = 8
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
 
         self._start_time_ms = None
         self._sample_count = None
-        self._interval_ms = 0
+        self._source_interval_ms = 0
         self._header_size = 0
         self._next_start_time_ms = None
 
@@ -130,8 +130,8 @@ class BinaryFileFeatureStorage(FeatureStorage):
         buffer = read(self._START_TIME_SIZE)
         self._start_time_ms = int_from_bytes(buffer)
 
-        buffer = read(self._INTERVAL_SIZE)
-        self._interval_ms = int_from_bytes(buffer)
+        buffer = read(self._SOURCE_INTERVAL_SIZE)
+        self._source_interval_ms = int_from_bytes(buffer)
 
         self._header_size = self._file.tell()
 
@@ -152,7 +152,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
             write(buffer)
 
         write(int_to_bytes(self._start_time_ms, self._START_TIME_SIZE))
-        write(int_to_bytes(self._interval_ms, self._INTERVAL_SIZE))
+        write(int_to_bytes(self._source_interval_ms, self._SOURCE_INTERVAL_SIZE))
 
         self._header_size = self._file.tell()
 
@@ -165,9 +165,9 @@ class BinaryFileFeatureStorage(FeatureStorage):
         if not self._read_mode:
             raise RuntimeError("Reading not supported in write mode.")
 
-        if interval_ms != self._interval_ms:
+        if interval_ms != self._source_interval_ms:
             raise RuntimeError(
-                f"Interval mismatch between file {self._interval_ms} "
+                f"Interval mismatch between file {self._source_interval_ms} "
                 f"and request {interval_ms}."
             )
 
@@ -177,7 +177,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
 
         sample_location = (
             self._header_size
-            + int((start_time_ms - self._start_time_ms) / self._interval_ms)
+            + int((start_time_ms - self._start_time_ms) / self._source_interval_ms)
             * self._row_size
         )
         self._file.seek(sample_location)
@@ -221,7 +221,7 @@ class BinaryFileFeatureStorage(FeatureStorage):
         if self._start_time_ms is None:
             self._start_time_ms = start_time_ms
             self._sample_count = 0
-            self._interval_ms = interval_ms
+            self._source_interval_ms = interval_ms
             self._next_start_time_ms = start_time_ms
             self._write_header()
 

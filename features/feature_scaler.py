@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 import copy
 
 from features import FeatureID
@@ -10,10 +10,10 @@ from typing_extensions import Protocol
 class IndividualScaler(Protocol):
     copy: bool
 
-    def fit_transform(self, x):
+    def fit_transform(self, x) -> any:
         pass
 
-    def inverse_transform(self, x):
+    def inverse_transform(self, x) -> any:
         pass
 
 
@@ -26,10 +26,10 @@ class GroupScaler(Protocol):
     def partial_fit(self, x):
         pass
 
-    def transform(self, x):
+    def transform(self, x) -> any:
         pass
 
-    def inverse_transform(self, x):
+    def inverse_transform(self, x) -> any:
         pass
 
 
@@ -42,11 +42,9 @@ class FeatureScaler:
         scaling_map: dict[FeatureID, IndividualScaler] = None,
         group_scaling_map: dict[tuple[FeatureID, ...], GroupScaler] = None,
     ):
-        _SCALER_COPY_ERROR = (
-            "Inplace scaling requires copy property of all scalers to be False."
-        )
+        _SCALER_COPY_ERROR = "Scaling requires copy property of all scalers to be True."
 
-        if default_scaler.copy:
+        if not default_scaler.copy:
             raise ValueError(_SCALER_COPY_ERROR)
 
         if exclude_feature_ids is None:
@@ -56,7 +54,7 @@ class FeatureScaler:
             mapped_feature_ids = []
         else:
             scalers = scaling_map.values()
-            if any(scaler.copy for scaler in scalers):
+            if any(not scaler.copy for scaler in scalers):
                 raise ValueError(_SCALER_COPY_ERROR)
 
             mapped_feature_ids = list(scaling_map.keys())
@@ -73,7 +71,7 @@ class FeatureScaler:
 
         if group_scaling_map is not None:
             for group_feature_ids, scaler in group_scaling_map.items():
-                if scaler.copy:
+                if not scaler.copy:
                     raise ValueError(_SCALER_COPY_ERROR)
 
                 scaler = copy.deepcopy(scaler)
@@ -102,9 +100,15 @@ class FeatureScaler:
         self._group_scaling_map = deep_copied_group_scaling_map
         self._assigned_scalers = assigned_scalers
 
-    def scale_feature_samples(self, feature_samples: dict[FeatureID, ndarray]) -> None:
+    def scale_feature_samples(
+        self, feature_samples: dict[FeatureID, ndarray]
+    ) -> dict[FeatureID, ndarray]:
+        results = {}
+
         for feature_id, samples in feature_samples.items():
-            if feature_id not in self._exclude_feature_ids:
+            if feature_id in self._exclude_feature_ids:
+                results[feature_id] = samples
+            else:
                 scaler = self._assigned_scalers.get(feature_id)
                 if scaler is None:
                     if self._scaling_map is None:
@@ -114,7 +118,7 @@ class FeatureScaler:
                     scaler = copy.deepcopy(scaler)
                     self._assigned_scalers[feature_id] = scaler
                 reshaped_samples = samples.reshape(-1, 1)
-                scaler.fit_transform(reshaped_samples)
+                results[feature_id] = scaler.fit_transform(reshaped_samples).flatten()
 
         if self._group_scaling_map is not None:
             for group_feature_ids, scaler in self._group_scaling_map.items():
@@ -128,15 +132,29 @@ class FeatureScaler:
                 for feature_id in group_feature_ids:
                     samples = feature_samples[feature_id]
                     reshaped_samples = samples.reshape(-1, 1)
-                    scaler.transform(reshaped_samples)
+                    results[feature_id] = scaler.transform(reshaped_samples).flatten()
+
+        return results
 
     def unscale_feature_samples(
         self, feature_samples: dict[FeatureID, ndarray], ignore_unknown: bool = False
-    ) -> None:
+    ) -> dict[FeatureID, ndarray]:
+        results = {}
+
         for feature_id, samples in feature_samples.items():
             scaler = self._assigned_scalers.get(feature_id)
-            if (scaler is None) and (not ignore_unknown):
-                raise RuntimeError()  # TODO: Implement
+            if scaler is None:
+                if ignore_unknown:
+                    results[feature_id] = samples
+                else:
+                    raise RuntimeError(
+                        f"Feature {feature_id} has not been scaled, "
+                        "so it cannot be unscaled."
+                    )
             else:
                 reshaped_samples = samples.reshape(-1, 1)
-                scaler.inverse_transform(reshaped_samples)
+                results[feature_id] = scaler.inverse_transform(
+                    reshaped_samples
+                ).flatten()
+
+        return results

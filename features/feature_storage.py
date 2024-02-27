@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from abc import abstractmethod
 from numpy import ndarray
 from features import FeatureID, FeatureSource

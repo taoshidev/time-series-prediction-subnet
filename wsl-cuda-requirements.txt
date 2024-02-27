@@ -1,4 +1,38 @@
 # Known compatibile packages needed for stable cuDNN LSTM support in TensorFlow on WSL2 with CUDA 11.8
+#
+# Newer versions of CUDA and Tensorflow have known issues in WSL2 at the time of this documentaion (2024-02-18)
+#
+# Step 1: Fix the ldconfig issue in WSL2
+#
+#   echo -e "[automount]\nldconfig = false" | sudo tee -a /etc/wsl.conf
+#   sudo mkdir /usr/lib/wsl/lib2
+#   sudo ln -s /usr/lib/wsl/lib/* /usr/lib/wsl/lib2
+#   echo /usr/lib/wsl/lib2 | sudo tee /etc/ld.so.conf.d/ld.wsl.conf
+#   sudo ldconfig
+#
+# Step 2: Install CUDA 11.8
+#
+#   wget https://developer.download.nvidia.com/compute/cuda/repos/wsl-ubuntu/x86_64/cuda-wsl-ubuntu.pin
+#   sudo mv cuda-wsl-ubuntu.pin /etc/apt/preferences.d/cuda-repository-pin-600
+#   CUDA_TOOLKIT_DEB_FILE="cuda-repo-wsl-ubuntu-11-8-local_11.8.0-1_amd64.deb"
+#   wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/${CUDA_TOOLKIT_DEB_FILE}
+#   sudo dpkg -i ${CUDA_TOOLKIT_DEB_FILE}
+#   sudo cp /var/cuda-repo-*/cuda-*-keyring.gpg /usr/share/keyrings/
+#   sudo apt-get update
+#   sudo apt-get install cuda-toolkit-11-8
+#
+# Step 3: Install cuDNN
+#
+#   CUDNN_DEB_FILE="cudnn-local-repo-ubuntu2204-8.8.0.121_1.0-1_amd64.deb"
+#   wget https://developer.download.nvidia.com/compute/redist/cudnn/v8.8.0/local_installers/11.8/${CUDNN_DEB_FILE}
+#   sudo dpkg -i ${CUDNN_DEB_FILE}
+#   sudo cp /var/cudnn-local-repo-*/cudnn-local-*-keyring.gpg /usr/share/keyrings/
+#   sudo apt-get update
+#   sudo apt-get install libcudnn8 libcudnn8-dev
+#
+# Step 4: Install CUDA 11 libraries for Python
+#   pip install -r wsl-cuda-requirements.txt
+#
 nvidia-cublas-cu11
 nvidia-cuda-cupti-cu11
 nvidia-cuda-nvcc-cu11

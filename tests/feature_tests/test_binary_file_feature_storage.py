@@ -1,5 +1,5 @@
 # developer: taoshi-mbrown
-# Copyright © 2024 Taoshi, LLC
+# Copyright © 2024 Taoshi Inc
 from feature_sources import BinaryFileFeatureStorage, TemporalFeatureSource
 from time_util import time_span_ms
 import unittest
