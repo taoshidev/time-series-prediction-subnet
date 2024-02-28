@@ -163,10 +163,6 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         # Add an extra second as a workaround to fields missing on the last record
         end_time += 1
 
-        # Start time is not allowed to equal end time
-        # if start_time == end_time:
-        #     end_time += 1
-
         url = f"{self._url}?start={start_time}&end={end_time}&bucket={self._bucket}"
         data_rows = []
         retries = self._retries
@@ -249,13 +245,6 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         return results
 
 
-# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
-# posts_created: 1,112, //number of unique social posts created
-# posts_active: 38,325, //number of unique social posts with interactions
-# interactions: 6,696,248, //number of all publicly measurable interactions on a social post (views, likes, comments, thumbs up, upvote, share etc)
-# contributors_created: 730, //number of unique social accounts that created new posts
-# contributors_active: 17,747, //number of unique social accounts with posts that have interactions
-# sentiment: 81, //% of posts (weighted by interactions) that are positive. 100% means all posts are positive, 50% is half positive and half negative, and 0% is all negative posts.
 class LunarCrushTimeSeriesTopic(LunarCrushTimeSeriesFeatureSource):
     SOURCE_NAME = "LunarCrushTimeSeriesTopic"
 
@@ -281,14 +270,6 @@ class LunarCrushTimeSeriesTopic(LunarCrushTimeSeriesFeatureSource):
         )
 
 
-# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
-# posts_created: 3,636, //number of unique social posts created
-# posts_active: 114,331, //number of unique social posts with interactions
-# interactions: 12,670,814, //number of all publicly measurable interactions on a social post (views, likes, comments, thumbs up, upvote, share etc)
-# contributors_created: 2,673, //number of unique social accounts that created new posts
-# contributors_active: 52,276, //number of unique social accounts with posts that have interactions
-# sentiment: 83, //% of posts (weighted by interactions) that are positive. 100% means all posts are positive, 50% is half positive and half negative, and 0% is all negative posts.
-# spam: 657, //The number of posts created that are considered spam
 class LunarCrushTimeSeriesCategory(LunarCrushTimeSeriesFeatureSource):
     SOURCE_NAME = "LunarCrushTimeSeriesCategory"
 
@@ -314,16 +295,6 @@ class LunarCrushTimeSeriesCategory(LunarCrushTimeSeriesFeatureSource):
         )
 
 
-# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
-# open: 2,878.998, //Open price for the time period
-# close: 2,872.145, //Close price for the time period
-# high: 2,891.85, //Higest price fo rthe time period
-# low: 2,866.932, //Lowest price for the time period
-# volume_24h: 24,302,223,244.38, //Volume in USD for 24 hours up to this data point
-# market_cap: 345,132,617,809.09,
-# circulating_supply: 120,165,454.18,
-# sentiment: 85, //% of posts (weighted by interactions) that are positive. 100% means all posts are positive, 50% is half positive and half negative, and 0% is all negative posts.
-# galaxy_score: 64, //A proprietary score based on technical indicators of price, average social sentiment, relative social activity, and a factor of how closely social indicators correlate with price and volume
 class LunarCrushTimeSeriesCoin(LunarCrushTimeSeriesFeatureSource):
     SOURCE_NAME = "LunarCrushTimeSeriesCoin"
 
@@ -351,16 +322,6 @@ class LunarCrushTimeSeriesCoin(LunarCrushTimeSeriesFeatureSource):
         )
 
 
-# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
-# open: 199.94, //Open price for the time period
-# close: 199.94, //Close price for the time period
-# high: 199.94, //Higest price fo rthe time period
-# low: 199.94, //Lowest price for the time period
-# market_cap: 636,798,843,479.25,
-# galaxy_score: 66, //A proprietary score based on technical indicators of price, average social sentiment, relative social activity, and a factor of how closely social indicators correlate with price and volume
-# alt_rank: 125, //A proprietary score based on how an asset is performing relative to all other assets supported
-# contributors_active: 1,105, //number of unique social accounts with posts that have interactions
-# contributors_created: 62, //number of unique social accounts that created new posts
 class LunarCrushTimeSeriesStock(LunarCrushTimeSeriesFeatureSource):
     SOURCE_NAME = "LunarCrushTimeSeriesStock"
 
