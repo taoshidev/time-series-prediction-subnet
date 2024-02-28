@@ -1,10 +1,10 @@
 # developer: taoshi-tdougherty
 # Copyright © 2024 Taoshi Inc
 
-import torch
+import pandas as pd
 
-def ewma(data, alpha=0.3, adjust=False):
+def ewma(series: pd.Series, alpha=0.3, adjust=False):
     """
-    Compute exponential weighted moving average (EWMA) of a 1D tensor.
+    Compute exponential weighted moving average (EWMA) of a 1D pandas Series.
     """
-    return data.emwa(alpha=alpha, adjust=adjust).mean()
+    return series.ewm(alpha=alpha, adjust=adjust).mean()
