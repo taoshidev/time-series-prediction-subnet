@@ -166,3 +166,4 @@ cython_debug/
 
 # Data specific to experimentation
 experiments/**/*.csv
+experiments/**/*.zip
