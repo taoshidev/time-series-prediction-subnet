@@ -5,6 +5,7 @@ import pandas as pd
 import os
 from prettytable import PrettyTable
 
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import Pipeline
 from sklearn import set_config
 set_config(transform_output = "pandas") # want to keep things as pandas dataframes
@@ -74,14 +75,36 @@ if __name__ == "__main__":
         ('interpolate', interpolate_transformer),
         ('indicators', indicators_transformer),
         ('lags', lags_transformer),
-        ('normalize', normalize_transformer),
+        ('remove_missing_2', missing_values_transformer),
     ])
 
     print(f"Preprocessing data with {len(ohlcv_data)} rows.")
 
     # preprocess the data
-    ohlcv_preprocessed = preprocessing_pipeline.fit_transform(ohlcv_data)
-    print(f"Data Columns: {ohlcv_preprocessed.columns}")
+    ohlcv_preprocessed_nonnormalized = preprocessing_pipeline.fit_transform(ohlcv_data)
+    print(f"Data Columns: {ohlcv_preprocessed_nonnormalized.columns}")
+    print(f"Sample of preprocessed data: {ohlcv_preprocessed_nonnormalized.head()}")
+
+
+
+    # Dictionary to store the scaler for each column
+    scalers = {}
+
+    # DataFrame to hold the normalized data
+    ohlcv_preprocessed = pd.DataFrame(index=ohlcv_preprocessed_nonnormalized.index)
+
+    for column in ohlcv_preprocessed_nonnormalized.columns:
+        scaler = MinMaxScaler()
+        # Reshape data for a single column
+        data_column = ohlcv_preprocessed_nonnormalized[column].values.reshape(-1, 1)
+        print(f"Data Column: {data_column}")
+        data_scaled = scaler.fit_transform(data_column)
+        print(f"Data Scaled: {data_scaled}")
+        ohlcv_preprocessed[column] = np.array(data_scaled).flatten()
+        # Store the scaler for later use
+        scalers[column] = scaler
+
+    print(f"Sample of normalized data: {ohlcv_preprocessed.head()}")
 
     # split the data into training and testing
     split_index = int(len(ohlcv_preprocessed) * args.train_percentage)
@@ -109,9 +132,16 @@ if __name__ == "__main__":
         model.fit(train_subset.drop(columns=["Close"]), train_subset[['Close']])
         pred = model.predict(test_subset.drop(columns=["Close"]))
 
-        gt = np.array(test_subset['Close'])
-        prior_gt = np.array(test_subset['Close_lag_1'])
-        predicted = np.array(pred)
+        gt = np.array(test_subset['Close']).reshape(-1, 1)
+        prior_gt = np.array(test_subset['Close_lag_1']).reshape(-1, 1)
+        predicted = np.array(pred).reshape(-1, 1)
+
+        ## compute inverse transform
+        gt = scalers['Close'].inverse_transform(gt)
+        prior_gt = scalers['Close_lag_1'].inverse_transform(prior_gt)
+        predicted = scalers['Close'].inverse_transform(predicted)
+
+        # print(f"GT: {gt[:10]}\nPrior GT: {prior_gt[:10]}\nPredicted: {predicted[:10]}")
 
         real_growth = gt > prior_gt
         predicted_growth = predicted > prior_gt
