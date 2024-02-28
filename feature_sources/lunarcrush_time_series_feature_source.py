@@ -1,40 +1,22 @@
 # developer: taoshi-mbrown
 # Copyright © 2024 Taoshi Inc
-import os
-import time
+from enum import Enum
+from features import FeatureCompaction, FeatureID, FeatureSource
 from http import HTTPStatus
 from json import JSONDecodeError
 from logging import getLogger
-
-from enum import Enum
-from typing import Dict
-
-
-from features import FeatureID, FeatureSource
+import math
 import numpy as np
 from numpy import ndarray
+import os
 import requests
-from time_util import (
-    current_interval_ms,
-    datetime,
-    time_span_ms,
-    parse_time_interval_ms,
-)
+import statistics
+import time
+from time_util import time_span_ms
 
 
 class LunarCrushMetric(str, Enum):
-    """
-    add in any reusable static values
-    """
-
     TIME = "time"
-    HOUR = "hour"
-    DAY = "day"
-
-    BUCKET = "bucket"
-    INTERVAL = "interval"
-    START = "start"
-    END = "end"
 
     POSTS_CREATED = "posts_created"
     POSTS_ACTIVE = "posts_active"
@@ -42,48 +24,65 @@ class LunarCrushMetric(str, Enum):
     CONTRIBUTORS_CREATED = "contributors_created"
     CONTRIBUTORS_ACTIVE = "contributors_active"
     SENTIMENT = "sentiment"
+    SPAM = "spam"
 
-    OPEN = "open"
-    CLOSE = "close"
-    HIGH = "high"
-    LOW = "low"
+    PRICE_OPEN = "open"
+    PRICE_CLOSE = "close"
+    PRICE_HIGH = "high"
+    PRICE_LOW = "low"
+    PRICE_FLOOR = "floor_price"
     VOLUME = "volume"
+    VOLUME_24H = "volume_24h"
     MARKET_CAP = "market_cap"
-
     CIRCULATING_SUPPLY = "circulating_supply"
     GALAXY_SCORE = "galaxy_score"
+
     VOLATILITY = "volatility"
     ALT_RANK = "alt_rank"
     SOCIAL_DOMINANCE = "social_dominance"
-    SPAM = "spam"
 
 
 class LunarCrushTimeSeriesFeatureSource(FeatureSource):
     DEFAULT_RETRIES = 3
     RETRY_DELAY = 1.0
 
-    _INTERVALS = {
-        time_span_ms(days=1): "1d",
-        time_span_ms(weeks=1): "1w",
-        time_span_ms(days=30): "1m",
-        time_span_ms(days=90): "3m",
-        time_span_ms(days=180): "6m",
-        time_span_ms(days=365): "1y",
-        time_span_ms(days=1825): "5y",
+    _BASE_URL = "https://lunarcrush.com/api4/public"
+    _METRIC = "time-series"
+    _VERSION = "v1"
+
+    _BUCKETS = {
+        time_span_ms(hours=1): "hour",
+        time_span_ms(days=1): "day",
+    }
+
+    # Default is using last sample, so on only include other types
+    _METRIC_COMPACTIONS = {
+        LunarCrushMetric.POSTS_CREATED: FeatureCompaction.SUM,
+        LunarCrushMetric.POSTS_ACTIVE: FeatureCompaction.SUM,
+        LunarCrushMetric.INTERACTIONS: FeatureCompaction.SUM,
+        LunarCrushMetric.CONTRIBUTORS_CREATED: FeatureCompaction.SUM,
+        LunarCrushMetric.CONTRIBUTORS_ACTIVE: FeatureCompaction.SUM,
+        LunarCrushMetric.SPAM: FeatureCompaction.SUM,
+        LunarCrushMetric.PRICE_OPEN: FeatureCompaction.FIRST,
+        LunarCrushMetric.PRICE_HIGH: FeatureCompaction.MAX,
+        LunarCrushMetric.PRICE_LOW: FeatureCompaction.MIN,
+        LunarCrushMetric.VOLUME: FeatureCompaction.SUM,
+        LunarCrushMetric.VOLUME_24H: FeatureCompaction.SUM,
     }
 
     def __init__(
         self,
+        kind: str,
+        selector: str,
         source_interval_ms: int,
         feature_mappings: dict[FeatureID, LunarCrushMetric],
         feature_dtypes: list[np.dtype] = None,
         default_dtype: np.dtype = np.dtype(np.float32),
         api_key: str = None,
         retries: int = DEFAULT_RETRIES,
-        **kwargs,
     ):
-        query_interval = self._INTERVALS.get(source_interval_ms)
-        if query_interval is None:
+        bucket = self._BUCKETS.get(source_interval_ms)
+        if bucket is None:
             raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
 
         feature_ids = list(feature_mappings.keys())
@@ -93,47 +92,82 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         if api_key is None:
             api_key = os.environ.get("LC_API_KEY")
 
+        headers = {"Authorization": f"Bearer {api_key}"}
+
         self._source_interval_ms = source_interval_ms
-        self._query_interval = query_interval
+        self._bucket = bucket
         self._retries = retries
         self._metrics = list(feature_mappings.values())
-        self._api_key = api_key
+        self._convert_metrics = [LunarCrushMetric.TIME, *self._metrics]
+        self._url = f"{self._BASE_URL}/{kind}/{selector}/{self._METRIC}/{self._VERSION}"
+        self._headers = headers
         self._logger = getLogger(self.__class__.__name__)
+
+    # noinspection PyMethodMayBeStatic
+    def _convert_metric(self, metric: str, value):
+        match metric:
+            case LunarCrushMetric.TIME:
+                value *= time_span_ms(seconds=1)
+            case _:
+                if value is None:
+                    value = 0
+                else:
+                    value = float(value)
+        return value
+
+    def _convert_sample(self, sample: dict):
+        for metric in self._convert_metrics:
+            sample_value = sample.get(metric, 0)
+            sample[metric] = self._convert_metric(metric, sample_value)
+
+    def _convert_samples(self, data_rows: list[dict]):
+        for row in data_rows:
+            self._convert_sample(row)
+
+    def _compact_samples(self, samples: list[dict]) -> dict:
+        result = samples[-1].copy()
+        for metric in self._metrics:
+            compaction = self._METRIC_COMPACTIONS.get(metric, FeatureCompaction.LAST)
+            if compaction == FeatureCompaction.LAST:
+                continue
+            elif compaction == FeatureCompaction.FIRST:
+                result[metric] = samples[0][metric]
+            else:
+                values = [sample[metric] for sample in samples]
+                match compaction:
+                    case FeatureCompaction.MIN:
+                        metric_result = min(values)
+                    case FeatureCompaction.MAX:
+                        metric_result = max(values)
+                    case FeatureCompaction.MEAN:
+                        metric_result = statistics.mean(values)
+                    case FeatureCompaction.MEDIAN:
+                        metric_result = statistics.median(values)
+                    case FeatureCompaction.MODE:
+                        metric_result = statistics.mode(values)
+                    case _:
+                        metric_result = math.fsum(values)
+                result[metric] = metric_result
+        return result
 
     def get_feature_samples(
         self,
-        bucket: str,
-        endpoint: str,
-        start_ms: int = None,
-        end_ms: int = None,
-        interval: str = None,
+        start_time_ms: int,
+        interval_ms: int,
+        sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        params = {}
+        start_time = int(start_time_ms / time_span_ms(seconds=1))
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
+        end_time = int(end_time_ms / time_span_ms(seconds=1))
 
-        # has to provide a bucket value
-        if bucket not in self._BUCKET:
-            raise ValueError(f"bucket value [{bucket}] is not supported.")
-        else:
-            params[LunarCrush.BUCKET] = bucket
+        # Add an extra second as a workaround to fields missing on the last record
+        end_time += 1
 
-        # user can choose to send start/end timestamp or standardized
-        # lookback periods (interval)
-        if start_ms is None and end_ms is None:
-            if interval not in self._INTERVALS:
-                raise ValueError(
-                    f"start and end ms are not provided"
-                    f" and invalid interval provided [{interval}]"
-                )
-            else:
-                params[LunarCrush.INTERVAL] = interval
-        elif start_ms is None and end_ms is not None:
-            raise ValueError(f"start_ms provided but end_ms not provided.")
-        elif end_ms is None and start_ms is not None:
-            raise ValueError(f"end_ms provided but start_ms not provided.")
-        else:
-            params[LunarCrush.START] = start_ms
-            params[LunarCrush.END] = end_ms
+        # Start time is not allowed to equal end time
+        # if start_time == end_time:
+        #     end_time += 1
 
+        url = f"{self._url}?start={start_time}&end={end_time}&bucket={self._bucket}"
         data_rows = []
         retries = self._retries
 
@@ -141,28 +175,27 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         # Loop for retries
         while True:
             try:
-                response = requests.get(endpoint, params=params)
+                response = requests.get(url, headers=self._headers)
 
                 if response.status_code >= HTTPStatus.BAD_REQUEST:
                     try:
                         error_response = response.json()
-                        error_message = error_response.get("message")
-                        coinbase_error = f", LunarCrush error: {error_message}"
+                        error_message = error_response.get("error")
+                        lunarcrush_error = f", LunarCrush error: {error_message}"
                     except JSONDecodeError:
-                        coinbase_error = ""
-                        self._logger.error(
-                            f"HTTP error {response.status_code}: {response.reason}"
-                            f"{coinbase_error}",
-                        )
+                        lunarcrush_error = ""
+                    self._logger.error(
+                        f"HTTP error {response.status_code}: {response.reason}"
+                        f"{lunarcrush_error}",
+                    )
                 else:
                     response_rows = response.json()
-                    data_rows.extend(response_rows["data"])
+                    data_rows = response_rows["data"]
                     success = True
 
             except Exception as e:
                 self._logger.warning(
-                    "Exception occurred requesting feature samples using "
-                    f"{endpoint}: {e}"
+                    "Exception occurred requesting feature samples using " f"{url}: {e}"
                 )
 
             if success or (retries == 0):
@@ -175,12 +208,36 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         if row_count == 0:
             raise RuntimeError("No samples received.")
 
-        feature_samples = self._create_feature_samples(row_count)
+        self._convert_samples(data_rows)
+        feature_samples = self._create_feature_samples(sample_count)
 
-        for sample_index in range(row_count):
-            row = data_rows[sample_index]
+        sample_time_ms = start_time_ms
+        interval_rows = []
+        row_index = 0
+        last_row_index = row_count - 1
+        compact_samples = self._compact_samples
+        for sample_index in range(sample_count):
+            while True:
+                row = data_rows[row_index]
+                row_time_ms = row[LunarCrushMetric.TIME]
+                if row_time_ms > sample_time_ms:
+                    break
+                interval_rows.append(row)
+                if row_index == last_row_index:
+                    break
+                row_index += 1
+
+            interval_row_count = len(interval_rows)
+            if interval_row_count == 1:
+                row = interval_rows[0]
+            elif interval_row_count > 1:
+                row = compact_samples(interval_rows)
+
             for feature_index, metric in enumerate(self._metrics):
                 feature_samples[feature_index][sample_index] = row[metric]
+
+            interval_rows.clear()
+            sample_time_ms += interval_ms
 
         results = {
             self.feature_ids[feature_index]: feature_samples[feature_index]
@@ -192,39 +249,140 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         return results
 
 
+# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
+# posts_created: 1,112, //number of unique social posts created
+# posts_active: 38,325, //number of unique social posts with interactions
+# interactions: 6,696,248, //number of all publicly measurable interactions on a social post (views, likes, comments, thumbs up, upvote, share etc)
+# contributors_created: 730, //number of unique social accounts that created new posts
+# contributors_active: 17,747, //number of unique social accounts with posts that have interactions
+# sentiment: 81, //% of posts (weighted by interactions) that are positive. 100% means all posts are positive, 50% is half positive and half negative, and 0% is all negative posts.
 class LunarCrushTimeSeriesTopic(LunarCrushTimeSeriesFeatureSource):
     SOURCE_NAME = "LunarCrushTimeSeriesTopic"
 
-    # have it automatically request from get feature samples
-    # and have it not be private
-    def query(self, topic: str, bucket: str, start_ms: int, end_ms: int) -> Dict:
-        endpoint = f"https://lunarcrush.com/api4/public/{topic}/bitcoin/time-series/v1"
-        return self.get_feature_samples(
-            bucket=bucket, endpoint=endpoint, start_ms=start_ms, end_ms=end_ms
+    def __init__(
+        self,
+        topic: str,
+        source_interval_ms: int,
+        feature_mappings: dict[FeatureID, LunarCrushMetric],
+        feature_dtypes: list[np.dtype] = None,
+        default_dtype: np.dtype = np.dtype(np.float32),
+        api_key: str = None,
+        retries: int = LunarCrushTimeSeriesFeatureSource.DEFAULT_RETRIES,
+    ):
+        super().__init__(
+            "topic",
+            topic,
+            source_interval_ms,
+            feature_mappings,
+            feature_dtypes,
+            default_dtype,
+            api_key,
+            retries,
         )
 
 
+# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
+# posts_created: 3,636, //number of unique social posts created
+# posts_active: 114,331, //number of unique social posts with interactions
+# interactions: 12,670,814, //number of all publicly measurable interactions on a social post (views, likes, comments, thumbs up, upvote, share etc)
+# contributors_created: 2,673, //number of unique social accounts that created new posts
+# contributors_active: 52,276, //number of unique social accounts with posts that have interactions
+# sentiment: 83, //% of posts (weighted by interactions) that are positive. 100% means all posts are positive, 50% is half positive and half negative, and 0% is all negative posts.
+# spam: 657, //The number of posts created that are considered spam
 class LunarCrushTimeSeriesCategory(LunarCrushTimeSeriesFeatureSource):
     SOURCE_NAME = "LunarCrushTimeSeriesCategory"
 
-    # have it automatically request from get feature samples
-    # and have it not be private
-    def query(self, category: str, bucket: str, start_ms: int, end_ms: int) -> Dict:
-        endpoint = (
-            f"https://lunarcrush.com/api4/public/category/{category}/time-series/v1"
+    def __init__(
+        self,
+        category: str,
+        source_interval_ms: int,
+        feature_mappings: dict[FeatureID, LunarCrushMetric],
+        feature_dtypes: list[np.dtype] = None,
+        default_dtype: np.dtype = np.dtype(np.float32),
+        api_key: str = None,
+        retries: int = LunarCrushTimeSeriesFeatureSource.DEFAULT_RETRIES,
+    ):
+        super().__init__(
+            "category",
+            category,
+            source_interval_ms,
+            feature_mappings,
+            feature_dtypes,
+            default_dtype,
+            api_key,
+            retries,
         )
-        return self.get_feature_samples(
-            bucket=bucket, endpoint=endpoint, start_ms=start_ms, end_ms=end_ms
+
+
+# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
+# open: 2,878.998, //Open price for the time period
+# close: 2,872.145, //Close price for the time period
+# high: 2,891.85, //Higest price fo rthe time period
+# low: 2,866.932, //Lowest price for the time period
+# volume_24h: 24,302,223,244.38, //Volume in USD for 24 hours up to this data point
+# market_cap: 345,132,617,809.09,
+# circulating_supply: 120,165,454.18,
+# sentiment: 85, //% of posts (weighted by interactions) that are positive. 100% means all posts are positive, 50% is half positive and half negative, and 0% is all negative posts.
+# galaxy_score: 64, //A proprietary score based on technical indicators of price, average social sentiment, relative social activity, and a factor of how closely social indicators correlate with price and volume
+class LunarCrushTimeSeriesCoin(LunarCrushTimeSeriesFeatureSource):
+    SOURCE_NAME = "LunarCrushTimeSeriesCoin"
+
+    _VERSION = "v2"
+
+    def __init__(
+        self,
+        coin: int | str,
+        source_interval_ms: int,
+        feature_mappings: dict[FeatureID, LunarCrushMetric],
+        feature_dtypes: list[np.dtype] = None,
+        default_dtype: np.dtype = np.dtype(np.float32),
+        api_key: str = None,
+        retries: int = LunarCrushTimeSeriesFeatureSource.DEFAULT_RETRIES,
+    ):
+        super().__init__(
+            "coins",
+            str(coin),
+            source_interval_ms,
+            feature_mappings,
+            feature_dtypes,
+            default_dtype,
+            api_key,
+            retries,
         )
 
 
-class LunarCrushTimeSeriesCoinV2(LunarCrushTimeSeriesFeatureSource):
-    SOURCE_NAME = "LunarCrushTimeSeriesCoinV2"
+# time: 1708300800, // Mon, 19 Feb 2024 00:00:00 GMT A unix timestamp (in seconds)
+# open: 199.94, //Open price for the time period
+# close: 199.94, //Close price for the time period
+# high: 199.94, //Higest price fo rthe time period
+# low: 199.94, //Lowest price for the time period
+# market_cap: 636,798,843,479.25,
+# galaxy_score: 66, //A proprietary score based on technical indicators of price, average social sentiment, relative social activity, and a factor of how closely social indicators correlate with price and volume
+# alt_rank: 125, //A proprietary score based on how an asset is performing relative to all other assets supported
+# contributors_active: 1,105, //number of unique social accounts with posts that have interactions
+# contributors_created: 62, //number of unique social accounts that created new posts
+class LunarCrushTimeSeriesStock(LunarCrushTimeSeriesFeatureSource):
+    SOURCE_NAME = "LunarCrushTimeSeriesStock"
 
-    # have it automatically request from get feature samples
-    # and have it not be private
-    def query(self, coin_id: int, bucket: str, start_ms: int, end_ms: int) -> Dict:
-        endpoint = f"https://lunarcrush.com/api4/public/coins/{coin_id}/time-series/v2"
-        return self.get_feature_samples(
-            bucket=bucket, endpoint=endpoint, start_ms=start_ms, end_ms=end_ms
+    _VERSION = "v2"
+
+    def __init__(
+        self,
+        stock: int | str,
+        source_interval_ms: int,
+        feature_mappings: dict[FeatureID, LunarCrushMetric],
+        feature_dtypes: list[np.dtype] = None,
+        default_dtype: np.dtype = np.dtype(np.float32),
+        api_key: str = None,
+        retries: int = LunarCrushTimeSeriesFeatureSource.DEFAULT_RETRIES,
+    ):
+        super().__init__(
+            "stocks",
+            str(stock),
+            source_interval_ms,
+            feature_mappings,
+            feature_dtypes,
+            default_dtype,
+            api_key,
+            retries,
         )
