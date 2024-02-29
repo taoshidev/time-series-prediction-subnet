@@ -160,8 +160,9 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
         end_time = int(end_time_ms / time_span_ms(seconds=1))
 
-        # Add an extra second as a workaround to fields missing on the last record
-        end_time += 1
+        # Ensure that the end time is not the same as the start time
+        if end_time == start_time:
+            end_time += 1
 
         url = f"{self._url}?start={start_time}&end={end_time}&bucket={self._bucket}"
         data_rows = []
