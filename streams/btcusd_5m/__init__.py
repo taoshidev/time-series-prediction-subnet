@@ -126,7 +126,7 @@ if _INCLUDE_COIN_METRICS:
             FeatureID.BTC_MCTC: CoinMetric.MCTC,
             FeatureID.BTC_MCRC: CoinMetric.MCRC,
             FeatureID.BTC_MOMR: CoinMetric.MOMR,
-            FeatureID.BTC_MARKET_CAP_USD: CoinMetric.MARKET_CAP_USD,
+            FeatureID.BTC_USD_MARKET_CAP: CoinMetric.MARKET_CAP_USD,
         },
     )
 

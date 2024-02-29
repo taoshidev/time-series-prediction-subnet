@@ -38,5 +38,12 @@ from .kraken_kline_feature_source import (
     KrakenKlineFeatureSource,
     KrakenKlineField,
 )
+from .lunarcrush_time_series_feature_source import (
+    LunarCrushMetric,
+    LunarCrushTimeSeriesTopic,
+    LunarCrushTimeSeriesCategory,
+    LunarCrushTimeSeriesCoin,
+    LunarCrushTimeSeriesStock,
+)
 from .temporal_feature_source import TemporalFeatureSource
 from .test_feature_source import TestFeatureSource
