@@ -97,10 +97,10 @@ def prepare_cmw_object():
         loaded_cmw = CMWUtil.load_cmw(cmw_file_json)
         for client in loaded_cmw.clients:
             for stream in client.streams:
-                if stream.topic_id not in cmw_object:
-                    cmw_object[stream.topic_id] = {}
-                if stream.stream_id not in cmw_object[stream.topic_id]:
-                    cmw_object[stream.topic_id][stream.stream_id] = {}
+                if stream.topic_ids not in cmw_object:
+                    cmw_object[stream.topic_ids] = {}
+                if stream.stream_ids not in cmw_object[stream.topic_ids]:
+                    cmw_object[stream.topic_ids][stream.stream_ids] = {}
                 for miner in stream.miners:
                     miner_win_scores = {mws[0]: (miner.miner_id, mws[1], mus[1]) for mws in miner.win_scores for mus in miner.unscaled_scores if mws[0] == mus[0]}
                     for key, value in miner_win_scores.items():

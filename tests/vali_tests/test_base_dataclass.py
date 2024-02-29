@@ -76,9 +76,9 @@ class TestBaseDataClass(unittest.TestCase):
             )
 
         test2 = ClientRequest(
-            stream_type="TEST",
-            topic_id=1,
-            schema_id=1,
+            stream_ids="TEST",
+            topic_ids=1,
+            schema_ids=1,
             feature_ids=[0.001, 0.002, 0.003, 0.004],
             prediction_size=int(random.uniform(ValiConfig.PREDICTIONS_MIN, ValiConfig.PREDICTIONS_MAX)),
             additional_details={

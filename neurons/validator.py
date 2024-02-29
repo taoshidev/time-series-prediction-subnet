@@ -3,9 +3,12 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
 import argparse
+import statistics
+
 import bittensor as bt
 import math
 
+from data_generator.twelvedata_service import TwelveDataService
 from hashing_utils import HashingUtils
 from miner_config import MinerConfig
 import numpy as np
@@ -26,7 +29,7 @@ from time_util import datetime
 from time_util.time_util import TimeUtil
 import traceback
 import uuid
-from vali_config import ValiConfig
+from vali_config import ValiConfig, ValiStream
 from vali_objects.cmw.cmw_objects.cmw import CMW
 from vali_objects.cmw.cmw_objects.cmw_client import CMWClient
 from vali_objects.cmw.cmw_objects.cmw_miner import CMWMiner
@@ -104,39 +107,28 @@ def run_time_series_validation(
 	# scores = torch.ones_like(metagraph.S, dtype=torch.float32)
 	# bt.logging.info(f"Weights: {scores}")
 
-	pred_metagraph_hotkeys = []
+	pred_metagraph_hotkeys = {}
 
 	for vali_request in vali_requests:
 		# standardized request identifier for miners to tie together forward/backprop
 		request_uuid = str(uuid.uuid4())
 
 		if isinstance(vali_request, ClientRequest):
-			# stream_type = hash(str(vali_request.stream_type) + wallet.hotkey.ss58_address)
-			# stream_type = hash(str(vali_request.stream_type))
-			# hash_object = hashlib.sha256(vali_request.stream_type.encode())
-			# stream_type = hash_object.hexdigest()
 
-			stream_type = vali_request.stream_type
+			for vali_stream in vali_request.vali_streams:
+				pred_metagraph_hotkeys[vali_stream.stream_id] = []
 
 			if vali_request.client_uuid is None:
 				vali_request.client_uuid = wallet.hotkey.ss58_address
 
 			live_hash_proto = LiveForwardHash(
 				request_uuid=request_uuid,
-				stream_id=stream_type,
-				topic_id=vali_request.topic_id,
-				feature_ids=vali_request.feature_ids,
-				schema_id=vali_request.schema_id,
-				prediction_size=vali_request.prediction_size,
+				vali_streams=vali_request.vali_streams
 			)
 
 			live_proto = LiveForward(
 				request_uuid=request_uuid,
-				stream_id=stream_type,
-				topic_id=vali_request.topic_id,
-				feature_ids=vali_request.feature_ids,
-				schema_id=vali_request.schema_id,
-				prediction_size=vali_request.prediction_size,
+				vali_streams=vali_request.vali_streams
 			)
 
 			try:
@@ -165,14 +157,10 @@ def run_time_series_validation(
 				#         bt.logging.debug(f"index [{i}] number of responses to requested data [{len(respi)}]")
 				#     else:
 				#         bt.logging.debug(f"index [{i}] has no proper response")
+
 				end_dt = TimeUtil.generate_start_timestamp(0)
 
 				prediction_start_time = TimeUtil.timestamp_to_millis(end_dt)
-				prediction_end_time = TimeUtil.timestamp_to_millis(
-					end_dt
-				) + TimeUtil.minute_in_millis(
-					vali_request.prediction_size * vali_request.additional_details["tf"]
-				)
 
 				bt.logging.debug(
 					f"prediction start time [{prediction_start_time}], [{TimeUtil.millis_to_timestamp(prediction_start_time)}]"
@@ -182,74 +170,87 @@ def run_time_series_validation(
 				)
 
 				for i, resp_i in enumerate(responses):
-					if resp_i.predictions is not None:
-						miner_hotkey = metagraph.axons[i].hotkey
-						try:
-							predictions = resp_i.predictions.numpy()
+					all_predictions = resp_i.predictions.numpy()
+					if all_predictions is not None:
+						for x, vali_stream_dict in resp_i.vali_streams:
 
-							# check for invalid miner pred
-							for miner_pred in predictions:
-								if math.isnan(miner_pred):
-									raise ValueError(f"invalid miner preds [{miner_pred}]")
+							vali_stream = ValiStream.to_enum(vali_stream_dict)
 
-							hashed_predictions = HashingUtils.hash_predictions(
-								miner_hotkey, str(predictions.tolist())
+							prediction_end_time = TimeUtil.timestamp_to_millis(
+								end_dt
+							) + TimeUtil.minute_in_millis(
+								vali_stream.predictions * vali_stream.interval
 							)
-							miner_provided_hashed_predictions = hashed_responses[
-								i
-							].hashed_predictions
 
-							if (
-									len(predictions) == vali_request.prediction_size
-									and len(predictions.shape) == 1
-							):
+							miner_hotkey = metagraph.axons[i].hotkey
+							try:
+								# maintain indexes between vali streams and preds
+								predictions = all_predictions[x]
+
+								# check for invalid miner pred
+								for miner_pred in predictions:
+									if math.isnan(miner_pred):
+										raise ValueError(f"invalid miner preds [{miner_pred}]")
+
+								hashed_predictions = HashingUtils.hash_predictions(
+									miner_hotkey, str(predictions.tolist())
+								)
+								miner_provided_hashed_predictions = hashed_responses[i].hashed_predictions[x]
+
 								if (
-										hashed_predictions
-										== miner_provided_hashed_predictions
+										len(predictions) == vali_stream.predictions
+										and len(predictions.shape) == 1
 								):
-									pred_metagraph_hotkeys.append(miner_hotkey)
-									# for file name
-									output_uuid = str(uuid.uuid4())
-									bt.logging.debug(
-										f"axon hotkey has correctly responded: [{miner_hotkey}]"
-									)
+									if (
+											hashed_predictions
+											== miner_provided_hashed_predictions
+									):
+										pred_metagraph_hotkeys[vali_stream.stream_id].append(miner_hotkey)
+										# for file name
+										output_uuid = str(uuid.uuid4())
+										bt.logging.debug(
+											f"axon hotkey has correctly responded: [{miner_hotkey}]"
+										)
 
-									# has the right number of predictions made
-									pdf = PredictionDataFile(
-										client_uuid=vali_request.client_uuid,
-										stream_type=vali_request.stream_type,
-										stream_id=stream_type,
-										topic_id=vali_request.topic_id,
-										request_uuid=request_uuid,
-										miner_uid=miner_hotkey,
-										start=prediction_start_time,
-										end=prediction_end_time,
-										predictions=predictions,
-										prediction_size=vali_request.prediction_size,
-										additional_details=vali_request.additional_details,
-									)
-									ValiUtils.save_predictions_request(output_uuid, pdf)
+										# has the right number of predictions made
+										pdf = PredictionDataFile(
+											client_uuid=vali_request.client_uuid,
+											stream_type=vali_stream.stream_id,
+											stream_id=vali_stream.stream_id,
+											topic_id=vali_stream.topic_id,
+											request_uuid=request_uuid,
+											miner_uid=miner_hotkey,
+											start=prediction_start_time,
+											end=prediction_end_time,
+											predictions=predictions,
+											prediction_size=vali_stream.predictions,
+											additional_details=vali_stream.additional_details,
+										)
+										ValiUtils.save_predictions_request(output_uuid, pdf)
+									else:
+										bt.logging.debug(
+											f"incorrect match between "
+											f"hashed predictions [{miner_provided_hashed_predictions}] "
+											f"and predictions provided [{hashed_predictions}] "
+											f"for miner [{miner_hotkey}]"
+										)
 								else:
 									bt.logging.debug(
-										f"incorrect match between "
-										f"hashed predictions [{miner_provided_hashed_predictions}] "
-										f"and predictions provided [{hashed_predictions}] "
-										f"for miner [{miner_hotkey}]"
+										f"incorrectly provided "
+										f"prediction size [{len(predictions)}] "
+										f"or shape [{len(predictions.shape)}] "
+										f"for miner [{miner_hotkey}] "
+										f"and stream id [{vali_stream.stream_id}]"
 									)
-							else:
+							except Exception as e:
 								bt.logging.debug(
-									f"incorrectly provided "
-									f"prediction size [{len(predictions)}] "
-									f"or shape [{len(predictions.shape)}] "
-									f"for miner [{miner_hotkey}]"
+									f"not correctly configured predictions: [{miner_hotkey}] "
+									f"for vali stream [{vali_stream.stream_id}] "
+									f" with message [{e}]"
 								)
-						except Exception as e:
-							bt.logging.debug(
-								f"not correctly configured predictions: [{miner_hotkey}]"
-								f" with message [{e}]"
-							)
 				bt.logging.info(
-					f"all hotkeys of accurately formatted predictions received {pred_metagraph_hotkeys}"
+					f"all hotkeys of accurately formatted predictions received "
+					f"for all stream ids {pred_metagraph_hotkeys}"
 				)
 				bt.logging.info("completed storing all predictions")
 
@@ -263,273 +264,250 @@ def run_time_series_validation(
 			# handle results ready to score and weigh
 			request_df = vali_request.df
 			stream_type = request_df.stream_type
+
+			bt.logging.info("getting results from live predictions")
+			valistream_len = len(ValiStream)
+
 			try:
-				bt.logging.info("getting results from live predictions")
+				stream_id_to_fwsd = {}
+				# keep track of the streams the miner correctly responded to
+				miner_to_stream_id = {}
 
-				start_time_ms = request_df.start
-				sample_count = request_df.prediction_size
+				for stream_id, miner_to_miner_preds in vali_request.predictions.items():
 
-				bt.logging.debug(
-					f"requested results start: [{datetime.fromtimestamp_ms(start_time_ms)}]"
-				)
-				bt.logging.debug(
-					f"requested results end: [{datetime.fromtimestamp_ms(request_df.end)}]"
-				)
+					curr_vali_stream = ValiStream.to_enum(stream_id)
 
-				feature_samples = validator_feature_source.get_feature_samples(
-					start_time_ms, INTERVAL_MS, sample_count
-				)
+					twelvedata_service = TwelveDataService()
+					validation_array = np.array(
+						twelvedata_service.get_closes(twelvedata_service.get_data(curr_vali_stream.pair)))
 
-				validation_array = validator_feature_source.feature_samples_to_array(
-					feature_samples, prediction_feature_ids
-				)
-
-				# TODO: Improve validators to allow multiple features in predictions
-				validation_array = validation_array.flatten()
-
-				bt.logging.info(
-					"results gathered sending back to miners via backprop and weighing"
-				)
-
-				# Send back the results for backprop so miners can learn
-				results = bt.tensor(validation_array)
-
-				results_backprop_proto = LiveBackward(
-					request_uuid=request_uuid,
-					stream_id=stream_type,
-					samples=results,
-					topic_id=request_df.topic_id,
-				)
-
-				try:
-					dendrite.query(
-						metagraph.axons, results_backprop_proto, deserialize=True
-					)
-					bt.logging.info("live results sent back to miners")
-				except Exception:  # noqa
-					traceback.print_exc()
-					bt.logging.info(
-						"failed sending back results to miners and continuing..."
-					)
-
-				scores = {}
-				for miner_uid, miner_preds in vali_request.predictions.items():
-					try:
-						for miner_pred in miner_preds:
-							if math.isnan(miner_pred):
-								raise ValueError(
-									f"invalid miner [{miner_uid}] preds [{miner_pred}]"
-								)
-						scores[miner_uid] = Scoring.score_response(
-							miner_preds, validation_array
-						)
-					except IncorrectPredictionSizeError as ipse:
-						bt.logging.warning(
-							f"miner [{miner_uid}] provided incorrect prediction size [{ipse}]"
-						)
-					except ValueError as ve:
-						bt.logging.warning(ve)
-
-				if len(scores) > 0:
-					bt.logging.debug(f"unscaled scores [{scores}]")
-					scores_list = np.array(
-						[score for miner_uid, score in scores.items()]
-					)
-					variance = np.var(scores_list)
-
-					if variance == 0:
-						bt.logging.debug(
-							"homogenous dataset, going to equally distribute scores"
-						)
-						weighed_scores = [
-							(miner_uid, 1 / len(scores))
-							for miner_uid, score in scores.items()
-						]
-						bt.logging.debug(f"weighed scores [{weighed_scores}]")
-						(
-							weighed_winning_scores_dict,
-							weight,
-						) = Scoring.update_weights_using_historical_distributions(
-							weighed_scores, validation_array
-						)
-
-					else:
-						scaled_scores = Scoring.simple_scale_scores(scores)
-
-						# store weights for results
-						sorted_scores = sorted(
-							scaled_scores.items(), key=lambda x: x[1], reverse=True
-						)
-						winning_scores = sorted_scores
-
-						# choose top 10
-						weighed_scores = Scoring.weigh_miner_scores(winning_scores)
-
-						bt.logging.debug(f"weighed scores [{weighed_scores}]")
-						bt.logging.debug(f"validation array [{validation_array}]")
-						(
-							weighed_winning_scores_dict,
-							weight,
-						) = Scoring.update_weights_using_historical_distributions(
-							weighed_scores, validation_array
-						)
-						# weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
-
-						bt.logging.debug(f"weight for the predictions: [{weight}]")
-						bt.logging.debug(f"scaled scores: [{scaled_scores}]")
-						bt.logging.debug(
-							f"weighed winning scores: [{weighed_winning_scores_dict}]"
-						)
-
-					values_list = np.array(
-						[v for k, v in weighed_winning_scores_dict.items()]
-					)
-
-					mean = np.mean(values_list)
-					std_dev = np.std(values_list)
-
-					lower_bound = mean - 3 * std_dev
-					bt.logging.debug(f"scores lower bound: [{lower_bound}]")
-
-					if lower_bound < 0:
-						lower_bound = 0
-
-					filtered_results = [
-						(k, v)
-						for k, v in weighed_winning_scores_dict.items()
-						if lower_bound < v
-					]
-					filtered_scores = np.array([x[1] for x in filtered_results])
-
-					# Normalize the list using Z-score normalization
-					transformed_results = yeojohnson(filtered_scores, lmbda=500)
-					scaled_transformed_list = Scaling.min_max_scalar_list(
-						transformed_results
-					)
-					filtered_winning_scores_dict = {
-						filtered_results[i][0]: scaled_transformed_list[i]
-						for i in range(len(filtered_results))
-					}
-
-					bt.logging.debug(
-						f"filtered weighed winning scores: [{filtered_winning_scores_dict}]"
-					)
-
-					# bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
-					weights = []
-					converted_uids = []
-
-					deregistered_mineruids = []
-
-					for (
-							miner_uid,
-							weighed_winning_score,
-					) in filtered_winning_scores_dict.items():
+					scores = {}
+					for miner_uid, miner_preds in miner_to_miner_preds.items():
 						try:
-							converted_uids.append(
-								metagraph.uids[metagraph.hotkeys.index(miner_uid)]
+							# removing invalid results
+							for miner_pred in miner_preds:
+								if math.isnan(miner_pred):
+									raise ValueError(
+										f"invalid miner [{miner_uid}] preds [{miner_pred}]"
+									)
+							scores[miner_uid] = Scoring.score_response(
+								miner_preds, validation_array
 							)
-							weights.append(weighed_winning_score)
-						except Exception:  # noqa
-							deregistered_mineruids.append(miner_uid)
-							bt.logging.info(
-								f"not able to find miner hotkey, "
-								f"likely deregistered [{miner_uid}]"
+
+							# add miner_uid related to stream if accurately responded
+							if miner_uid not in miner_to_stream_id:
+								miner_to_stream_id[miner_uid] = []
+							miner_to_stream_id[miner_uid].append(stream_id)
+
+						except IncorrectPredictionSizeError as ipse:
+							bt.logging.warning(
+								f"miner [{miner_uid}] provided incorrect prediction size [{ipse}]"
 							)
+						except ValueError as ve:
+							bt.logging.warning(ve)
 
-					Scoring.update_weights_remove_deregistrations(
-						deregistered_mineruids
-					)
-
-					bt.logging.debug(f"converted uids [{converted_uids}]")
-					bt.logging.debug(f"weights gathered [{weights}]")
-
-					time_now = TimeUtil.now_in_millis()
-					max_retry_time = time_now + TimeUtil.minute_in_millis(10)
-					bt.logging.info(
-						f"max time we'll spend on retries [{TimeUtil.millis_to_timestamp(max_retry_time)}]")
-
-					while True:
-						result, sw_message = subtensor.set_weights(
-							netuid=config.netuid,
-							wallet=wallet,
-							uids=converted_uids,
-							weights=weights,
-							wait_for_inclusion=True,
-							wait_for_finalization=True
+					if len(scores) > 0:
+						bt.logging.debug(f"unscaled scores [{scores}]")
+						scores_list = np.array(
+							[score for miner_uid, score in scores.items()]
 						)
-						bt.logging.info(f"set weights message - [{sw_message}]")
-						if result and "Success" in sw_message:
-							bt.logging.success("Successfully set weights.")
-							bt.logging.info("removing processed files")
-							# remove files that have been properly processed & weighed
-							for file in vali_request.files:
-								os.remove(file)
-							bt.logging.info(
-								f"removed [{len(vali_request.files)}] processed files"
+						variance = np.var(scores_list)
+
+						if variance == 0:
+							bt.logging.debug(
+								"homogenous dataset, going to equally distribute scores"
 							)
-							break
+							weighed_scores = [
+								(miner_uid, 1 / len(scores))
+								for miner_uid, score in scores.items()
+							]
+							bt.logging.debug(f"weighed scores [{weighed_scores}]")
+							(
+								weighed_winning_scores_dict,
+								weight,
+							) = Scoring.update_weights_using_historical_distributions(
+								weighed_scores, validation_array, stream_id
+							)
+
 						else:
-							bt.logging.warning("Failed to set weights.")
-							if TimeUtil.now_in_millis() > max_retry_time:
-								bt.logging.error("Failed to set weights after max allotted time.")
-								break
-							bt.logging.info("sleep and retrying..")
-							time.sleep(15)
+							scaled_scores = Scoring.simple_scale_scores(scores)
 
-					bt.logging.info("weights set and stored")
-					bt.logging.info("adding to cmw")
-
-					time_now = TimeUtil.now_in_millis()
-					try:
-						new_cmw = CMW()
-						cmw_client = CMWClient().set_client_uuid(request_df.client_uuid)
-						cmw_client.add_stream(
-							CMWStreamType()
-							.set_stream_id(stream_type)
-							.set_topic_id(request_df.topic_id)
-						)
-						new_cmw.add_client(cmw_client)
-						cmw_client.add_stream(
-							CMWStreamType()
-							.set_stream_id(stream_type)
-							.set_topic_id(request_df.topic_id)
-						)
-						stream = cmw_client.get_stream(stream_type)
-						for miner_uid, score in scores.items():
-							bt.logging.debug(f"adding mineruid [{miner_uid}]")
-							stream_miner = CMWMiner(miner_uid)
-							stream.add_miner(stream_miner)
-							bt.logging.debug("miner added")
-							stream_miner.add_unscaled_score(
-								[time_now, scores[miner_uid]]
+							# store weights for results
+							sorted_scores = sorted(
+								scaled_scores.items(), key=lambda x: x[1], reverse=True
 							)
-							if miner_uid in weighed_winning_scores_dict:
-								if weighed_winning_scores_dict[miner_uid] != 0:
-									bt.logging.debug(
-										f"adding winning miner [{miner_uid}]"
-									)
-									stream_miner.add_win_score(
-										[
-											time_now,
-											weighed_winning_scores_dict[miner_uid],
-										]
-									)
-						ValiUtils.save_cmw_results(
-							request_df.request_uuid, CMWUtil.dump_cmw(new_cmw)
-						)
-						bt.logging.info("cmw saved: ", request_df.request_uuid)
-					except Exception as e:
-						# if fail to store cmw for some reason print & continue
-						bt.logging.error(e)
-						traceback.print_exc()
+							winning_scores = sorted_scores
 
-					bt.logging.info("scores attempted to be stored in cmw")
-					bt.logging.info("run complete.")
-				else:
+							# choose top 10
+							weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+
+							bt.logging.debug(f"weighed scores [{weighed_scores}]")
+							bt.logging.debug(f"validation array [{validation_array}]")
+							(
+								weighed_winning_scores_dict,
+								weight,
+							) = Scoring.update_weights_using_historical_distributions(
+								weighed_scores, validation_array, stream_id
+							)
+							# weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+
+							bt.logging.debug(f"weight for the predictions: [{weight}]")
+							bt.logging.debug(f"scaled scores: [{scaled_scores}]")
+							bt.logging.debug(
+								f"weighed winning scores: [{weighed_winning_scores_dict}]"
+							)
+
+							values_list = np.array(
+								[v for k, v in weighed_winning_scores_dict.items()]
+							)
+
+							mean = np.mean(values_list)
+							std_dev = np.std(values_list)
+
+							lower_bound = mean - 3 * std_dev
+							bt.logging.debug(f"scores lower bound: [{lower_bound}]")
+
+							if lower_bound < 0:
+								lower_bound = 0
+
+							filtered_results = [
+								(k, v)
+								for k, v in weighed_winning_scores_dict.items()
+								if lower_bound < v
+							]
+							filtered_scores = np.array([x[1] for x in filtered_results])
+
+							# Normalize the list using Z-score normalization
+							transformed_results = yeojohnson(filtered_scores, lmbda=500)
+							# scaled_transformed_list = Scaling.min_max_scalar_list(
+							# 	transformed_results
+							# )
+							filtered_winning_scores_dict = {
+								filtered_results[i][0]: transformed_results[i]
+								for i in range(len(filtered_results))
+							}
+
+							bt.logging.debug(
+								f"filtered weighed winning scores: [{filtered_winning_scores_dict}]"
+							)
+
+							stream_id_to_fwsd[stream_id] = filtered_winning_scores_dict
+
+				miner_to_stream_id_multiplier = {}
+				for miner, stream_ids in miner_to_stream_id.items():
+					# don't count responding to just 1 stream id
+					# receive multiplier for responding to more pairs
+					miner_to_stream_id_multiplier[miner] = 1 + (len(stream_ids)-1 / valistream_len-1) * 0.5
+
+				multiplied_miner_scores = {}
+				for s, d in stream_id_to_fwsd.items():
+					for m, ws in d.items():
+						if m not in multiplied_miner_scores:
+							multiplied_miner_scores[m] = []
+						multiplied_miner_scores[m].append(ws * miner_to_stream_id_multiplier[m])
+
+				finalized_miner_scores = {}
+				for m, mms in multiplied_miner_scores.items():
+					finalized_miner_scores[m] = statistics.mean(mms)
+
+				# bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
+				weights = []
+				converted_uids = []
+
+				deregistered_mineruids = []
+
+				for (
+						miner_uid,
+						weighed_winning_score,
+				) in finalized_miner_scores.items():
+					try:
+						converted_uids.append(
+							metagraph.uids[metagraph.hotkeys.index(miner_uid)]
+						)
+						weights.append(weighed_winning_score)
+					except Exception:  # noqa
+						deregistered_mineruids.append(miner_uid)
+						bt.logging.info(
+							f"not able to find miner hotkey, "
+							f"likely deregistered [{miner_uid}]"
+						)
+
+				Scoring.update_weights_remove_deregistrations(
+					deregistered_mineruids
+				)
+
+				bt.logging.debug(f"converted uids [{converted_uids}]")
+				bt.logging.debug(f"weights gathered [{weights}]")
+
+				result = subtensor.set_weights(
+					netuid=config.netuid,
+					wallet=wallet,
+					uids=converted_uids,
+					weights=weights,
+					wait_for_inclusion=True,
+					wait_for_finalization=True
+				)
+				if result:
+					bt.logging.success("Successfully set weights.")
+					bt.logging.info("removing processed files")
+					# remove files that have been properly processed & weighed
+					for file in vali_request.files:
+						os.remove(file)
 					bt.logging.info(
-						"there are no predictions to score that have the right number of predictions"
+						f"removed [{len(vali_request.files)}] processed files"
 					)
+				else:
+					bt.logging.warning("Failed to set weights.")
+
+				bt.logging.info("weights set and stored")
+				bt.logging.info("adding to cmw")
+
+				time_now = TimeUtil.now_in_millis()
+				try:
+					new_cmw = CMW()
+					cmw_client = CMWClient().set_client_uuid(request_df.client_uuid)
+					cmw_client.add_stream(
+						CMWStreamType()
+						.set_stream_id(stream_type)
+						.set_topic_id(request_df.topic_id)
+					)
+					new_cmw.add_client(cmw_client)
+					cmw_client.add_stream(
+						CMWStreamType()
+						.set_stream_id(stream_type)
+						.set_topic_id(request_df.topic_id)
+					)
+					stream = cmw_client.get_stream(stream_type)
+					for miner_uid, score in scores.items():
+						bt.logging.debug(f"adding mineruid [{miner_uid}]")
+						stream_miner = CMWMiner(miner_uid)
+						stream.add_miner(stream_miner)
+						bt.logging.debug("miner added")
+						stream_miner.add_unscaled_score(
+							[time_now, scores[miner_uid]]
+						)
+						if miner_uid in finalized_miner_scores:
+							if finalized_miner_scores[miner_uid] != 0:
+								bt.logging.debug(
+									f"adding winning miner [{miner_uid}]"
+								)
+								stream_miner.add_win_score(
+									[
+										time_now,
+										finalized_miner_scores[miner_uid],
+									]
+								)
+					ValiUtils.save_cmw_results(
+						request_df.request_uuid, CMWUtil.dump_cmw(new_cmw)
+					)
+					bt.logging.info("cmw saved: ", request_df.request_uuid)
+				except Exception as e:
+					# if fail to store cmw for some reason print & continue
+					bt.logging.error(e)
+					traceback.print_exc()
+
+				bt.logging.info("scores attempted to be stored in cmw")
+				bt.logging.info("run complete.")
 			# If we encounter an unexpected error, log it for debugging.
 			except RuntimeError as e:
 				bt.logging.error(e)
@@ -640,7 +618,7 @@ if __name__ == "__main__":
 			# if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
 
 			# standardizing getting request
-			requests.append(ValiUtils.generate_standard_request(ClientRequest))
+			requests.append(ValiUtils.generate_standard_request())
 
 			predictions_to_complete = ValiUtils.get_predictions_to_complete()
 

@@ -1,4 +1,6 @@
 # pickling and json files
+.DS_Store
+*.h5
 *.json
 *.pickle
 

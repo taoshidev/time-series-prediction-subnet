@@ -6,9 +6,9 @@ class RequestTemplates:
     def __init__(self):
         self.templates = [
             NewRequestDataClass(
-                stream_type="BTCUSD-5m",
-                topic_id=1,
-                schema_id=1,
+                stream_ids="BTCUSD-5m",
+                topic_ids=1,
+                schema_ids=1,
                 feature_ids=[1, 2, 3, 4, 5],
                 prediction_size=100,
                 additional_details={

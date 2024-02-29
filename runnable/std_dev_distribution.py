@@ -20,9 +20,9 @@ if __name__ == "__main__":
 
         client_request = ClientRequest(
             client_uuid="test_client_uuid",
-            stream_type="BTCUSD-5m",
-            topic_id=1,
-            schema_id=1,
+            stream_ids="BTCUSD-5m",
+            topic_ids=1,
+            schema_ids=1,
             feature_ids=[0.001, 0.002, 0.003, 0.004],
             prediction_size=100,
             additional_details={

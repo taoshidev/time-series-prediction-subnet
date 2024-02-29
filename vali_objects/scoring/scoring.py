@@ -130,9 +130,9 @@ class Scoring:
 
     @staticmethod
     def update_weights_using_historical_distributions(
-        scores: list[tuple[str, float]], ds: ndarray
+        scores: list[tuple[str, float]], ds: ndarray, stream_id: str
     ):
-        vweights = ValiUtils.get_vali_weights_json()
+        vweights = ValiUtils.get_vali_weights_json(stream_id)
         geometric_mean_of_percentile = Scoring.get_geometric_mean_of_percentile(ds)
 
         score_miner_uids = [score[0] for score in scores]

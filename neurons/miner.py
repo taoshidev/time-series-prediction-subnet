@@ -166,7 +166,7 @@ def update_predictions(
 
             for stream_prediction in stream_predictions:
                 try:
-                    stream_type = stream_prediction.stream_type
+                    stream_type = stream_prediction.stream_ids
                     if stream_type not in miner_preds:
                         miner_preds[stream_type] = []
                         bt.logging.info(
@@ -433,16 +433,16 @@ def main(config):
         synapse: template.protocol.LiveForwardHash,
     ) -> template.protocol.LiveForwardHash:
         bt.logging.debug(
-            f"received lf hash request on stream type [{synapse.stream_id}] "
+            f"received lf hash request on stream type [{synapse.stream_ids}] "
             f"by vali [{synapse.dendrite.hotkey}]"
         )
         # Convert the string back to a list using literal_eval
         try:
-            if synapse.stream_id in miner_preds:
-                if synapse.stream_id not in sent_preds:
-                    sent_preds[synapse.stream_id] = {}
-                stream_preds = miner_preds[synapse.stream_id]
-                sent_preds[synapse.stream_id][synapse.dendrite.hotkey] = stream_preds
+            if synapse.stream_ids in miner_preds:
+                if synapse.stream_ids not in sent_preds:
+                    sent_preds[synapse.stream_ids] = {}
+                stream_preds = miner_preds[synapse.stream_ids]
+                sent_preds[synapse.stream_ids][synapse.dendrite.hotkey] = stream_preds
                 hashed_preds = HashingUtils.hash_predictions(
                     wallet.hotkey.ss58_address, str(stream_preds)
                 )
@@ -474,7 +474,7 @@ def main(config):
 
     def live_f(synapse: template.protocol.LiveForward) -> template.protocol.LiveForward:
         bt.logging.debug(
-            f"received lf request on stream type [{synapse.stream_id}] "
+            f"received lf request on stream type [{synapse.stream_ids}] "
             f"by vali [{synapse.dendrite.hotkey}]"
         )
 
@@ -482,16 +482,16 @@ def main(config):
         # important for backward compatibility so miners dont lose incentive
         try:
             if (
-                synapse.stream_id in sent_preds
-                and synapse.dendrite.hotkey in sent_preds[synapse.stream_id]
+                synapse.stream_ids in sent_preds
+                and synapse.dendrite.hotkey in sent_preds[synapse.stream_ids]
             ):
-                stream_preds = sent_preds[synapse.stream_id][synapse.dendrite.hotkey]
+                stream_preds = sent_preds[synapse.stream_ids][synapse.dendrite.hotkey]
                 synapse.predictions = bt.tensor(np.array(stream_preds))
             else:
                 bt.logging.warning(
                     f"suspecting validator has not updated to V5, sending back non-hash based preds"
                 )
-                stream_preds = miner_preds[synapse.stream_id]
+                stream_preds = miner_preds[synapse.stream_ids]
                 synapse.predictions = bt.tensor(np.array(stream_preds))
             bt.logging.debug(f"sending lf [{stream_preds}]")
             bt.logging.debug(f"sending lf with length [{len(stream_preds)}]")

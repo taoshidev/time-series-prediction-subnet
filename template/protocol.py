@@ -4,20 +4,17 @@
 # Copyright © 2023 Taoshi Inc
 import bittensor as bt
 from pydantic import Field
-from typing import List, Optional
+from typing import List, Optional, Dict
+
+from vali_config import ValiStream
 
 
 class BaseProtocol(bt.Synapse):
     request_uuid: str = Field(..., allow_mutation=False)
-    stream_id: str = Field(..., allow_mutation=False)
-    samples: Optional[bt.Tensor] = None
-    topic_id: Optional[int] = Field(..., allow_mutation=False)
 
 
 class Forward(BaseProtocol):
-    feature_ids: List[float]
-    prediction_size: int = Field(..., allow_mutation=False)
-    schema_id: Optional[int] = Field(..., allow_mutation=False)
+    vali_streams: List[Dict]
 
 
 class ForwardPrediction(Forward):
@@ -25,7 +22,7 @@ class ForwardPrediction(Forward):
 
 
 class ForwardHash(Forward):
-    hashed_predictions: Optional[str] = None
+    hashed_predictions: Optional[List[str]] = None
 
 
 class Backward(BaseProtocol):

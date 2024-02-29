@@ -18,7 +18,7 @@ class CMWClient:
 
     def get_stream(self, stream_id: str):
         for stream in self.streams:
-            if stream.stream_id == stream_id:
+            if stream.stream_ids == stream_id:
                 return stream
         return None
 

@@ -29,8 +29,8 @@ class ValiBkpUtils:
         return 'valirecords.json'
 
     @staticmethod
-    def get_vali_weights_file() -> str:
-        return 'valiweights.json'
+    def get_vali_weights_file(stream_id: str) -> str:
+        return f'valiweights-{stream_id}.json'
 
     @staticmethod
     def get_vali_predictions_dir() -> str:

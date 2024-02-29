@@ -180,9 +180,9 @@ if __name__ == "__main__":
         try:
             client_request = ClientRequest(
                 client_uuid="test_client_uuid",
-                stream_type="BTCUSD-5m",
-                topic_id=1,
-                schema_id=1,
+                stream_ids="BTCUSD-5m",
+                topic_ids=1,
+                schema_ids=1,
                 feature_ids=[0.001, 0.002, 0.003, 0.004],
                 prediction_size=100,
                 additional_details={"tf": 5, "trade_pair": "BTCUSD"},
@@ -200,7 +200,7 @@ if __name__ == "__main__":
             request_uuid = str(uuid.uuid4())
             test_vali_hotkey = str(uuid.uuid4())
             # should be a hash of the vali hotkey & stream type (1 is fine)
-            hash_object = hashlib.sha256(client_request.stream_type.encode())
+            hash_object = hashlib.sha256(client_request.stream_ids.encode())
             stream_id = hash_object.hexdigest()
 
             vm = ValiUtils.get_vali_records()
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                 cmw_client.add_stream(
                     CMWStreamType()
                     .set_stream_id(stream_id)
-                    .set_topic_id(client_request.topic_id)
+                    .set_topic_id(client_request.topic_ids)
                 )
                 vm.add_client(cmw_client)
             else:
@@ -220,7 +220,7 @@ if __name__ == "__main__":
                     client.add_stream(
                         CMWStreamType()
                         .set_stream_id(stream_id)
-                        .set_topic_id(client_request.topic_id)
+                        .set_topic_id(client_request.topic_ids)
                     )
             ValiUtils.set_vali_memory_and_bkp(CMWUtil.dump_cmw(vm))
 
@@ -246,9 +246,9 @@ if __name__ == "__main__":
 
                 pdf = PredictionDataFile(
                     client_uuid=client_request.client_uuid,
-                    stream_type=client_request.stream_type,
+                    stream_type=client_request.stream_ids,
                     stream_id=stream_id,
-                    topic_id=client_request.topic_id,
+                    topic_id=client_request.topic_ids,
                     request_uuid=request_uuid,
                     miner_uid=miner_uuid,
                     start=start_time_ms,
