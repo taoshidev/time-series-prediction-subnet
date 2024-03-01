@@ -12,11 +12,12 @@ import os
 import requests
 import statistics
 import time
-from time_util import time_span_ms
+from time_util import current_interval_ms, time_span_ms
+import urllib.parse
 
 
 class LunarCrushMetric(str, Enum):
-    TIME = "time"
+    OPEN_TIME = "time"
 
     POSTS_CREATED = "posts_created"
     POSTS_ACTIVE = "posts_active"
@@ -94,11 +95,14 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
 
         headers = {"Authorization": f"Bearer {api_key}"}
 
+        kind = urllib.parse.quote(kind, safe="")
+        selector = urllib.parse.quote(selector, safe="")
+
         self._source_interval_ms = source_interval_ms
         self._bucket = bucket
         self._retries = retries
         self._metrics = list(feature_mappings.values())
-        self._convert_metrics = [LunarCrushMetric.TIME, *self._metrics]
+        self._convert_metrics = [LunarCrushMetric.OPEN_TIME, *self._metrics]
         self._url = f"{self._BASE_URL}/{kind}/{selector}/{self._METRIC}/{self._VERSION}"
         self._headers = headers
         self._logger = getLogger(self.__class__.__name__)
@@ -106,7 +110,7 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
     # noinspection PyMethodMayBeStatic
     def _convert_metric(self, metric: str, value):
         match metric:
-            case LunarCrushMetric.TIME:
+            case LunarCrushMetric.OPEN_TIME:
                 value *= time_span_ms(seconds=1)
             case _:
                 if value is None:
@@ -156,15 +160,31 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        start_time = int(start_time_ms / time_span_ms(seconds=1))
-        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
-        end_time = int(end_time_ms / time_span_ms(seconds=1))
+        _OPEN_TIME = LunarCrushMetric.OPEN_TIME
+
+        # LunarCrush uses open time for queries
+        open_start_time_ms = start_time_ms - interval_ms
+
+        # Align on interval so queries for 1 sample include at least 1 sample
+        open_start_time_ms = current_interval_ms(
+            open_start_time_ms, self._source_interval_ms
+        )
+
+        open_start_time = int(open_start_time_ms / time_span_ms(seconds=1))
+        open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
+        open_end_time = int(open_end_time_ms / time_span_ms(seconds=1))
 
         # Ensure that the end time is not the same as the start time
-        if end_time == start_time:
-            end_time += 1
+        if open_end_time == open_start_time:
+            open_end_time += 1
 
-        url = f"{self._url}?start={start_time}&end={end_time}&bucket={self._bucket}"
+        query_parameters = {
+            "start": open_start_time,
+            "end": open_end_time,
+            "bucket": self._bucket,
+        }
+        url = self._url + "?" + urllib.parse.urlencode(query_parameters)
+
         data_rows = []
         retries = self._retries
 
@@ -216,7 +236,7 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         for sample_index in range(sample_count):
             while True:
                 row = data_rows[row_index]
-                row_time_ms = row[LunarCrushMetric.TIME]
+                row_time_ms = row[_OPEN_TIME] + self._source_interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)
