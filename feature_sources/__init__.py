@@ -40,3 +40,7 @@ from .kraken_kline_feature_source import (
 )
 from .temporal_feature_source import TemporalFeatureSource
 from .test_feature_source import TestFeatureSource
+from .twelvedata_feature_source import (
+    TwelveDataField,
+    TwelveDataTimeSeriesFeatureSource,
+)

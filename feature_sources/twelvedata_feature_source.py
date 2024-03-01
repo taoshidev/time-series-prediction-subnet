@@ -11,6 +11,7 @@ import os
 import requests
 from requests import JSONDecodeError
 import statistics
+import time
 from time_util import (
     current_interval_ms,
     datetime,
@@ -160,30 +161,26 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        query_start_time_ms = start_time_ms
+        _TIME = TwelveDataField.TIME
 
         # Align on interval so queries for 1 sample include at least 1 sample
         query_start_time_ms = current_interval_ms(
-            query_start_time_ms, self._source_interval_ms
+            start_time_ms, self._source_interval_ms
         )
 
-        # Times must be preformatted because Coin Metrics rejects times with
-        # the ISO timezone suffix for UTC ("+00:00") and their Python
-        # library doesn't format it for their preference
-        start_time = datetime.fromtimestamp_ms(query_start_time_ms)
-        # TODO: Subtract 1 from sample_count?
-        end_time_ms = start_time_ms + (interval_ms * sample_count)
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
         end_time = datetime.fromtimestamp_ms(end_time_ms)
-        start_time_string = start_time.to_iso8601_string()
-        end_time_string = end_time.to_iso8601_string()
+
+        query_parameters = self._query_parameters.copy()
+        query_parameters["end_date"] = str(end_time)
 
         data_rows = []
         retries = self._retries
-        query_parameters = self._query_parameters.copy()
         # Loop for pagination
         while True:
-            query_parameters["start_date"] = start_date
-            query_parameters["end_date"] = end_date
+            start_time = datetime.fromtimestamp_ms(query_start_time_ms)
+
+            query_parameters["start_date"] = str(start_time)
 
             success = False
             response_row_count = 0
@@ -206,7 +203,8 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
                             f"{server_error}",
                         )
                     else:
-                        response_rows = response.json()
+                        response_data = response.json()
+                        response_rows = response_data.get("values", [])
                         response_row_count = len(response_rows)
                         data_rows.extend(response_rows)
                         success = True
@@ -229,7 +227,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
             if response_row_count != self._QUERY_LIMIT:
                 break
 
-            open_start_time_ms = data_rows[-1][_OPEN_TIME] + self._source_interval_ms
+            query_start_time_ms = data_rows[-1][_TIME] + self._source_interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:
@@ -247,7 +245,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         for sample_index in range(sample_count):
             while True:
                 row = data_rows[row_index]
-                row_time_ms = row[TwelveDataField.TIME]
+                row_time_ms = row[_TIME]
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)
