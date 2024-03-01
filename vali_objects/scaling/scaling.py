@@ -87,3 +87,7 @@ class Scaling:
         scaled_values = [val[0] for val in scaled_values_2d]
 
         return scaled_values
+
+    @staticmethod
+    def get_exponential_decay(value: int, scale: int = 1, rate: int = 2):
+        return scale * (1 / rate) ** value

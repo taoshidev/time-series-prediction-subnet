@@ -3,7 +3,7 @@
 import math
 import numpy as np
 from numpy import ndarray
-from vali_config import ValiConfig
+from vali_config import ValiConfig, ValiStream
 from vali_objects.exceptions.incorrect_prediction_size_error import (
     IncorrectPredictionSizeError,
 )
@@ -173,11 +173,13 @@ class Scoring:
 
     @staticmethod
     def update_weights_remove_deregistrations(miner_uids: list[str]):
-        vweights = ValiUtils.get_vali_weights_json()
-        for miner_uid in miner_uids:
-            if miner_uid in vweights:
-                del vweights[miner_uid]
-        ValiUtils.set_vali_weights_bkp(vweights)
+        for vali_stream in ValiStream:
+            stream_id = vali_stream.stream_id
+            vweights = ValiUtils.get_vali_weights_json(stream_id)
+            for miner_uid in miner_uids:
+                if miner_uid in vweights:
+                    del vweights[miner_uid]
+            ValiUtils.set_vali_weights_bkp(vweights, stream_id)
 
     @staticmethod
     def basic_ema(current_value, previous_ema, length=48):

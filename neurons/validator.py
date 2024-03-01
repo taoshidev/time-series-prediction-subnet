@@ -22,7 +22,7 @@ from streams.btcusd_5m import (
 from template.protocol import (
 	LiveForward,
 	LiveBackward,
-	LiveForwardHash,
+	LiveForwardHash, LiveForwardHashStreams, LiveForwardStreams,
 )
 import time
 from time_util import datetime
@@ -114,19 +114,21 @@ def run_time_series_validation(
 		request_uuid = str(uuid.uuid4())
 
 		if isinstance(vali_request, ClientRequest):
+			print(vali_request)
+			pred_metagraph_hotkeys = {vali_id: [] for vali_stream in vali_request.vali_streams for vali_id, vs_details
+			                          in vali_stream.items()}
 
-			for vali_stream in vali_request.vali_streams:
-				pred_metagraph_hotkeys[vali_stream.stream_id] = []
+			bt.logging.debug(pred_metagraph_hotkeys)
 
 			if vali_request.client_uuid is None:
 				vali_request.client_uuid = wallet.hotkey.ss58_address
 
-			live_hash_proto = LiveForwardHash(
+			live_hash_proto = LiveForwardHashStreams(
 				request_uuid=request_uuid,
 				vali_streams=vali_request.vali_streams
 			)
 
-			live_proto = LiveForward(
+			live_proto = LiveForwardStreams(
 				request_uuid=request_uuid,
 				vali_streams=vali_request.vali_streams
 			)
@@ -393,22 +395,47 @@ def run_time_series_validation(
 
 							stream_id_to_fwsd[stream_id] = filtered_winning_scores_dict
 
+				# performance of each miner against each stream id
+
+				# properly incentivize miners to respond to all of them
+				# if they respond to multiple how do we properly define their weight/incentive
+
+				# theres a reserve of % total of a score that you can achieve by responding to all streams
+				# so if theres eur/usd, spx, and btc/usd, if you respond to only btc/usd you can only achieve
+				# 70% of a total score. Therefore, theres a 30% reserve for other stream_ids
+				# if you respond to all of the streams then you can achieve 100% of some score
+
+				# a miner could have 0.4 for eur/usd, 0.3 for spx, and 0.8 for btc/usd
+				# 0.6 for eur/usd, 0.45 for spx, and 1.2 for btc/usd
+				# this ends with 0.75 total which is lower than just responding to btc/usd
+
+				# 70% for btc, 30% for rest. Equally distribute the 30% across the others
+
+				# miner 1 - score of 0.8 for btc
+				# miner 2 - score of 0.4 for btc, 0.4 for eurusd, 0.4 for spx
+
+				# miner1 - 1.7 * 0.8 = 1.36
+				# miner2 - 1.45 * 1.2 = 1.74
+
+				# (0.9 + 0.7) / (factor_for_of_stream_id_responses) = score
+				# factor_for_of_stream_id_responses - if you have more streams your respond to it decreases
+
 				miner_to_stream_id_multiplier = {}
 				for miner, stream_ids in miner_to_stream_id.items():
 					# don't count responding to just 1 stream id
 					# receive multiplier for responding to more pairs
-					miner_to_stream_id_multiplier[miner] = 1 + (len(stream_ids)-1 / valistream_len-1) * 0.5
+					miner_to_stream_id_multiplier[miner] = 1 + (len(stream_ids) - 1 / valistream_len - 1) * 0.5
 
 				multiplied_miner_scores = {}
 				for s, d in stream_id_to_fwsd.items():
 					for m, ws in d.items():
 						if m not in multiplied_miner_scores:
 							multiplied_miner_scores[m] = []
-						multiplied_miner_scores[m].append(ws * miner_to_stream_id_multiplier[m])
+						multiplied_miner_scores[m].append(ws)
 
 				finalized_miner_scores = {}
 				for m, mms in multiplied_miner_scores.items():
-					finalized_miner_scores[m] = statistics.mean(mms)
+					finalized_miner_scores[m] = sum(mms) / Scaling.get_exponential_decay(len(mms) - 1)
 
 				# bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
 				weights = []
@@ -596,19 +623,22 @@ if __name__ == "__main__":
 			metagraph.sync(subtensor=subtensor)
 			bt.logging.info(f"Metagraph updated: {metagraph}")
 
-		if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
-			vweights = ValiUtils.get_vali_weights_json()
-			for k, v in vweights.items():
-				if math.isnan(v):
-					valiweights_file_path = (
-							ValiBkpUtils.get_vali_weights_dir()
-							+ ValiBkpUtils.get_vali_weights_file()
-					)
-					try:
-						os.remove(valiweights_file_path)
-						print(f"File '{valiweights_file_path}' successfully deleted.")
-					except OSError as e:
-						print(f"Error: {valiweights_file_path} : {e.strerror}")
+		# if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
+		if True:
+			for vali_stream in ValiStream:
+				stream_id = vali_stream.stream_id
+				vweights = ValiUtils.get_vali_weights_json(stream_id)
+				for k, v in vweights.items():
+					if math.isnan(v):
+						valiweights_file_path = (
+								ValiBkpUtils.get_vali_weights_dir()
+								+ ValiBkpUtils.get_vali_weights_file(stream_id)
+						)
+						try:
+							os.remove(valiweights_file_path)
+							print(f"File '{valiweights_file_path}' successfully deleted.")
+						except OSError as e:
+							print(f"Error: {valiweights_file_path} : {e.strerror}")
 
 			requests = []
 			# see if any files exist, if not then generate a client request (a live prediction)

@@ -30,9 +30,7 @@ import time
 from time_util import datetime
 import traceback
 from typing import Tuple
-from vali_config import ValiConfig
-from vali_objects.dataclasses.stream_prediction import StreamPrediction
-from vali_objects.request_templates import RequestTemplates
+from vali_config import ValiConfig, ValiStream
 
 FEATURE_COLLECTOR_TIMEOUT = 10.0
 
@@ -157,26 +155,26 @@ def get_predictions(
 
 
 def update_predictions(
-    stream_predictions: list[StreamPrediction],
+    vali_streams: list[ValiStream],
 ):
     while not stopping:
         current_time = datetime.now()
         if current_time.second < 15:
             bt.logging.debug(f"running update of predictions [{current_time}]")
 
-            for stream_prediction in stream_predictions:
+            for vali_stream in vali_streams:
                 try:
-                    stream_type = stream_prediction.stream_ids
-                    if stream_type not in miner_preds:
-                        miner_preds[stream_type] = []
+                    stream_id = vali_stream.stream_id
+                    if stream_id not in miner_preds:
+                        miner_preds[stream_id] = []
                         bt.logging.info(
-                            f"stream type doesn't exist, setting to an empty list for [{stream_type}]"
+                            f"stream type doesn't exist, setting to an empty list for [{stream_id}]"
                         )
 
                     bt.logging.debug(
-                        f"current predicted closes in memory [{miner_preds[stream_type]}]"
+                        f"current predicted closes in memory [{miner_preds[stream_id]}]"
                     )
-                    bt.logging.info(f"setting predictions for [{stream_type}]")
+                    bt.logging.info(f"setting predictions for [{stream_id}]")
 
                     prediction_array = get_predictions(
                         current_time.timestamp_ms(),
@@ -191,9 +189,9 @@ def update_predictions(
                     bt.logging.debug(f"predicted closes [{predicted_closes}]")
 
                     # set preds in memory
-                    miner_preds[stream_type] = predicted_closes
+                    miner_preds[stream_id] = predicted_closes
                     bt.logging.info(
-                        f"done setting predictions for [{stream_type}] "
+                        f"done setting predictions for [{stream_id}] "
                         f"in memory with length [{len(predicted_closes)}]"
                     )
 
@@ -499,20 +497,67 @@ def main(config):
         except Exception as e:
             bt.logging.error(f"error returning synapse to vali: {e}")
 
-    # def lb_blacklist_fn(synapse: template.protocol.LiveBackward) -> Tuple[bool, str]:
-    #     # standardizing not accepting lb for now. Miner can override if they'd like.
-    #     return False, synapse.dendrite.hotkey
-    #
-    # def lb_priority_fn(synapse: template.protocol.LiveBackward) -> float:
-    #     caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
-    #     prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
-    #     bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
-    #     return prirority
+    def live_hash_f_s(
+        synapse: template.protocol.LiveForwardHashStreams,
+    ) -> template.protocol.LiveForwardHashStreams:
+        bt.logging.debug(
+            f"received lf request on streams [{synapse.vali_streams}] "
+            f"by vali [{synapse.dendrite.hotkey}]"
+        )
+        vali_stream_ids_requested = [ValiStream.to_enum(vali_stream).stream_id for vali_stream in synapse.vali_streams]
+        vali_stream_preds_hash = []
 
-    # def live_b(synapse: template.protocol.LiveBackward) -> template.protocol.LiveBackward:
-    #     bt.logging.debug(f'received lb with length {len(synapse.samples.numpy())}')
-    #     synapse.received = True
-    #     return synapse
+        for ind, vali_stream_id_requested in enumerate(vali_stream_ids_requested):
+            # Convert the string back to a list using literal_eval
+            try:
+                if vali_stream_id_requested in miner_preds:
+                    if vali_stream_id_requested not in sent_preds:
+                        sent_preds[vali_stream_id_requested] = {}
+                    stream_preds = miner_preds[vali_stream_id_requested]
+                    sent_preds[vali_stream_id_requested][synapse.dendrite.hotkey] = stream_preds
+                    hashed_preds = HashingUtils.hash_predictions(
+                        wallet.hotkey.ss58_address, str(stream_preds)
+                    )
+
+                    vali_stream_preds_hash[ind] = hashed_preds
+                    bt.logging.debug(f"adding lf [{stream_preds}] "
+                                     f"for stream_id [{vali_stream_ids_requested}] "
+                                     f"with length [{len(stream_preds)}]")
+                else:
+                    vali_stream_preds_hash[ind] = []
+                    bt.logging.info(f"miner preds not stored in memory for [{vali_stream_id_requested}]. Skipping.")
+            except Exception as e:
+                vali_stream_preds_hash[ind] = []
+                bt.logging.error(f"error returning synapse to vali: {e} for [{vali_stream_id_requested}]. "
+                                 f"Attempting to continue")
+        synapse.hashed_predictions = vali_stream_preds_hash
+        return synapse
+
+    def live_f_s(synapse: template.protocol.LiveForwardStreams) -> template.protocol.LiveForwardStreams:
+        bt.logging.debug(
+            f"received lf request on streams [{synapse.vali_streams}] "
+            f"by vali [{synapse.dendrite.hotkey}]"
+        )
+
+        vali_stream_ids_requested = [ValiStream.to_enum(vali_stream).stream_id for vali_stream in synapse.vali_streams]
+        vali_stream_preds = []
+
+        for ind, vali_stream_id_requested in enumerate(vali_stream_ids_requested):
+            try:
+                stream_preds = []
+                if vali_stream_id_requested in sent_preds:
+                    stream_preds = sent_preds[vali_stream_id_requested][synapse.dendrite.hotkey]
+                vali_stream_preds[ind] = stream_preds
+                bt.logging.debug(f"adding lf [{stream_preds}] "
+                                 f"for stream_id [{vali_stream_ids_requested}] "
+                                 f"with length [{len(stream_preds)}]")
+            except Exception as e:
+                vali_stream_preds[ind] = []
+                bt.logging.error(f"error returning synapse to vali: {e} for [{vali_stream_id_requested}]. "
+                                 f"Attempting to continue")
+
+        synapse.predictions = bt.tensor(np.array(vali_stream_preds))
+        return synapse
 
     # Build and link miner functions to the axon.
     # The axon handles request processing, allowing validators to send this process requests.
@@ -542,6 +587,16 @@ def main(config):
     )
     axon.attach(
         forward_fn=live_hash_f,
+        blacklist_fn=lf_hash_blacklist_fn,
+        priority_fn=lf_hash_priority_fn,
+    )
+    axon.attach(
+        forward_fn=live_f_s,
+        blacklist_fn=lf_blacklist_fn,
+        priority_fn=lf_priority_fn,
+    )
+    axon.attach(
+        forward_fn=live_hash_f_s,
         blacklist_fn=lf_hash_blacklist_fn,
         priority_fn=lf_hash_priority_fn,
     )
@@ -578,14 +633,11 @@ def main(config):
         )
         sys.exit(0)
 
-    stream_predictions = [
-        StreamPrediction.init_stream_prediction(request_template)
-        for request_template in RequestTemplates().templates
-    ]
+    vali_streams = [vali_stream for vali_stream in ValiStream]
 
     run_update_predictions = threading.Thread(
         target=update_predictions,
-        args=(stream_predictions,),
+        args=(vali_streams,),
     )
     run_update_predictions.start()
 

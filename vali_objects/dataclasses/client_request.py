@@ -13,6 +13,6 @@ class ClientRequest:
     vali_streams: List[ValiStream]
     client_uuid: Optional[str] = None
 
-    @classmethod
-    def init_client_request(cls, client_request_dict):
-        return cls(**vars(client_request_dict))
+    # @classmethod
+    # def init_client_request(cls, client_request_dict):
+    #     return cls(**vars(client_request_dict))
