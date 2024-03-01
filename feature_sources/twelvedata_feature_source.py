@@ -21,7 +21,7 @@ from urllib.parse import urlencode
 
 
 class TwelveDataField(str, Enum):
-    TIME = "datetime"
+    OPEN_TIME = "datetime"
 
     PRICE_OPEN = "open"
     PRICE_CLOSE = "close"
@@ -106,7 +106,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         self._source_interval_ms = source_interval_ms
         self._feature_mappings = feature_mappings
         self._metrics = list(feature_mappings.values())
-        self._convert_metrics = [TwelveDataField.TIME, *self._metrics]
+        self._convert_metrics = [TwelveDataField.OPEN_TIME, *self._metrics]
         self._headers = headers
         self._query_parameters = query_parameters
         self._retries = retries
@@ -115,7 +115,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
     # noinspection PyMethodMayBeStatic
     def _convert_metric(self, metric: str, value):
         match metric:
-            case TwelveDataField.TIME:
+            case TwelveDataField.OPEN_TIME:
                 value = datetime.parse(value).timestamp_ms()
             case _:
                 if value is None:
@@ -164,24 +164,27 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        _TIME = TwelveDataField.TIME
+        _OPEN_TIME = TwelveDataField.OPEN_TIME
+
+        # LunarCrush uses open time for queries
+        open_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        query_start_time_ms = current_interval_ms(
-            start_time_ms, self._source_interval_ms
+        open_start_time_ms = current_interval_ms(
+            open_start_time_ms, self._source_interval_ms
         )
 
-        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
-        end_time = datetime.fromtimestamp_ms(end_time_ms)
+        open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
+        open_end_time = datetime.fromtimestamp_ms(open_end_time_ms)
 
         query_parameters = self._query_parameters.copy()
-        query_parameters["end_date"] = str(end_time)
+        query_parameters["end_date"] = str(open_end_time)
 
         data_rows = []
         retries = self._retries
         # Loop for pagination
         while True:
-            start_time = datetime.fromtimestamp_ms(query_start_time_ms)
+            start_time = datetime.fromtimestamp_ms(open_start_time_ms)
 
             query_parameters["start_date"] = str(start_time)
 
@@ -238,14 +241,14 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
             if response_row_count != self._QUERY_LIMIT:
                 break
 
-            query_start_time_ms = data_rows[-1][_TIME] + self._source_interval_ms
+            last_row = data_rows[-1]
+            open_start_time_ms = last_row[_OPEN_TIME] + self._source_interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:
             raise RuntimeError("No samples received.")
 
         self._convert_samples(data_rows)
-
         feature_samples = self._create_feature_samples(sample_count)
 
         sample_time_ms = start_time_ms
@@ -256,7 +259,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         for sample_index in range(sample_count):
             while True:
                 row = data_rows[row_index]
-                row_time_ms = row[_TIME]
+                row_time_ms = row[_OPEN_TIME] + self._source_interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)
