@@ -31,6 +31,8 @@ class TwelveDataField(str, Enum):
 
 
 class TwelveDataTimeSeriesFeatureSource(FeatureSource):
+    SOURCE_NAME = "TwelveDataTimeSeries"
+
     DEFAULT_RETRIES = 3
     RETRY_DELAY = 1.0
 
@@ -84,9 +86,11 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         if api_key is None:
             api_key = os.environ.get("TD_API_KEY")
 
-        headers = {"Authorization": api_key}
+        headers = {"Authorization": f"apikey {api_key}"}
 
         query_parameters = {
+            "order": "ASC",
+            "interval": query_interval,
             "outputsize": self._QUERY_LIMIT,
             "timezone": "UTC",
             "symbol": symbol,
@@ -100,10 +104,9 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
             query_parameters["type"] = asset_class
 
         self._source_interval_ms = source_interval_ms
-        self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._metrics = list(feature_mappings.values())
-        self._convert_metrics = [TwelveDataField.TIME]
+        self._convert_metrics = [TwelveDataField.TIME, *self._metrics]
         self._headers = headers
         self._query_parameters = query_parameters
         self._retries = retries
@@ -194,7 +197,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
                     if response.status_code >= HTTPStatus.BAD_REQUEST:
                         try:
                             error_response = response.json()
-                            error_message = error_response.get("error")
+                            error_message = error_response.get("message")
                             server_error = f", TwelveData error: {error_message}"
                         except JSONDecodeError:
                             server_error = ""
@@ -204,6 +207,14 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
                         )
                     else:
                         response_data = response.json()
+                        response_status = response_data["status"]
+
+                        if response_status != "ok":
+                            error_message = response_data.get("message")
+                            self._logger.error(
+                                f"TwelveData error {response_status}: {error_message}",
+                            )
+
                         response_rows = response_data.get("values", [])
                         response_row_count = len(response_rows)
                         data_rows.extend(response_rows)
