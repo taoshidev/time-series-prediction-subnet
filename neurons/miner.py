@@ -381,38 +381,6 @@ def main(config):
     my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
     bt.logging.info(f"Running miner on uid: {my_subnet_uid}")
 
-    # def tf_blacklist_fn(synapse: template.protocol.TrainingForward) -> Tuple[bool, str]:
-    #     # standardizing not accepting tf and tb for now
-    #     return False, synapse.dendrite.hotkey
-    #
-    # def tf_priority_fn(synapse: template.protocol.TrainingForward) -> float:
-    #     caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
-    #     prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
-    #     bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
-    #     return prirority
-    #
-    # def training_f( synapse: template.protocol.TrainingForward ) -> template.protocol.TrainingForward:
-    #     bt.logging.debug(f'received tf')
-    #     predictions = np.array([random.uniform(0.499, 0.501) for i in range(0, synapse.prediction_size)])
-    #     synapse.predictions = bt.tensor(predictions)
-    #     bt.logging.debug(f'sending tf with length {len(predictions)}')
-    #     return synapse
-    #
-    # def tb_blacklist_fn( synapse: template.protocol.TrainingBackward ) -> Tuple[bool, str]:
-    #     # standardizing not accepting tf and tb for now
-    #     return False, synapse.dendrite.hotkey
-    #
-    # def tb_priority_fn( synapse: template.protocol.TrainingBackward ) -> float:
-    #     caller_uid = metagraph.hotkeys.index( synapse.dendrite.hotkey ) # Get the caller index.
-    #     prirority = float( metagraph.S[ caller_uid ] ) # Return the stake as the priority.
-    #     bt.logging.trace(f'Prioritizing {synapse.dendrite.hotkey} with value: ', prirority)
-    #     return prirority
-    #
-    # def training_b( synapse: template.protocol.TrainingBackward ) -> template.protocol.TrainingBackward:
-    #     bt.logging.debug(f'received lb with length {len(synapse.samples.numpy())}')
-    #     synapse.received = True
-    #     return synapse
-
     def lf_hash_blacklist_fn(
         synapse: template.protocol.LiveForwardHash,
     ) -> Tuple[bool, str]:
