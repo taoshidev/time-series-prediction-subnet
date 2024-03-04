@@ -3,6 +3,8 @@
 # developer: Taoshidev
 # Copyright © 2023 Taoshi Inc
 import argparse
+import threading
+
 import bittensor as bt
 import math
 
@@ -96,15 +98,108 @@ def get_config():
     return config
 
 
-def run_time_series_validation(
-    wallet, config, metagraph, vali_requests: list[BaseRequestDataClass]
-):
+def vali_set_weights():
+    # continuous retrying to set weights due to onchain deprioritization
+    bt.logging.info("running vali set weights continuous retrier.")
+    while True:
+        try:
+            bt.logging.info(f"running set weights on block [{metagraph.block.item()}]")
+            weighed_winning_scores_dict = ValiUtils.get_vali_weights_json()
+
+            values_list = np.array(
+                [wws for hotkey, wws in weighed_winning_scores_dict.items()]
+            )
+
+            mean = np.mean(values_list)
+            std_dev = np.std(values_list)
+
+            lower_bound = mean - 3 * std_dev
+            bt.logging.debug(f"vali weights: [{weighed_winning_scores_dict}]")
+            bt.logging.debug(f"weights lower bound: [{lower_bound}]")
+
+            if lower_bound < 0:
+                lower_bound = 0
+
+            filtered_results = [
+                (_k, _v)
+                for _k, _v in weighed_winning_scores_dict.items()
+                if lower_bound < _v
+            ]
+
+            filtered_scores = np.array([x[1] for x in filtered_results])
+
+            # Normalize the list using Z-score normalization
+            transformed_results = yeojohnson(filtered_scores, lmbda=2000)
+            scaled_transformed_list = Scaling.min_max_scalar_list(
+                transformed_results
+            )
+            filtered_winning_scores_dict = {
+                filtered_results[i][0]: scaled_transformed_list[i]
+                for i in range(len(filtered_results))
+            }
+
+            bt.logging.debug(
+                f"filtered weighed winning scores: [{filtered_winning_scores_dict}]"
+            )
+
+            # bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
+            weights = []
+            converted_uids = []
+
+            deregistered_mineruids = []
+
+            for (
+                    miner_uid,
+                    weighed_winning_score,
+            ) in filtered_winning_scores_dict.items():
+                try:
+                    converted_uids.append(
+                        metagraph.uids[metagraph.hotkeys.index(miner_uid)]
+                    )
+                    weights.append(weighed_winning_score)
+                except Exception:
+                    deregistered_mineruids.append(miner_uid)
+                    bt.logging.info(
+                        f"not able to find miner hotkey, "
+                        f"likely deregistered [{miner_uid}]"
+                    )
+
+            Scoring.update_weights_remove_deregistrations(
+                deregistered_mineruids
+            )
+
+            bt.logging.debug(f"converted uids [{converted_uids}]")
+            bt.logging.debug(f"weights gathered [{weights}]")
+
+            result = subtensor.set_weights(
+                netuid=config.netuid,
+                wallet=wallet,
+                uids=converted_uids,
+                weights=weights,
+                # wait_for_inclusion=True,
+                # wait_for_finalization=True
+            )
+            if result:
+                bt.logging.success("Successfully set weights.")
+            else:
+                bt.logging.info("Failed to set weights.")
+            bt.logging.info("sleep for 5 mins and retry.")
+            time.sleep(300)
+        except Exception:
+            bt.logging.info("error setting weights.")
+            traceback.print_exc()
+            bt.logging.info("sleep for 5 mins and retry.")
+            time.sleep(300)
+
+
+def run_time_series_validation(vali_requests: list[BaseRequestDataClass]):
     # Set up initial scoring weights for validation
     # bt.logging.info("Building validation weights.")
     # scores = torch.ones_like(metagraph.S, dtype=torch.float32)
     # bt.logging.info(f"Weights: {scores}")
 
     pred_metagraph_hotkeys = []
+    bt.logging.info(f"running ts validation on block [{metagraph.block.item()}]")
 
     for vali_request in vali_requests:
         # standardized request identifier for miners to tie together forward/backprop
@@ -291,27 +386,6 @@ def run_time_series_validation(
                     "results gathered sending back to miners via backprop and weighing"
                 )
 
-                # Send back the results for backprop so miners can learn
-                results = bt.tensor(validation_array)
-
-                results_backprop_proto = LiveBackward(
-                    request_uuid=request_uuid,
-                    stream_id=stream_type,
-                    samples=results,
-                    topic_id=request_df.topic_id,
-                )
-
-                try:
-                    dendrite.query(
-                        metagraph.axons, results_backprop_proto, deserialize=True
-                    )
-                    bt.logging.info("live results sent back to miners")
-                except Exception:  # noqa
-                    traceback.print_exc()
-                    bt.logging.info(
-                        "failed sending back results to miners and continuing..."
-                    )
-
                 scores = {}
                 for miner_uid, miner_preds in vali_request.predictions.items():
                     try:
@@ -381,89 +455,13 @@ def run_time_series_validation(
                             f"weighed winning scores: [{weighed_winning_scores_dict}]"
                         )
 
-                    values_list = np.array(
-                        [v for k, v in weighed_winning_scores_dict.items()]
+                    for file in vali_request.files:
+                        os.remove(file)
+
+                    bt.logging.info(
+                        f"removed [{len(vali_request.files)}] processed files"
                     )
 
-                    mean = np.mean(values_list)
-                    std_dev = np.std(values_list)
-
-                    lower_bound = mean - 3 * std_dev
-                    bt.logging.debug(f"scores lower bound: [{lower_bound}]")
-
-                    if lower_bound < 0:
-                        lower_bound = 0
-
-                    filtered_results = [
-                        (k, v)
-                        for k, v in weighed_winning_scores_dict.items()
-                        if lower_bound < v
-                    ]
-                    filtered_scores = np.array([x[1] for x in filtered_results])
-
-                    # Normalize the list using Z-score normalization
-                    transformed_results = yeojohnson(filtered_scores, lmbda=500)
-                    scaled_transformed_list = Scaling.min_max_scalar_list(
-                        transformed_results
-                    )
-                    filtered_winning_scores_dict = {
-                        filtered_results[i][0]: scaled_transformed_list[i]
-                        for i in range(len(filtered_results))
-                    }
-
-                    bt.logging.debug(
-                        f"filtered weighed winning scores: [{filtered_winning_scores_dict}]"
-                    )
-
-                    # bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
-                    weights = []
-                    converted_uids = []
-
-                    deregistered_mineruids = []
-
-                    for (
-                        miner_uid,
-                        weighed_winning_score,
-                    ) in filtered_winning_scores_dict.items():
-                        try:
-                            converted_uids.append(
-                                metagraph.uids[metagraph.hotkeys.index(miner_uid)]
-                            )
-                            weights.append(weighed_winning_score)
-                        except Exception:  # noqa
-                            deregistered_mineruids.append(miner_uid)
-                            bt.logging.info(
-                                f"not able to find miner hotkey, "
-                                f"likely deregistered [{miner_uid}]"
-                            )
-
-                    Scoring.update_weights_remove_deregistrations(
-                        deregistered_mineruids
-                    )
-
-                    bt.logging.debug(f"converted uids [{converted_uids}]")
-                    bt.logging.debug(f"weights gathered [{weights}]")
-
-                    result = subtensor.set_weights(
-                        netuid=config.netuid,  # Subnet to set weights on.
-                        wallet=wallet,  # Wallet to sign set weights using hotkey.
-                        uids=converted_uids,  # Uids of the miners to set weights for.
-                        weights=weights,  # Weights to set for the miners.
-                        # wait_for_inclusion=True,
-                    )
-                    if result:
-                        bt.logging.success("Successfully set weights.")
-                        bt.logging.info("removing processed files")
-                        # remove files that have been properly processed & weighed
-                        for file in vali_request.files:
-                            os.remove(file)
-                        bt.logging.info(
-                            f"removed [{len(vali_request.files)}] processed files"
-                        )
-
-                    else:
-                        bt.logging.error("Failed to set weights.")
-                    bt.logging.info("weights set and stored")
                     bt.logging.info("adding to cmw")
 
                     time_now = TimeUtil.now_in_millis()
@@ -593,6 +591,12 @@ if __name__ == "__main__":
     my_subnet_uid = metagraph.hotkeys.index(wallet.hotkey.ss58_address)
     bt.logging.info(f"Running validator on uid: {my_subnet_uid}")
 
+    run_vali_set_weights = threading.Thread(
+        target=vali_set_weights
+    )
+    run_vali_set_weights.start()
+
+
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
     while True:
@@ -614,9 +618,9 @@ if __name__ == "__main__":
                     )
                     try:
                         os.remove(valiweights_file_path)
-                        print(f"File '{valiweights_file_path}' successfully deleted.")
+                        bt.logging.info(f"File '{valiweights_file_path}' successfully deleted.")
                     except OSError as e:
-                        print(f"Error: {valiweights_file_path} : {e.strerror}")
+                        bt.logging.info(f"Error: {valiweights_file_path} : {e.strerror}")
 
             requests = []
             # see if any files exist, if not then generate a client request (a live prediction)
@@ -639,5 +643,7 @@ if __name__ == "__main__":
                 requests.append(predictions_to_complete[0])
 
             bt.logging.info(f"Number of requests being handled [{len(requests)}]")
-            run_time_series_validation(wallet, config, metagraph, requests)
+            run_time_series_validation(requests)
             time.sleep(60)
+
+    run_vali_set_weights.join()
