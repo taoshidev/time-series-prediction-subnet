@@ -36,17 +36,8 @@
     </li>
     <li><a href="#prediction-subnet">Prediction Subnet</a></li>
     <li><a href="#features">Features</a></li>
-    <li><a href="#prerequisites">Prerequisites</a></li>
     <li>
       <a href="#get-started">Get Started</a>
-      <ol>
-        <li>
-          <a href="#running-a-validator">Running a Validator</a>
-        </li>
-        <li>
-          <a href="#running-a-miner">Running a Miner</a>
-        </li>
-      </ol>
     </li>
     <li><a href="#building-a-model">Building A Model</a></li>
     <li><a href="#testing">Testing</a></li>
@@ -93,7 +84,7 @@ As the project evolves, we anticipate that miners will diversify their focus, sp
 
 ## Features
 
-🛠️&nbsp;Open Source Modeling<br>
+🛠️&nbsp;[Open Source Modeling](https://huggingface.co/Taoshi)<br>
 🫰&nbsp;Intraday Bitcoin Predictions<br>
 📈&nbsp;Higher Payouts<br>
 📉&nbsp;Lower Registration Fees<br>
@@ -112,7 +103,7 @@ Please see our [Miner Installation](https://github.com/taoshidev/time-series-pre
 
 # Building a model
 
-You can build a model on your own or use the infrastructure inside this repository.
+You can build a model on your own, use the infrastructure inside this repo or try one of our open source models listed on our Hugging Face.
 
 If you choose to use the infrastructure provided in here, you can choose to leverage standardized financial market indicators provided in `mining_objects/financial_market_indicators.py` as well as a standardized LSTM model in `mining_objects/base_mining_model.py`.
 
