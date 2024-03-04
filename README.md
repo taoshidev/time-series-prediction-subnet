@@ -103,7 +103,7 @@ Please see our [Miner Installation](https://github.com/taoshidev/time-series-pre
 
 # Building a model
 
-You can build a model on your own, use the infrastructure inside this repo or try one of our open source models listed on our Hugging Face.
+You can build a model on your own, use the infrastructure inside this repo or try one of our open source models listed on our [Hugging Face](https://huggingface.co/Taoshi).
 
 If you choose to use the infrastructure provided in here, you can choose to leverage standardized financial market indicators provided in `mining_objects/financial_market_indicators.py` as well as a standardized LSTM model in `mining_objects/base_mining_model.py`.
 
