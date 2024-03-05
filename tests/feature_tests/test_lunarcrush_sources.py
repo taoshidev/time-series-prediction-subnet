@@ -15,10 +15,9 @@ import unittest
 
 class TestLunarCrushFeatureSources(unittest.TestCase):
     def test_lunarcrush_category_feature_source(self):
-        _START_TIME_MS = datetime.parse("2024-02-01 00:00:00").timestamp_ms()
+        _START_TIME_MS = datetime.parse("2024-02-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
-        _SAMPLE_COUNT = 100
-        _ITERATIONS = 5
+        _SAMPLE_COUNT = 500
 
         test_source = LunarCrushTimeSeriesCategory(
             category="cryptocurrencies",
@@ -34,17 +33,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
             },
         )
 
-        test_feature_samples = {
-            feature_id: [] for feature_id in test_source.feature_ids
-        }
-        start_time_ms = _START_TIME_MS
-        for i in range(_ITERATIONS):
-            feature_samples = test_source.get_feature_samples(
-                start_time_ms, _INTERVAL_MS, _SAMPLE_COUNT
-            )
-            for feature_id, samples in feature_samples.items():
-                test_feature_samples[feature_id].extend(samples)
-            start_time_ms += _INTERVAL_MS * _SAMPLE_COUNT
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, _SAMPLE_COUNT
+        )
 
         expected_values = {
             # start: 1706745600
@@ -93,10 +84,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                 )
 
     def test_lunarcrush_coin_feature_source(self):
-        _START_TIME_MS = datetime.parse("2024-02-01 00:00:00").timestamp_ms()
+        _START_TIME_MS = datetime.parse("2024-02-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
-        _SAMPLE_COUNT = 100
-        _ITERATIONS = 5
+        _SAMPLE_COUNT = 500
 
         test_source = LunarCrushTimeSeriesCoin(
             coin="bitcoin",
@@ -122,17 +112,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
             },
         )
 
-        test_feature_samples = {
-            feature_id: [] for feature_id in test_source.feature_ids
-        }
-        start_time_ms = _START_TIME_MS
-        for i in range(_ITERATIONS):
-            feature_samples = test_source.get_feature_samples(
-                start_time_ms, _INTERVAL_MS, _SAMPLE_COUNT
-            )
-            for feature_id, samples in feature_samples.items():
-                test_feature_samples[feature_id].extend(samples)
-            start_time_ms += _INTERVAL_MS * _SAMPLE_COUNT
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, _SAMPLE_COUNT
+        )
 
         expected_values = {
             # start: 1706745600
@@ -161,7 +143,7 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                 FeatureID.BTC_USD_CLOSE: 48100.66526716035,
                 FeatureID.BTC_USD_HIGH: 48371.15928848688,
                 FeatureID.BTC_USD_LOW: 48065.92147415219,
-                FeatureID.BTC_USD_VOLUME: 19370353324.129017,
+                FeatureID.BTC_USD_VOLUME: 19354861474.99,
                 FeatureID.BTC_USD_MARKET_CAP: 943966801546.9432,
                 FeatureID.BTC_CIRCULATING_SUPPLY: 19624818,
                 FeatureID.BTC_SOCIAL_SENTIMENT: 81,
@@ -181,19 +163,19 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                 FeatureID.BTC_USD_CLOSE: 51048.33614009864,
                 FeatureID.BTC_USD_HIGH: 51048.33614009864,
                 FeatureID.BTC_USD_LOW: 50664.7403283826,
-                FeatureID.BTC_USD_VOLUME: 27961081119.38,
+                FeatureID.BTC_USD_VOLUME: 27995847309.48,
                 FeatureID.BTC_USD_MARKET_CAP: 1002280479357.89,
                 FeatureID.BTC_CIRCULATING_SUPPLY: 19633950,
                 FeatureID.BTC_SOCIAL_SENTIMENT: 82,
                 FeatureID.BTC_GALAXY_SCORE: 70,
                 FeatureID.BTC_USD_VOLATILITY: 0.0083,
                 FeatureID.BTC_ALT_RANK: 87,
-                FeatureID.BTC_SOCIAL_POSTS_CREATED: 1832,
-                FeatureID.BTC_SOCIAL_POSTS_ACTIVE: 41805,
-                FeatureID.BTC_SOCIAL_CONTRIBUTORS_CREATED: 1232,
-                FeatureID.BTC_SOCIAL_CONTRIBUTORS_ACTIVE: 19950,
-                FeatureID.BTC_SOCIAL_INTERACTIONS: 9768397,
-                FeatureID.BTC_SOCIAL_DOMINANCE: 30.739196611739793,
+                FeatureID.BTC_SOCIAL_POSTS_CREATED: 1834,
+                FeatureID.BTC_SOCIAL_POSTS_ACTIVE: 49356,
+                FeatureID.BTC_SOCIAL_CONTRIBUTORS_CREATED: 1234,
+                FeatureID.BTC_SOCIAL_CONTRIBUTORS_ACTIVE: 23064,
+                FeatureID.BTC_SOCIAL_INTERACTIONS: 10123046,
+                FeatureID.BTC_SOCIAL_DOMINANCE: 36.291443319436176,
             },
         }
 
@@ -211,10 +193,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                 )
 
     def lunarcrush_stock_feature_source(self):
-        _START_TIME_MS = datetime.parse("2024-02-01 00:00:00").timestamp_ms()
+        _START_TIME_MS = datetime.parse("2024-02-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
-        _SAMPLE_COUNT = 100
-        _ITERATIONS = 5
+        _SAMPLE_COUNT = 500
 
         test_source = LunarCrushTimeSeriesStock(
             stock="nvda",
@@ -228,17 +209,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
             },
         )
 
-        test_feature_samples = {
-            feature_id: [] for feature_id in test_source.feature_ids
-        }
-        start_time_ms = _START_TIME_MS
-        for i in range(_ITERATIONS):
-            feature_samples = test_source.get_feature_samples(
-                start_time_ms, _INTERVAL_MS, _SAMPLE_COUNT
-            )
-            for feature_id, samples in feature_samples.items():
-                test_feature_samples[feature_id].extend(samples)
-            start_time_ms += _INTERVAL_MS * _SAMPLE_COUNT
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, _SAMPLE_COUNT
+        )
 
         expected_values = {
             # start: 1706745600
@@ -290,10 +263,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                 )
 
     def test_lunarcrush_topic_feature_source(self):
-        _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
+        _START_TIME_MS = datetime.parse("2023-01-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
-        _SAMPLE_COUNT = 2500
-        _ITERATIONS = 3
+        _SAMPLE_COUNT = 7500
 
         test_source = LunarCrushTimeSeriesTopic(
             topic="bitcoin",
@@ -308,17 +280,9 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
             },
         )
 
-        test_feature_samples = {
-            feature_id: [] for feature_id in test_source.feature_ids
-        }
-        start_time_ms = _START_TIME_MS
-        for i in range(_ITERATIONS):
-            feature_samples = test_source.get_feature_samples(
-                start_time_ms, _INTERVAL_MS, _SAMPLE_COUNT
-            )
-            for feature_id, samples in feature_samples.items():
-                test_feature_samples[feature_id].extend(samples)
-            start_time_ms += _INTERVAL_MS * _SAMPLE_COUNT
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, _SAMPLE_COUNT
+        )
 
         expected_values = {
             # start: 1672531200

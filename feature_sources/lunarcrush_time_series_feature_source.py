@@ -119,12 +119,12 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
                     value = float(value)
         return value
 
-    def _convert_sample(self, sample: dict):
+    def _convert_sample(self, sample: dict) -> None:
         for metric in self._convert_metrics:
             sample_value = sample.get(metric, 0)
-            sample[metric] = self._convert_metric(metric, sample_value)
+            sample[metric.value] = self._convert_metric(metric, sample_value)
 
-    def _convert_samples(self, data_rows: list[dict]):
+    def _convert_samples(self, data_rows: list[dict]) -> None:
         for row in data_rows:
             self._convert_sample(row)
 
