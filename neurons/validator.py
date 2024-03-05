@@ -4,6 +4,7 @@
 # Copyright © 2023 Taoshi Inc
 import argparse
 import statistics
+import threading
 
 import bittensor as bt
 import math
@@ -99,15 +100,106 @@ def get_config():
 	return config
 
 
-def run_time_series_validation(
-		wallet, config, metagraph, vali_requests: list[BaseRequestDataClass]
-):
+def vali_set_weights():
+	# continuous retrying to set weights due to onchain deprioritization
+	bt.logging.info("running vali set weights continuous retrier.")
+	while True:
+		try:
+			bt.logging.info(f"running set weights on block [{metagraph.block.item()}]")
+			weighed_winning_scores_dict = ValiUtils.get_vali_weights_json()
+
+			values_list = np.array(
+				[wws for hotkey, wws in weighed_winning_scores_dict.items()]
+			)
+
+			mean = np.mean(values_list)
+			std_dev = np.std(values_list)
+
+			lower_bound = mean - 3 * std_dev
+			bt.logging.debug(f"vali weights: [{weighed_winning_scores_dict}]")
+			bt.logging.debug(f"weights lower bound: [{lower_bound}]")
+
+			if lower_bound < 0:
+				lower_bound = 0
+
+			filtered_results = [
+				(_k, _v)
+				for _k, _v in weighed_winning_scores_dict.items()
+				if lower_bound < _v
+			]
+
+			filtered_scores = np.array([x[1] for x in filtered_results])
+
+			# Normalize the list using Z-score normalization
+			transformed_results = yeojohnson(filtered_scores, lmbda=2000)
+			scaled_transformed_list = Scaling.min_max_scalar_list(
+				transformed_results
+			)
+			filtered_winning_scores_dict = {
+				filtered_results[i][0]: scaled_transformed_list[i]
+				for i in range(len(filtered_results))
+			}
+
+			bt.logging.debug(
+				f"filtered weighed winning scores: [{filtered_winning_scores_dict}]"
+			)
+
+			# bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
+			weights = []
+			converted_uids = []
+
+			deregistered_mineruids = []
+
+			for (
+					miner_uid,
+					weighed_winning_score,
+			) in filtered_winning_scores_dict.items():
+				try:
+					converted_uids.append(metagraph.uids[metagraph.hotkeys.index(miner_uid)])
+					weights.append(weighed_winning_score)
+				except Exception:
+					deregistered_mineruids.append(miner_uid)
+					bt.logging.info(
+						f"not able to find miner hotkey, "
+						f"likely deregistered [{miner_uid}]"
+					)
+
+					Scoring.update_weights_remove_deregistrations(
+						deregistered_mineruids
+					)
+
+			bt.logging.debug(f"converted uids [{converted_uids}]")
+			bt.logging.debug(f"weights gathered [{weights}]")
+
+			result = subtensor.set_weights(
+				netuid=config.netuid,
+				wallet=wallet,
+				uids=converted_uids,
+				weights=weights,
+				# wait_for_inclusion=True,
+				# wait_for_finalization=True
+			)
+			if result:
+				bt.logging.success("Successfully set weights.")
+			else:
+				bt.logging.info("Failed to set weights.")
+				bt.logging.info("sleep for 5 mins and retry.")
+				time.sleep(300)
+		except Exception:
+			bt.logging.info("error setting weights.")
+			traceback.print_exc()
+			bt.logging.info("sleep for 5 mins and retry.")
+			time.sleep(300)
+
+
+def run_time_series_validation(vali_requests: list[BaseRequestDataClass]):
 	# Set up initial scoring weights for validation
 	# bt.logging.info("Building validation weights.")
 	# scores = torch.ones_like(metagraph.S, dtype=torch.float32)
 	# bt.logging.info(f"Weights: {scores}")
 
-	pred_metagraph_hotkeys = {}
+	pred_metagraph_hotkeys = []
+	bt.logging.info(f"running ts validation on block [{metagraph.block.item()}]")
 
 	for vali_request in vali_requests:
 		# standardized request identifier for miners to tie together forward/backprop
@@ -397,18 +489,6 @@ def run_time_series_validation(
 
 				# performance of each miner against each stream id
 
-				# properly incentivize miners to respond to all of them
-				# if they respond to multiple how do we properly define their weight/incentive
-
-				# theres a reserve of % total of a score that you can achieve by responding to all streams
-				# so if theres eur/usd, spx, and btc/usd, if you respond to only btc/usd you can only achieve
-				# 70% of a total score. Therefore, theres a 30% reserve for other stream_ids
-				# if you respond to all of the streams then you can achieve 100% of some score
-
-				# a miner could have 0.4 for eur/usd, 0.3 for spx, and 0.8 for btc/usd
-				# 0.6 for eur/usd, 0.45 for spx, and 1.2 for btc/usd
-				# this ends with 0.75 total which is lower than just responding to btc/usd
-
 				# 70% for btc, 30% for rest. Equally distribute the 30% across the others
 
 				# miner 1 - score of 0.8 for btc
@@ -435,7 +515,7 @@ def run_time_series_validation(
 
 				finalized_miner_scores = {}
 				for m, mms in multiplied_miner_scores.items():
-					finalized_miner_scores[m] = sum(mms) / Scaling.get_exponential_decay(len(mms) - 1)
+					finalized_miner_scores[m] = sum(mms) / Scaling.get_multiplier_benefit(len(mms) - 1)
 
 				# bt.logging.debug(f"finalized weighed winning scores [{weighed_winning_scores}]")
 				weights = []
@@ -623,8 +703,7 @@ if __name__ == "__main__":
 			metagraph.sync(subtensor=subtensor)
 			bt.logging.info(f"Metagraph updated: {metagraph}")
 
-		# if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
-		if True:
+		if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
 			for vali_stream in ValiStream:
 				stream_id = vali_stream.stream_id
 				vweights = ValiUtils.get_vali_weights_json(stream_id)
@@ -661,5 +740,7 @@ if __name__ == "__main__":
 				requests.append(predictions_to_complete[0])
 
 			bt.logging.info(f"Number of requests being handled [{len(requests)}]")
-			run_time_series_validation(wallet, config, metagraph, requests)
+			run_time_series_validation(requests)
 			time.sleep(60)
+
+	run_vali_set_weights.join()

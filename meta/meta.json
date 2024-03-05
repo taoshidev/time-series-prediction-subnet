@@ -1,4 +1,8 @@
 {
+<<<<<<< HEAD
   "subnet_version": "7.0.0",
+=======
+  "subnet_version": "6.2.2",
+>>>>>>> 056d36659f8604b3c09d72df2b6d4d22584b508f
   "mining_model_version": "5.0.0"
 }

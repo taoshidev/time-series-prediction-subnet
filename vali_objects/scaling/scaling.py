@@ -89,5 +89,18 @@ class Scaling:
         return scaled_values
 
     @staticmethod
-    def get_exponential_decay(value: int, scale: int = 1, rate: int = 2):
-        return scale * (1 / rate) ** value
+    def get_multiplier_benefit(n_predictions: int):
+        """Determines the added benefit of predicting against n number of trade pairs."""
+        MINPAIRS = 0  # should never be touched
+        MAXPAIRS = 5
+        SOFTENING_COEF = 1.2  # lower is softer - more benefit to folks predicting on less terms - should alwasy be greater than 1
+        BASE_BENEFIT = 0.7  # 30% of the benefit to people predicting only one term
+        B = max(1,
+                SOFTENING_COEF)  # lower is softer - more benefit to folks predicting on less terms - should alwasy be greater than 1
+        equivalent_pairs = np.clip(n_predictions, MINPAIRS,
+                                   MAXPAIRS)  # they'll get the same benefit as this many pair predictions
+        if equivalent_pairs == MAXPAIRS:
+            result = 1
+        else:
+            result = 1 + (BASE_BENEFIT * ((1 / B) ** (equivalent_pairs - 1)))  # additional benefit
+        return result
