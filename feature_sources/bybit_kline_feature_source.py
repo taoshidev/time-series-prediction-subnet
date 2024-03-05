@@ -107,7 +107,7 @@ class BybitKlineFeatureSource(FeatureSource):
 
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
-        for field in BybitKlineField:
+        for field in self._fields:
             compaction = self._FIELD_COMPACTIONS.get(field, FeatureCompaction.LAST)
             if compaction == FeatureCompaction.LAST:
                 continue
@@ -149,12 +149,12 @@ class BybitKlineFeatureSource(FeatureSource):
 
         data_rows = []
         retries = self._retries
-        samples_left = sample_count
+        samples_left = int(sample_count * (interval_ms / self._source_interval_ms))
         # Loop for pagination
         while True:
             page_sample_count = min(samples_left, self._QUERY_LIMIT)
             open_end_time_ms = open_start_time_ms + (
-                interval_ms * (page_sample_count - 1)
+                self._source_interval_ms * (page_sample_count - 1)
             )
 
             url = (
@@ -167,6 +167,8 @@ class BybitKlineFeatureSource(FeatureSource):
             success = False
             # Loop for retries
             while True:
+                response_rows = None
+
                 try:
                     response = requests.get(url)
 
@@ -204,9 +206,13 @@ class BybitKlineFeatureSource(FeatureSource):
             if samples_left <= 0:
                 break
 
-            open_start_time_ms = (
-                int(data_rows[-1][_OPEN_TIME]) + self._source_interval_ms
-            )
+            if response_rows:
+                last_row = response_rows[-1]
+                open_start_time_ms = (
+                    int(last_row[_OPEN_TIME]) + self._source_interval_ms
+                )
+            else:
+                open_start_time_ms = open_end_time_ms
 
         row_count = len(data_rows)
         if row_count == 0:

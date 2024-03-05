@@ -112,10 +112,10 @@ class BinanceKlineFeatureSource(FeatureSource):
         for row in data_rows:
             self._convert_sample(row)
 
-    # TODO: Examine moving this functionality into the FeatureSource base class
+    # TODO: Examine moving this into FeatureSource base class
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
-        for field in BinanceKlineField:
+        for field in self._fields:
             compaction = self._FIELD_COMPACTIONS.get(field, FeatureCompaction.LAST)
             if compaction == FeatureCompaction.LAST:
                 continue
@@ -211,8 +211,13 @@ class BinanceKlineFeatureSource(FeatureSource):
             if response_row_count != self._QUERY_LIMIT:
                 break
 
-            open_start_time_ms = data_rows[-1][_OPEN_TIME] + self._source_interval_ms
+            last_row = data_rows[-1]
+            open_start_time_ms = last_row[_OPEN_TIME] + self._source_interval_ms
 
+            if open_start_time_ms > open_end_time_ms:
+                break
+
+        # TODO: Examine moving the rest of this function into FeatureSource base class
         row_count = len(data_rows)
         if row_count == 0:
             raise RuntimeError("No samples received.")

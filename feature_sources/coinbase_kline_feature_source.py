@@ -83,7 +83,7 @@ class CoinbaseKlineFeatureSource(FeatureSource):
 
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
-        for field in CoinbaseKlineField:
+        for field in self._fields:
             compaction = self._FIELD_COMPACTIONS.get(field, FeatureCompaction.LAST)
             if compaction == FeatureCompaction.LAST:
                 continue
@@ -125,12 +125,14 @@ class CoinbaseKlineFeatureSource(FeatureSource):
 
         data_rows = []
         retries = self._retries
-        samples_left = sample_count
+        samples_left = int(sample_count * (interval_ms / self._source_interval_ms))
         # Loop for pagination
         while True:
+            response_rows = None
+
             page_sample_count = min(samples_left, self._QUERY_LIMIT)
             open_end_time_ms = open_start_time_ms + (
-                interval_ms * (page_sample_count - 1)
+                self._source_interval_ms * (page_sample_count - 1)
             )
 
             query_start_time = int(open_start_time_ms / time_span_ms(seconds=1))
@@ -181,9 +183,13 @@ class CoinbaseKlineFeatureSource(FeatureSource):
             if samples_left <= 0:
                 break
 
-            open_start_time_ms = (
-                data_rows[-1][_OPEN_TIME] * time_span_ms(seconds=1)
-            ) + self._source_interval_ms
+            if response_rows:
+                last_row = response_rows[-1]
+                open_start_time_ms = (
+                    last_row[_OPEN_TIME] * time_span_ms(seconds=1)
+                ) + self._source_interval_ms
+            else:
+                open_start_time_ms = open_end_time_ms
 
         row_count = len(data_rows)
         if row_count == 0:

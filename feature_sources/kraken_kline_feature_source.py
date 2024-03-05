@@ -106,7 +106,7 @@ class KrakenKlineFeatureSource(FeatureSource):
 
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
-        for field in KrakenKlineField:
+        for field in self._fields:
             compaction = self._FIELD_COMPACTIONS.get(field, FeatureCompaction.LAST)
             if compaction == FeatureCompaction.LAST:
                 continue

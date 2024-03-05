@@ -18,8 +18,7 @@ class TestFeatureAggregator(unittest.TestCase):
     def test_binance_bybit_coinbase_kline_feature_aggregator(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
-        _SAMPLE_COUNT = 2500
-        _ITERATIONS = 3
+        _SAMPLE_COUNT = 7500
 
         binance_source = BinanceKlineFeatureSource(
             symbol="BTCUSDT",
@@ -65,17 +64,9 @@ class TestFeatureAggregator(unittest.TestCase):
             },
         )
 
-        test_feature_samples = {
-            feature_id: [] for feature_id in test_aggregator.feature_ids
-        }
-        start_time_ms = _START_TIME_MS
-        for i in range(_ITERATIONS):
-            feature_samples = test_aggregator.get_feature_samples(
-                start_time_ms, _INTERVAL_MS, _SAMPLE_COUNT
-            )
-            for feature_id, samples in feature_samples.items():
-                test_feature_samples[feature_id].extend(samples)
-            start_time_ms += _INTERVAL_MS * _SAMPLE_COUNT
+        test_feature_samples = test_aggregator.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, _SAMPLE_COUNT
+        )
 
         expected_values = {
             # Open time: 1672530900000
@@ -103,7 +94,7 @@ class TestFeatureAggregator(unittest.TestCase):
 
         for index, samples in expected_values.items():
             for feature_id, expected_value in samples.items():
-                test_value = test_feature_samples[feature_id][index]
+                test_value = float(test_feature_samples[feature_id][index])
                 self.assertAlmostEqual(
                     test_value,
                     expected_value,
