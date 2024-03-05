@@ -113,7 +113,7 @@ def vali_set_weights():
             mean = np.mean(values_list)
             std_dev = np.std(values_list)
 
-            lower_bound = mean - 3 * std_dev
+            lower_bound = mean - 2.5 * std_dev
             bt.logging.debug(f"vali weights: [{weighed_winning_scores_dict}]")
             bt.logging.debug(f"weights lower bound: [{lower_bound}]")
 
@@ -129,7 +129,7 @@ def vali_set_weights():
             filtered_scores = np.array([x[1] for x in filtered_results])
 
             # Normalize the list using Z-score normalization
-            transformed_results = yeojohnson(filtered_scores, lmbda=2000)
+            transformed_results = yeojohnson(filtered_scores, lmbda=4000)
             scaled_transformed_list = Scaling.min_max_scalar_list(
                 transformed_results
             )
@@ -468,16 +468,12 @@ def run_time_series_validation(vali_requests: list[BaseRequestDataClass]):
                     try:
                         new_cmw = CMW()
                         cmw_client = CMWClient().set_client_uuid(request_df.client_uuid)
-                        cmw_client.add_stream(
-                            CMWStreamType()
-                            .set_stream_id(stream_type)
-                            .set_topic_id(request_df.topic_id)
-                        )
                         new_cmw.add_client(cmw_client)
                         cmw_client.add_stream(
                             CMWStreamType()
                             .set_stream_id(stream_type)
                             .set_topic_id(request_df.topic_id)
+                            .set_request_uuid(request_df.request_uuid)
                         )
                         stream = cmw_client.get_stream(stream_type)
                         for miner_uid, score in scores.items():

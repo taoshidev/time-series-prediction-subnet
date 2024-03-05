@@ -8,6 +8,7 @@ class CMWStreamType:
     def __init__(self):
         self.stream_id = None
         self.topic_id = None
+        self.request_uuid = None
         self.miners = []
 
     def set_stream_id(self, stream_id):
@@ -16,6 +17,10 @@ class CMWStreamType:
 
     def set_topic_id(self, topic_id):
         self.topic_id = topic_id
+        return self
+    
+    def set_request_uuid(self, request_uuid):
+        self.request_uuid = request_uuid
         return self
 
     def add_miner(self, miner: CMWMiner):
