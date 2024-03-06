@@ -10,7 +10,7 @@ import unittest
 
 
 class TestTwelveDataFeatureSource(unittest.TestCase):
-    def disabled_test_twelvedata_feature_source_btc_usd_5m(self):
+    def test_twelvedata_feature_source_btc_usd_5m(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:05:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
         _SAMPLE_COUNT = 7500
@@ -60,7 +60,7 @@ class TestTwelveDataFeatureSource(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
-    def disabled_test_twelvedata_feature_source_spx_usd_5m(self):
+    def test_twelvedata_feature_source_spx_usd_5m(self):
         _START_TIME_MS = datetime.parse("2024-01-04 15:05:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
         _SAMPLE_COUNT = 60
