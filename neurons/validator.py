@@ -129,7 +129,7 @@ def vali_set_weights():
             filtered_scores = np.array([x[1] for x in filtered_results])
 
             # Normalize the list using Z-score normalization
-            transformed_results = yeojohnson(filtered_scores, lmbda=1500)
+            transformed_results = yeojohnson(filtered_scores, lmbda=2000)
             scaled_transformed_list = Scaling.min_max_scalar_list(
                 transformed_results
             )
@@ -596,50 +596,53 @@ if __name__ == "__main__":
     # Step 7: The Main Validation Loop
     bt.logging.info("Starting validator loop.")
     while True:
-        current_time = datetime.now().time()
+        try:
+            current_time = datetime.now().time()
 
-        if current_time.minute in ValiConfig.METAGRAPH_UPDATE_INTERVALS:
-            bt.logging.info("Updating metagraph.")
-            # updating metagraph before run
-            metagraph.sync(subtensor=subtensor)
-            bt.logging.info(f"Metagraph updated: {metagraph}")
+            if current_time.minute in ValiConfig.METAGRAPH_UPDATE_INTERVALS:
+                bt.logging.info("Updating metagraph.")
+                # updating metagraph before run
+                metagraph.sync(subtensor=subtensor)
+                bt.logging.info(f"Metagraph updated: {metagraph}")
 
-        if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
-            vweights = ValiUtils.get_vali_weights_json()
-            for k, v in vweights.items():
-                if math.isnan(v):
-                    valiweights_file_path = (
-                        ValiBkpUtils.get_vali_weights_dir()
-                        + ValiBkpUtils.get_vali_weights_file()
-                    )
-                    try:
-                        os.remove(valiweights_file_path)
-                        bt.logging.info(f"File '{valiweights_file_path}' successfully deleted.")
-                    except OSError as e:
-                        bt.logging.info(f"Error: {valiweights_file_path} : {e.strerror}")
+            if current_time.minute in MinerConfig.ACCEPTABLE_INTERVALS_HASH:
+                vweights = ValiUtils.get_vali_weights_json()
+                for k, v in vweights.items():
+                    if math.isnan(v):
+                        valiweights_file_path = (
+                            ValiBkpUtils.get_vali_weights_dir()
+                            + ValiBkpUtils.get_vali_weights_file()
+                        )
+                        try:
+                            os.remove(valiweights_file_path)
+                            bt.logging.info(f"File '{valiweights_file_path}' successfully deleted.")
+                        except OSError as e:
+                            bt.logging.info(f"Error: {valiweights_file_path} : {e.strerror}")
 
-            requests = []
-            # see if any files exist, if not then generate a client request (a live prediction)
-            all_files = ValiBkpUtils.get_all_files_in_dir(
-                ValiBkpUtils.get_vali_predictions_dir()
-            )
-            # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
+                requests = []
+                # see if any files exist, if not then generate a client request (a live prediction)
+                all_files = ValiBkpUtils.get_all_files_in_dir(
+                    ValiBkpUtils.get_vali_predictions_dir()
+                )
+                # if len(all_files) == 0 or int(config.continuous_data_feed) == 1:
 
-            # standardizing getting request
-            requests.append(ValiUtils.generate_standard_request(ClientRequest))
+                # standardizing getting request
+                requests.append(ValiUtils.generate_standard_request(ClientRequest))
 
-            predictions_to_complete = ValiUtils.get_predictions_to_complete()
+                predictions_to_complete = ValiUtils.get_predictions_to_complete()
 
-            bt.logging.info(
-                f"Have [{len(predictions_to_complete)}] requests prepared to have weights set for"
-            )
+                bt.logging.info(
+                    f"Have [{len(predictions_to_complete)}] requests prepared to have weights set for"
+                )
 
-            if len(predictions_to_complete) > 0:
-                # add one request of predictions to complete
-                requests.append(predictions_to_complete[0])
+                if len(predictions_to_complete) > 0:
+                    # add one request of predictions to complete
+                    requests.append(predictions_to_complete[0])
 
-            bt.logging.info(f"Number of requests being handled [{len(requests)}]")
-            run_time_series_validation(requests)
-            time.sleep(60)
+                bt.logging.info(f"Number of requests being handled [{len(requests)}]")
+                run_time_series_validation(requests)
+                time.sleep(60)
+        except Exception:
+            pass
 
     run_vali_set_weights.join()
