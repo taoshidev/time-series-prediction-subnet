@@ -124,11 +124,11 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
                     value = float(value)
         return value
 
-    def _convert_sample(self, sample: dict):
+    def _convert_sample(self, sample: dict) -> None:
         for metric in self._convert_metrics:
-            sample[metric] = self._convert_metric(metric, sample[metric])
+            sample[metric.value] = self._convert_metric(metric, sample[metric])
 
-    def _convert_samples(self, data_rows: list[dict]):
+    def _convert_samples(self, data_rows: list[dict]) -> None:
         for row in data_rows:
             self._convert_sample(row)
 
@@ -167,33 +167,39 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         _OPEN_TIME = TwelveDataField.OPEN_TIME
 
         # LunarCrush uses open time for queries
-        open_start_time_ms = start_time_ms - interval_ms
+        query_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        open_start_time_ms = current_interval_ms(
-            open_start_time_ms, self._source_interval_ms
+        query_start_time_ms = current_interval_ms(
+            query_start_time_ms, self._source_interval_ms
         )
 
-        open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
-        open_end_time = datetime.fromtimestamp_ms(open_end_time_ms)
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
 
         query_parameters = self._query_parameters.copy()
-        query_parameters["end_date"] = str(open_end_time)
-
         data_rows = []
         retries = self._retries
         # Loop for pagination
-        while True:
-            start_time = datetime.fromtimestamp_ms(open_start_time_ms)
+        while query_start_time_ms < end_time_ms:
+            samples_left = (
+                end_time_ms - query_start_time_ms
+            ) / self._source_interval_ms
+            samples_left = int(min(samples_left, self._QUERY_LIMIT))
 
-            query_parameters["start_date"] = str(start_time)
+            query_end_time_ms = query_start_time_ms + (
+                self._source_interval_ms * (samples_left - 1)
+            )
+
+            start_date = datetime.fromtimestamp_ms(query_start_time_ms)
+            end_date = datetime.fromtimestamp_ms(query_end_time_ms)
+
+            query_parameters["start_date"] = str(start_date)
+            query_parameters["end_date"] = str(end_date)
+            url = self._URL + "?" + urlencode(query_parameters)
 
             success = False
-            response_row_count = 0
             # Loop for retries
             while True:
-                url = self._URL + "?" + urlencode(query_parameters)
-
                 try:
                     response = requests.get(url, headers=self._headers)
 
@@ -215,11 +221,10 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
                         if response_status != "ok":
                             error_message = response_data.get("message")
                             self._logger.error(
-                                f"TwelveData error {response_status}: {error_message}",
+                                f"TwelveData error: {response_status}, {error_message}",
                             )
 
                         response_rows = response_data.get("values", [])
-                        response_row_count = len(response_rows)
                         data_rows.extend(response_rows)
                         success = True
 
@@ -238,11 +243,7 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
                 retries -= 1
                 time.sleep(self.RETRY_DELAY)
 
-            if response_row_count != self._QUERY_LIMIT:
-                break
-
-            last_row = data_rows[-1]
-            open_start_time_ms = last_row[_OPEN_TIME] + self._source_interval_ms
+            query_start_time_ms = query_end_time_ms + self._source_interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:
