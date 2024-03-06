@@ -129,7 +129,7 @@ def vali_set_weights():
             filtered_scores = np.array([x[1] for x in filtered_results])
 
             # Normalize the list using Z-score normalization
-            transformed_results = yeojohnson(filtered_scores, lmbda=1000)
+            transformed_results = yeojohnson(filtered_scores, lmbda=1500)
             scaled_transformed_list = Scaling.min_max_scalar_list(
                 transformed_results
             )
