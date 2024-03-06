@@ -89,11 +89,11 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         headers = {"Authorization": f"apikey {api_key}"}
 
         query_parameters = {
-            "order": "ASC",
+            "symbol": symbol,
             "interval": query_interval,
             "outputsize": self._QUERY_LIMIT,
+            "order": "ASC",
             "timezone": "UTC",
-            "symbol": symbol,
         }
 
         if exchange:
@@ -181,13 +181,13 @@ class TwelveDataTimeSeriesFeatureSource(FeatureSource):
         retries = self._retries
         # Loop for pagination
         while query_start_time_ms < end_time_ms:
-            samples_left = (
+            page_sample_count = (
                 end_time_ms - query_start_time_ms
             ) / self._source_interval_ms
-            samples_left = int(min(samples_left, self._QUERY_LIMIT))
+            page_sample_count = int(min(page_sample_count, self._QUERY_LIMIT))
 
             query_end_time_ms = query_start_time_ms + (
-                self._source_interval_ms * (samples_left - 1)
+                self._source_interval_ms * (page_sample_count - 1)
             )
 
             start_date = datetime.fromtimestamp_ms(query_start_time_ms)
