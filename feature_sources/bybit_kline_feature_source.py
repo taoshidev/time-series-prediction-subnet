@@ -11,6 +11,7 @@ import requests
 import statistics
 import time
 from time_util import current_interval_ms, time_span_ms
+from urllib.parse import urlencode
 
 
 class BybitKlineField(IntEnum):
@@ -30,6 +31,8 @@ class BybitKlineFeatureSource(FeatureSource):
     RETRY_DELAY = 1.0
 
     _QUERY_LIMIT = 1000
+
+    _URL = "https://api.bybit.com/v5/market/kline"
 
     # Must be in ascending order
     _INTERVALS = {
@@ -84,12 +87,17 @@ class BybitKlineFeatureSource(FeatureSource):
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
 
-        self._category = category
-        self._symbol = symbol
+        query_parameters = {
+            "category": category,
+            "symbol": symbol,
+            "interval": query_interval,
+            "limit": self._QUERY_LIMIT,
+        }
+
         self._source_interval_ms = source_interval_ms
-        self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._fields = list(feature_mappings.values())
+        self._query_parameters = query_parameters
         self._retries = retries
         self._logger = getLogger(self.__class__.__name__)
 
@@ -140,35 +148,36 @@ class BybitKlineFeatureSource(FeatureSource):
         _OPEN_TIME = BybitKlineField.OPEN_TIME
 
         # Bybit uses open time for queries
-        open_start_time_ms = start_time_ms - interval_ms
+        query_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        open_start_time_ms = current_interval_ms(
-            open_start_time_ms, self._source_interval_ms
+        query_start_time_ms = current_interval_ms(
+            query_start_time_ms, self._source_interval_ms
         )
 
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
+
+        query_parameters = self._query_parameters.copy()
         data_rows = []
         retries = self._retries
-        samples_left = int(sample_count * (interval_ms / self._source_interval_ms))
         # Loop for pagination
-        while True:
-            page_sample_count = min(samples_left, self._QUERY_LIMIT)
-            open_end_time_ms = open_start_time_ms + (
+        while query_start_time_ms < end_time_ms:
+            page_sample_count = (
+                end_time_ms - query_start_time_ms
+            ) / self._source_interval_ms
+            page_sample_count = int(min(page_sample_count, self._QUERY_LIMIT))
+
+            query_end_time_ms = query_start_time_ms + (
                 self._source_interval_ms * (page_sample_count - 1)
             )
 
-            url = (
-                "https://api.bybit.com/v5/market/kline"
-                f"?category={self._category}&symbol={self._symbol}"
-                f"&start={open_start_time_ms}&end={open_end_time_ms}"
-                f"&interval={self._query_interval}&limit={self._QUERY_LIMIT}"
-            )
+            query_parameters["start"] = str(query_start_time_ms)
+            query_parameters["end"] = str(query_end_time_ms)
+            url = self._URL + "?" + urlencode(query_parameters)
 
             success = False
             # Loop for retries
             while True:
-                response_rows = None
-
                 try:
                     response = requests.get(url)
 
@@ -202,17 +211,7 @@ class BybitKlineFeatureSource(FeatureSource):
                 retries -= 1
                 time.sleep(self.RETRY_DELAY)
 
-            samples_left -= page_sample_count
-            if samples_left <= 0:
-                break
-
-            if response_rows:
-                last_row = response_rows[-1]
-                open_start_time_ms = (
-                    int(last_row[_OPEN_TIME]) + self._source_interval_ms
-                )
-            else:
-                open_start_time_ms = open_end_time_ms
+            query_start_time_ms = query_end_time_ms + self._source_interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:
