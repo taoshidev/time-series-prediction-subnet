@@ -37,7 +37,6 @@ class KrakenKlineFeatureSource(FeatureSource):
 
     _URL = "https://api.kraken.com/0/public/OHLC"
 
-    # Must be in ascending order
     _INTERVALS = [
         time_span_ms(minutes=1),
         time_span_ms(minutes=5),

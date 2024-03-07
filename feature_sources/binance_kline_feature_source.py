@@ -39,7 +39,6 @@ class BinanceKlineFeatureSource(FeatureSource):
 
     _URL = "https://api.binance.com/api/v3/klines"
 
-    # Must be in ascending order
     _INTERVALS = {
         time_span_ms(minutes=1): "1m",
         time_span_ms(minutes=3): "3m",

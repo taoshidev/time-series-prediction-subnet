@@ -34,7 +34,6 @@ class BybitKlineFeatureSource(FeatureSource):
 
     _URL = "https://api.bybit.com/v5/market/kline"
 
-    # Must be in ascending order
     _INTERVALS = {
         time_span_ms(minutes=1): "1",
         time_span_ms(minutes=3): "3",

@@ -186,8 +186,8 @@ class TestKlineFeatureSource(unittest.TestCase):
         _START_TIME_MS = previous_interval_ms(
             datetime.now().timestamp_ms(), _INTERVAL_MS
         ) - ((_SAMPLE_COUNT + _SKIP_COUNT) * _INTERVAL_MS)
-        _BTC_USD_LOW_MIN = 30000
-        _BTC_USD_HIGH_MAX = 70000
+        _BTC_USD_LOW_MIN = 40000
+        _BTC_USD_HIGH_MAX = 120000
 
         test_source = KrakenKlineFeatureSource(
             symbol="XXBTZUSD",
