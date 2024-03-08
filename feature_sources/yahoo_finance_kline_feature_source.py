@@ -122,10 +122,10 @@ class YahooFinanceKlineFeatureSource(FeatureSource):
             query_start_time_ms, self._source_interval_ms
         )
 
-        query_end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
 
         start_time = datetime.fromtimestamp_ms(query_start_time_ms)
-        end_time = datetime.fromtimestamp_ms(query_end_time_ms)
+        end_time = datetime.fromtimestamp_ms(end_time_ms)
 
         data_frame = self._client.history(
             interval=self._query_interval,

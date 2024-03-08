@@ -171,16 +171,16 @@ class LunarCrushTimeSeriesFeatureSource(FeatureSource):
         )
 
         open_start_time = int(open_start_time_ms / time_span_ms(seconds=1))
-        open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
-        open_end_time = int(open_end_time_ms / time_span_ms(seconds=1))
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
+        end_time = int(end_time_ms / time_span_ms(seconds=1))
 
         # Ensure that the end time is not the same as the start time
-        if open_end_time == open_start_time:
-            open_end_time += 1
+        if end_time == open_start_time:
+            end_time += 1
 
         query_parameters = {
             "start": open_start_time,
-            "end": open_end_time,
+            "end": end_time,
             "bucket": self._bucket,
         }
         url = self._url + "?" + urllib.parse.urlencode(query_parameters)
