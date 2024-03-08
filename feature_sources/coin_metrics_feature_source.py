@@ -215,18 +215,22 @@ class CoinMetricsFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        query_start_time_ms = start_time_ms
+        _OPEN_TIME = CoinMetric.TIME
+
+        # Coin Metrics uses open time for queries
+        query_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
         query_start_time_ms = current_interval_ms(
             query_start_time_ms, self._source_interval_ms
         )
 
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
+
         # Times must be preformatted because Coin Metrics rejects times with
         # the ISO timezone suffix for UTC ("+00:00") and their Python
         # library doesn't format it for their preference
         start_time = datetime.fromtimestamp_ms(query_start_time_ms)
-        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
         end_time = datetime.fromtimestamp_ms(end_time_ms)
         start_time_string = start_time.to_iso8601_string()
         end_time_string = end_time.to_iso8601_string()
@@ -249,7 +253,7 @@ class CoinMetricsFeatureSource(FeatureSource):
         for sample_index in range(sample_count):
             while True:
                 row = data_rows[row_index]
-                row_time_ms = row[CoinMetric.TIME]
+                row_time_ms = row[_OPEN_TIME] + self._source_interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)
