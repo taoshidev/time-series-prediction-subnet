@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 from numpy import ndarray
 from sklearn.preprocessing import MinMaxScaler
+from scipy.stats import yeojohnson
 
 from vali_config import ValiConfig
 
@@ -48,27 +49,6 @@ class Scaling:
                                         * (vmax - vmin)) + vmin, decimals=decimal_places)
         return denormalized_scores
 
-    @staticmethod
-    def scale_data_structure(ds: List[List]) -> (List[float], List[float], List[float], np):
-        scaled_data_structure = []
-        vmins = []
-        vmaxs = []
-        dp_decimal_places = []
-
-        for dp in ds:
-            vmin, vmax, scaled_data_point = Scaling.scale_values(np.array(dp))
-            vmins.append(vmin)
-            vmaxs.append(vmax)
-            dp_decimal_places.append(Scaling.count_decimal_places(dp[0]))
-            scaled_data_structure.append(scaled_data_point)
-        return vmins, vmaxs, dp_decimal_places, np.array(scaled_data_structure)
-
-    @staticmethod
-    def unscale_data_structure(avgs: List[float], dp_decimal_places: List[int], sds: np) -> np:
-        usds = []
-        for i, dp in enumerate(sds):
-            usds.append(Scaling.unscale_values_exp(avgs[i], dp_decimal_places[i], dp))
-        return usds
 
     @staticmethod
     def scale_ds_with_ts(ds: List[List]) -> (List[float], List[float], List[float], np):
@@ -79,11 +59,10 @@ class Scaling:
         return vmins, vmaxs, dp_decimal_places, np.array(sds_list)
 
     @staticmethod
-    def min_max_scalar_list(l):
-        original_values_2d = [[val] for val in l]
-        scaler = MinMaxScaler()
+    def min_max_scalar_list(l: list) -> list:
+        return l
+    
+    @staticmethod
+    def normalization(scores, lmbda:int = 1000):
+        return scores
 
-        scaled_values_2d = scaler.fit_transform(original_values_2d)
-        scaled_values = [val[0] for val in scaled_values_2d]
-
-        return scaled_values

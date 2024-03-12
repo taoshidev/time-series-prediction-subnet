@@ -104,39 +104,40 @@ def vali_set_weights():
     while True:
         try:
             bt.logging.info(f"running set weights on block [{metagraph.block.item()}]")
-            weighed_winning_scores_dict = ValiUtils.get_vali_weights_json()
+            prior_weights = ValiUtils.get_vali_weights_json()
 
-            values_list = np.array(
-                [wws for hotkey, wws in weighed_winning_scores_dict.items()]
-            )
+            # values_list = np.array(
+            #     [wws for hotkey, wws in weighed_winning_scores_dict.items()]
+            # )
 
-            mean = np.mean(values_list)
-            std_dev = np.std(values_list)
+            # mean = np.max(values_list)
+            # std_dev = np.std(values_list)
 
-            lower_bound = mean - 1.5 * std_dev
-            bt.logging.debug(f"vali weights: [{weighed_winning_scores_dict}]")
-            bt.logging.debug(f"weights lower bound: [{lower_bound}]")
+            # lower_bound = mean - 1.5 * std_dev
+            # bt.logging.debug(f"vali weights: [{weighed_winning_scores_dict}]")
+            # bt.logging.debug(f"weights lower bound: [{lower_bound}]")
 
-            if lower_bound < 0:
-                lower_bound = 0
+            # if lower_bound < 0:
+            #     lower_bound = 0
 
-            filtered_results = [
-                (_k, _v)
-                for _k, _v in weighed_winning_scores_dict.items()
-                if lower_bound < _v
-            ]
+            # filtered_results = [
+            #     (_k, _v)
+            #     for _k, _v in weighed_winning_scores_dict.items()
+            #     if lower_bound < _v
+            # ]
 
-            filtered_scores = np.array([x[1] for x in filtered_results])
+            # filtered_scores = np.array([x[1] for x in filtered_results])
 
-            # Normalize the list using Z-score normalization
-            transformed_results = yeojohnson(filtered_scores, lmbda=2000)
-            scaled_transformed_list = Scaling.min_max_scalar_list(
-                transformed_results
-            )
-            filtered_winning_scores_dict = {
-                filtered_results[i][0]: scaled_transformed_list[i]
-                for i in range(len(filtered_results))
-            }
+            # # # Normalize the list using Z-score normalization
+            # # transformed_results = yeojohnson(filtered_scores, lmbda=2000)
+            # # scaled_transformed_list = Scaling.min_max_scalar_list(
+            # #     transformed_results
+            # # )
+            # filtered_winning_scores_dict = {
+            #     filtered_results[i][0]: filtered_scores[i]
+            #     for i in range(len(filtered_results))
+            # }
+            filtered_winning_scores_dict = prior_weights
 
             bt.logging.debug(
                 f"filtered weighed winning scores: [{filtered_winning_scores_dict}]"
@@ -164,9 +165,11 @@ def vali_set_weights():
                         f"likely deregistered [{miner_uid}]"
                     )
 
-            Scoring.update_weights_remove_deregistrations(
+            remove_deregistered_weights = Scoring.update_weights_remove_deregistrations(
+                prior_weights,
                 deregistered_mineruids
             )
+            ValiUtils.set_vali_weights_bkp(remove_deregistered_weights)
 
             bt.logging.debug(f"converted uids [{converted_uids}]")
             bt.logging.debug(f"weights gathered [{weights}]")
@@ -419,41 +422,33 @@ def run_time_series_validation(vali_requests: list[BaseRequestDataClass]):
                             (miner_uid, 1 / len(scores))
                             for miner_uid, score in scores.items()
                         ]
-                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
-                        (
-                            weighed_winning_scores_dict,
-                            weight,
-                        ) = Scoring.update_weights_using_historical_distributions(
-                            weighed_scores, validation_array
-                        )
 
                     else:
-                        scaled_scores = Scoring.simple_scale_scores(scores)
+                        weighed_scores = Scoring.weigh_miner_scores(scores)
 
-                        # store weights for results
-                        sorted_scores = sorted(
-                            scaled_scores.items(), key=lambda x: x[1], reverse=True
-                        )
-                        winning_scores = sorted_scores
+                    bt.logging.debug(f"weighed scores [{weighed_scores}]")
+                    bt.logging.debug(f"validation array [{validation_array}]")
+                    bt.logging.debug(f"weighed scores [{weighed_scores}]")
 
-                        # choose top 10
-                        weighed_scores = Scoring.weigh_miner_scores(winning_scores)
+                    ## HISTORICAL WEIGHTING
+                    prior_weights = ValiUtils.get_vali_weights_json()
 
-                        bt.logging.debug(f"weighed scores [{weighed_scores}]")
-                        bt.logging.debug(f"validation array [{validation_array}]")
-                        (
-                            weighed_winning_scores_dict,
-                            weight,
-                        ) = Scoring.update_weights_using_historical_distributions(
-                            weighed_scores, validation_array
-                        )
-                        # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+                    (
+                        weighed_winning_scores_dict,
+                        weight,
+                    ) = Scoring.update_weights_using_historical_distributions(
+                        prior_weights,
+                        weighed_scores, 
+                        validation_array
+                    )
+                    ValiUtils.set_vali_weights_bkp(weighed_winning_scores_dict)
 
-                        bt.logging.debug(f"weight for the predictions: [{weight}]")
-                        bt.logging.debug(f"scaled scores: [{scaled_scores}]")
-                        bt.logging.debug(
-                            f"weighed winning scores: [{weighed_winning_scores_dict}]"
-                        )
+                    # weighed_winning_scores_dict = {score[0]: score[1] for score in weighed_winning_scores}
+
+                    bt.logging.debug(f"Difficulty for the predictions: [{weight}]")
+                    bt.logging.debug(
+                        f"weighed winning scores: [{weighed_winning_scores_dict}]"
+                    )
 
                     for file in vali_request.files:
                         os.remove(file)

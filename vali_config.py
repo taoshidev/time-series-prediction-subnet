@@ -16,9 +16,22 @@ class ValiConfig:
     PREDICTIONS_MAX = 101
     DELETE_STALE_DATA = 180
 
+    TOP_MINER_BENEFIT = 0.8
+    TOP_MINER_PERCENT = 0.2
+
+    WEIGHTED_SCALING = 4.81396089
+    WEIGHTED_XDISPLACEMENT = -0.0825421
+    WEIGHTED_YDISPLACEMENT = 0.05705676
+    WEIGHTED_EXPONENT = 0.51689981
+
+    DIFFICULTY_TYPICAL = 0.013
+    DIFFICULTY_EMA_INTENSITY = 500
+
     STANDARD_TF = 5
 
-    BASE_DIR = base_directory = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = base_directory = os.path.dirname(
+        os.path.abspath(__file__)
+    )
 
     MIN_MAX_RANGES_PERCENTILED = [
         1.00387751,

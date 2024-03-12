@@ -3,6 +3,8 @@
 import math
 import numpy as np
 from numpy import ndarray
+from scipy.stats import norm
+
 from vali_config import ValiConfig
 from vali_objects.exceptions.incorrect_prediction_size_error import (
     IncorrectPredictionSizeError,
@@ -13,32 +15,146 @@ from vali_objects.utils.vali_utils import ValiUtils
 
 class Scoring:
     @staticmethod
+    def weigh_miner_scores(scores: list[tuple[str, float]]) -> list[tuple[str, float]]:
+        ## Assign weights to the scores based on their relative position
+        if len(scores) == 0:
+            return [ scores[0][0], 1.0 ]
+
+        n_miners = len(scores)
+
+        miner_names = [ x[0] for x in scores ]
+        miner_scores = [ x[1] for x in scores ]
+        score_arrangement = np.argsort(miner_scores)
+
+        top_miner_benefit = ValiConfig.TOP_MINER_BENEFIT
+        top_miner_percent = ValiConfig.TOP_MINER_PERCENT
+
+        def exponential_decay_scores(
+                scale: int, 
+                a_percent: float = 0.8,
+                b_percent: float = 0.2
+                ) -> np.ndarray:
+            """
+            Args:
+                scale: int - the number of miners
+                a_percent: float - % benefit to the top % miners
+                b_percent: float - top % of miners
+            """
+            a_percent = np.clip(a_percent, a_min=0, a_max=1)
+            b_percent = np.clip(b_percent, a_min=0.00000001, a_max=1)
+            scale = np.clip(scale, a_min=1, a_max=None)
+
+            if scale == 1:
+                # base case, if there is only one miner
+                return np.array([1])
+            
+            k = -np.log(1 - a_percent) / (b_percent)
+            xdecay = np.linspace(0, scale-1, scale)
+            decayed_scores = np.exp((-k / scale) * xdecay)
+            
+            # Normalize the decayed_scores so that they sum up to 1
+            return decayed_scores / np.sum(decayed_scores)
+        
+        decayed_scores = exponential_decay_scores(
+            n_miners, 
+            top_miner_benefit, 
+            top_miner_percent
+        )
+        miner_decay_scores = decayed_scores[score_arrangement]
+
+        return list(zip(miner_names, miner_decay_scores))
+    
+    @staticmethod
+    def update_weights_using_historical_distributions(
+        prior_weights: dict[str, float],
+        weighted_scores: list[tuple[str, float]], 
+        validation_array: ndarray
+    ) -> dict[str, float]:
+        """
+        Args:
+            prior_weights: dict[str, float] - the historical weights
+            weighted_scores: list[tuple[str, float]] - the scores for the current round
+            validation_array: ndarray - the validation array
+        """
+        # this parameter will define how much weight we want to put on the new data compared to the eda
+        difficulty = Scoring.difficulty(validation_array)
+        difficulty_modifier = Scoring.difficulty_transform(difficulty)
+
+        # set the proportion of value to current and historical
+        ema_history_weight = 1 - difficulty_modifier
+        current_weight = difficulty_modifier
+
+        # (ema * ema_history_weight) + (current * current_weight) -> this is the formula for the weighted average
+        score_miner_uids = [ score[0] for score in weighted_scores ]
+
+        if len(prior_weights) != 0:
+            vweight_avg = sum(prior_weights.values()) / len(prior_weights)
+        else:
+            vweight_avg = 0
+
+        # if we have a history of activity but nothing on the current round
+        for key in prior_weights.keys():
+            if key not in score_miner_uids:
+                prior_weights[key] = prior_weights[key] * ema_history_weight
+
+        # iterate through a history of activity and update the weights
+        for score in weighted_scores:
+            previous_ema = prior_weights.get(score[0], vweight_avg)
+            current_score = score[1]
+
+            prior_weights[score[0]] = ema_history_weight * previous_ema + current_weight * current_score
+
+        # normalize the weights to sum to 1
+        total_weight = sum(prior_weights.values())
+        for k, v in prior_weights.items():
+            prior_weights[k] = v / total_weight
+
+        return prior_weights, difficulty_modifier
+    
+    @staticmethod
+    def difficulty_transform(difficulty: float):
+        """
+        Run difficulty through a sigmoid, for influence on the EMA.
+        Args:
+            difficulty: float - the difficulty score
+            alpha: float - the alpha parameter for the sigmoid. Intensity of the spike - how fast do we shift from historical EMA to current value.
+            beta: float - the beta parameter for the sigmoid - what is the middle point at which we consider with 50/50 weight.
+        """
+        # recommended values:
+        # beta = 0.01 (estimated min 1e-4, max 0.2)
+        # alpha = 450 (estimated min 15, max 600)
+        alpha = ValiConfig.DIFFICULTY_EMA_INTENSITY
+        beta = ValiConfig.DIFFICULTY_TYPICAL
+
+        return (1 / (1 + math.exp(-alpha * (difficulty - beta))))
+
+    @staticmethod
+    def generate_weighting_array(num_predictions: int) -> np.ndarray:
+        # these are the parameters for the std dev function
+        a = ValiConfig.WEIGHTED_SCALING
+        b = ValiConfig.WEIGHTED_XDISPLACEMENT
+        c = ValiConfig.WEIGHTED_YDISPLACEMENT
+        k = ValiConfig.WEIGHTED_EXPONENT
+
+        # might want to also track the historical mean here
+
+        x = np.arange(1, num_predictions) # drop zero, as it has no value
+        weights = a * (x+b)**(-k) + c # this is more in line with historical percentage changes
+        weights = np.clip(weights, a_min=0.00000001, a_max=None)
+        return weights
+
+    @staticmethod
     def calculate_weighted_rmse(predictions, actual) -> float:
         predictions = np.array(predictions)
         actual = np.array(actual)
 
-        k = ValiConfig.RMSE_WEIGHT
+        weights = Scoring.generate_weighting_array(len(predictions))
 
-        weights = np.exp(-k * np.arange(len(predictions)))
-        weighted_squared_errors = weights * (predictions - actual) ** 2
-        weighted_rmse = np.sqrt(np.sum(weighted_squared_errors) / np.sum(weights))
+        # mathematically, we might not need this. But this is included to aid in our interpretation of results.
+        normalized_weights = weights / np.max(weights) # max weight here is 1
+        # weights_norm = weights / np.max(weights) # max weight here is 1
 
-        return weighted_rmse
-
-    @staticmethod
-    def calculate_directional_accuracy(predictions, actual) -> float:
-        pred_len = len(predictions)
-
-        pred_dir = np.sign(
-            [predictions[i] - predictions[i - 1] for i in range(1, pred_len)]
-        )
-        actual_dir = np.sign([actual[i] - actual[i - 1] for i in range(1, pred_len)])
-
-        correct_directions = 0
-        for i in range(0, pred_len - 1):
-            correct_directions += actual_dir[i] == pred_dir[i]
-
-        return correct_directions / (pred_len - 1)
+        return float(sum(normalized_weights * ((predictions[1:] - actual[1:]) ** 2)))
 
     @staticmethod
     def score_response(predictions, actual) -> float:
@@ -49,138 +165,54 @@ class Scoring:
                 f" results: '{len(actual)}'"
             )
 
-        rmse = Scoring.calculate_weighted_rmse(predictions, actual)
-
-        return rmse
+        return Scoring.calculate_weighted_rmse(predictions, actual)
 
     @staticmethod
-    def scale_scores(scores: dict[str, float]) -> dict[str, float]:
-        avg_score = sum([score for miner_uid, score in scores.items()]) / len(scores)
-        scaled_scores_map = {}
-        for miner_uid, score in scores.items():
-            # handle case of a perfect score
-            if score == 0:
-                score = 0.00000001
-            scaled_scores_map[miner_uid] = 1 - math.e ** (-1 / (score / avg_score))
-        return scaled_scores_map
+    def get_z_scores(value, std_dev, means) -> ndarray:
+        return (value - means) / std_dev
 
     @staticmethod
-    def weigh_miner_scores(scores: list[tuple[str, float]]) -> list[tuple[str, float]]:
-        if len(scores) == 1:
-            return [(scores[0][0], 1.0)]
+    def difficulty(validation_array: ndarray) -> float:
+        """Compute the difficulty of the prediction interval based on prior history."""
+        validation_start = max(validation_array[0], 0.00000001)
 
-        min_score = min(score for _, score in scores)
-        max_score = max(score for _, score in scores)
+        if len(validation_array) < 2:
+            ## this is the default value for typical difficulty
+            return np.array([ValiConfig.DIFFICULTY_TYPICAL])
+        
+        validation_percent_changes = ( validation_array - validation_start ) / validation_start
+        
+        ## taking from the first element because percentage change from 0 won't be useful
+        validation_percent_changes = validation_percent_changes[1:]
 
-        normalized_scores = [
-            (name, (score - min_score) / (max_score - min_score))
-            for name, score in scores
-        ]
-        total_normalized_score = sum(score for _, score in normalized_scores)
+        # get the std dev scores
+        weighting_array = Scoring.generate_weighting_array(len(validation_array))
+        weights = np.clip(weighting_array, a_min=0.00000001, a_max=None)
+        # we might want to raise an error here if the std dev is 0, something is wrong
 
-        normalized_scores = [
-            (name, round(score / total_normalized_score, 4))
-            for name, score in normalized_scores
-        ]
+        stddevs = (1 / weights)
+        means = np.zeros(len(validation_percent_changes))
+        zscores = Scoring.get_z_scores(validation_percent_changes, stddevs, means)
 
-        return normalized_scores
+        if len(zscores) == 0:
+            return 0
+        
+        if len(zscores) == 1:
+            return abs(zscores[0])
+        
+        mean_score = np.mean(zscores)
 
-    @staticmethod
-    def simple_scale_scores(scores: dict[str, float]) -> dict[str, float]:
-        if len(scores) <= 1:
-            raise MinResponsesException("not enough responses")
-        score_values = [score for miner_uid, score in scores.items()]
-        min_score = min(score_values)
-        max_score = max(score_values)
-
-        return {
-            miner_uid: 1 - ((score - min_score) / (max_score - min_score))
-            for miner_uid, score in scores.items()
-        }
-
-    @staticmethod
-    def history_of_values() -> None | dict[str, float]:
-        # attempt to rebuild state using cmw objects
-        pass
+        # two tailed distribution percentile - difficulty is (1 - percentile)
+        difficulty_score = 1 - (2 * (1 - norm.cdf(abs(mean_score))))
+        return difficulty_score
 
     @staticmethod
-    def get_percentile(value, percentiles):
-        for ind, range_value in enumerate(percentiles):
-            percentile = (ind + 1) / 100
-            if value < range_value:
-                return percentile
-        return 1
+    def update_weights_remove_deregistrations(
+        prior_weights: dict[str, float],
+        miner_uids: list[str]):
 
-    @staticmethod
-    def get_geometric_mean_of_percentile(ds: ndarray):
-        min_max_ranges_percentiled = ValiConfig.MIN_MAX_RANGES_PERCENTILED
-        std_dev_ranges_percentiled = ValiConfig.STD_DEV_RANGES_PERCENTILED
-
-        results_min_max = max(ds) / min(ds)
-        results_std_dev = np.std(ds)
-
-        min_max_percentile = Scoring.get_percentile(
-            results_min_max, min_max_ranges_percentiled
-        )
-        std_dev_percentile = Scoring.get_percentile(
-            results_std_dev, std_dev_ranges_percentiled
-        )
-
-        return math.sqrt(min_max_percentile * std_dev_percentile)
-
-    @staticmethod
-    def update_weights_using_historical_distributions(
-        scores: list[tuple[str, float]], ds: ndarray
-    ):
-        vweights = ValiUtils.get_vali_weights_json()
-        geometric_mean_of_percentile = Scoring.get_geometric_mean_of_percentile(ds)
-
-        score_miner_uids = [score[0] for score in scores]
-
-        if len(vweights) != 0:
-            vweight_avg = sum(vweights.values()) / len(vweights)
-        else:
-            vweight_avg = 0
-
-        for key, value in vweights.items():
-            if key not in score_miner_uids:
-                vweights[key] = Scoring.basic_ema(
-                    (vweights[key] + (0 * geometric_mean_of_percentile))
-                    / (1 + geometric_mean_of_percentile),
-                    vweights[key],
-                )
-
-        for score in scores:
-            if score[0] in vweights:
-                previous_ema = vweights[score[0]]
-            else:
-                previous_ema = vweight_avg
-            vweights[score[0]] = Scoring.basic_ema(
-                (previous_ema + (score[1] * geometric_mean_of_percentile))
-                / (1 + geometric_mean_of_percentile),
-                previous_ema,
-            )
-
-        for k, v in vweights.items():
-            if math.isnan(v):
-                print(f"bad data provided.")
-                print(f"geometric mean of percentile [{geometric_mean_of_percentile}]")
-                print(f"scores [{scores}]")
-                raise ValueError("nan set in vweights file")
-
-        ValiUtils.set_vali_weights_bkp(vweights)
-        return vweights, geometric_mean_of_percentile
-
-    @staticmethod
-    def update_weights_remove_deregistrations(miner_uids: list[str]):
-        vweights = ValiUtils.get_vali_weights_json()
         for miner_uid in miner_uids:
-            if miner_uid in vweights:
-                del vweights[miner_uid]
-        ValiUtils.set_vali_weights_bkp(vweights)
+            if miner_uid in prior_weights:
+                del prior_weights[miner_uid]
 
-    @staticmethod
-    def basic_ema(current_value, previous_ema, length=48):
-        alpha = 2 / (length + 1)
-        ema = alpha * current_value + (1 - alpha) * previous_ema
-        return ema
+        return prior_weights
