@@ -60,6 +60,21 @@ class TestTwelveDataFeatureSource(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_twelvedata_feature_source_spx_usd_5m(self):
         _START_TIME_MS = datetime.parse("2024-01-04 15:05:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
@@ -115,6 +130,21 @@ class TestTwelveDataFeatureSource(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_twelvedata_feature_source_eur_usd_5m(self):
         _START_TIME_MS = datetime.parse("2024-01-04 15:05:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
@@ -164,6 +194,21 @@ class TestTwelveDataFeatureSource(unittest.TestCase):
                     places=2,
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
 
 
 if __name__ == "__main__":
