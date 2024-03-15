@@ -174,6 +174,9 @@ class BinanceKlineFeatureSource(FeatureSource):
             ) / self._source_interval_ms
             page_sample_count = int(min(page_sample_count, self._QUERY_LIMIT))
 
+            if page_sample_count < 1:
+                break
+
             query_end_time_ms = query_start_time_ms + (
                 self._source_interval_ms * (page_sample_count - 1)
             )

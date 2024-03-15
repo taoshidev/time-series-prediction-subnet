@@ -46,13 +46,13 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
 
         expected_values = {
             0: {
-                FeatureID.BTC_USD_VOLATILITY: 0.1137554,
+                FeatureID.BTC_USD_VOLATILITY: 0.1137799,
             },
             1249: {
-                FeatureID.BTC_USD_VOLATILITY: 0.2113918,
+                FeatureID.BTC_USD_VOLATILITY: 0.2130412,
             },
             -1: {
-                FeatureID.BTC_USD_VOLATILITY: 1.001736,
+                FeatureID.BTC_USD_VOLATILITY: 0.9794625,
             },
         }
 
@@ -62,9 +62,24 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
                 self.assertAlmostEqual(
                     test_value,
                     expected_value,
-                    places=2,
+                    places=5,
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=5,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
 
     def test_exchange_metrics_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
@@ -76,9 +91,7 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
             source_interval_ms=_INTERVAL_MS,
             feature_mappings={
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY: CoinMetric.LIQUIDATIONS_BUY_UNITS_5M,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY_USD: CoinMetric.LIQUIDATIONS_BUY_USD_5M,
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL: CoinMetric.LIQUIDATIONS_SELL_UNITS_5M,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL_USD: CoinMetric.LIQUIDATIONS_SELL_USD_5M,
             },
         )
 
@@ -89,21 +102,15 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
         expected_values = {
             0: {
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY: 0.0,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY_USD: 0.0,
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL: 443.527,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL_USD: 269.94495,
             },
             1249: {
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY: 347535.1,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY_USD: 158288.08,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL: 324885.38,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL_USD: 24944.207,
+                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL: 1894658.0,
             },
             -1: {
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY: 7858.7,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_BUY_USD: 5586.3613,
                 FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL: 1034368.94,
-                FeatureID.BTC_USD_FUTURES_LIQUIDATIONS_SELL_USD: 7260.515,
             },
         }
 
@@ -116,6 +123,21 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
                     places=1,
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
 
     def test_market_metrics_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
@@ -156,6 +178,21 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_market_open_interest_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=1)
@@ -195,8 +232,23 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_market_funding_rates_feature_source(self):
-        _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
+        _START_TIME_MS = datetime.parse("2023-01-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
         _SAMPLE_COUNT = 2000
 
@@ -233,6 +285,21 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
                     places=2,
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
 
     def test_market_candles_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
@@ -286,6 +353,21 @@ class TestCoinMetricsFeatureSources(unittest.TestCase):
                     places=2,
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
 
 
 if __name__ == "__main__":

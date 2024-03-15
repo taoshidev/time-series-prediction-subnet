@@ -70,6 +70,21 @@ class TestKlineFeatureSource(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_bybit_kline_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
@@ -125,6 +140,21 @@ class TestKlineFeatureSource(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_coinbase_kline_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 00:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(minutes=5)
@@ -179,6 +209,21 @@ class TestKlineFeatureSource(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertAlmostEqual(
+                test_value,
+                expected_value,
+                places=2,
+                msg=f"index: {index} feature_id: {feature_id}",
+            )
+
     def test_kraken_kline_feature_source(self):
         _INTERVAL_MS = time_span_ms(minutes=5)
         _SKIP_COUNT = 10
@@ -221,6 +266,24 @@ class TestKlineFeatureSource(unittest.TestCase):
             assert low <= close
             assert low > _BTC_USD_LOW_MIN
             assert volume != last_volume
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, _SAMPLE_COUNT
+        )
+
+        i = 0
+        close = test_feature_samples[FeatureID.BTC_USD_CLOSE][i]
+        high = test_feature_samples[FeatureID.BTC_USD_HIGH][i]
+        low = test_feature_samples[FeatureID.BTC_USD_LOW][i]
+        volume = test_feature_samples[FeatureID.BTC_USD_VOLUME][i]
+        assert close != last_close
+        assert high != last_high
+        assert high >= close
+        assert high < _BTC_USD_HIGH_MAX
+        assert low != last_low
+        assert low <= close
+        assert low > _BTC_USD_LOW_MIN
+        assert volume != last_volume
 
 
 if __name__ == "__main__":

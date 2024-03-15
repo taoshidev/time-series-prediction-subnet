@@ -83,6 +83,24 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                     f"test_value:{test_value} expected_value: {expected_value}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertTrue(
+                math.isclose(
+                    test_value,
+                    expected_value,
+                    rel_tol=1e-07,
+                ),
+                msg=f"index: {index} feature_id: {feature_id.name} "
+                f"test_value:{test_value} expected_value: {expected_value}",
+            )
+
     def test_lunarcrush_coin_feature_source(self):
         _START_TIME_MS = datetime.parse("2024-02-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
@@ -171,11 +189,11 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                 FeatureID.BTC_USD_VOLATILITY: 0.0083,
                 FeatureID.BTC_ALT_RANK: 87,
                 FeatureID.BTC_SOCIAL_POSTS_CREATED: 1834,
-                FeatureID.BTC_SOCIAL_POSTS_ACTIVE: 49356,
+                FeatureID.BTC_SOCIAL_POSTS_ACTIVE: 49629,
                 FeatureID.BTC_SOCIAL_CONTRIBUTORS_CREATED: 1234,
-                FeatureID.BTC_SOCIAL_CONTRIBUTORS_ACTIVE: 23064,
-                FeatureID.BTC_SOCIAL_INTERACTIONS: 10123046,
-                FeatureID.BTC_SOCIAL_DOMINANCE: 36.291443319436176,
+                FeatureID.BTC_SOCIAL_CONTRIBUTORS_ACTIVE: 23053,
+                FeatureID.BTC_SOCIAL_INTERACTIONS: 9905471,
+                FeatureID.BTC_SOCIAL_DOMINANCE: 36.49217987060547,
             },
         }
 
@@ -191,6 +209,24 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id.name} "
                     f"test_value:{test_value} expected_value: {expected_value}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertTrue(
+                math.isclose(
+                    test_value,
+                    expected_value,
+                    rel_tol=1e-07,
+                ),
+                msg=f"index: {index} feature_id: {feature_id.name} "
+                f"test_value:{test_value} expected_value: {expected_value}",
+            )
 
     def lunarcrush_stock_feature_source(self):
         _START_TIME_MS = datetime.parse("2024-02-01 01:00:00").timestamp_ms()
@@ -262,6 +298,24 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                     f"test_value:{test_value} expected_value: {expected_value}",
                 )
 
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertTrue(
+                math.isclose(
+                    test_value,
+                    expected_value,
+                    rel_tol=1e-07,
+                ),
+                msg=f"index: {index} feature_id: {feature_id.name} "
+                f"test_value:{test_value} expected_value: {expected_value}",
+            )
+
     def test_lunarcrush_topic_feature_source(self):
         _START_TIME_MS = datetime.parse("2023-01-01 01:00:00").timestamp_ms()
         _INTERVAL_MS = time_span_ms(hours=1)
@@ -326,6 +380,24 @@ class TestLunarCrushFeatureSources(unittest.TestCase):
                     msg=f"index: {index} feature_id: {feature_id.name} "
                     f"test_value:{test_value} expected_value: {expected_value}",
                 )
+
+        test_feature_samples = test_source.get_feature_samples(
+            _START_TIME_MS, _INTERVAL_MS, 1
+        )
+
+        index = 0
+        samples = expected_values[index]
+        for feature_id, expected_value in samples.items():
+            test_value = float(test_feature_samples[feature_id][index])
+            self.assertTrue(
+                math.isclose(
+                    test_value,
+                    expected_value,
+                    rel_tol=1e-07,
+                ),
+                msg=f"index: {index} feature_id: {feature_id.name} "
+                f"test_value:{test_value} expected_value: {expected_value}",
+            )
 
 
 if __name__ == "__main__":

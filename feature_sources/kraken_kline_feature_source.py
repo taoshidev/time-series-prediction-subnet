@@ -178,7 +178,7 @@ class KrakenKlineFeatureSource(FeatureSource):
         retries = self._retries
         success = False
         # Loop for retries
-        while True:
+        while page_sample_count > 0:
             try:
                 response = requests.get(url)
 
