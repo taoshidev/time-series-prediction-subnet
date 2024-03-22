@@ -184,12 +184,12 @@ def vali_set_weights():
             else:
                 bt.logging.info("Failed to set weights.")
             bt.logging.info("sleep for 5 mins and retry.")
-            time.sleep(300)
+            time.sleep(86400)
         except Exception:
             bt.logging.info("error setting weights.")
             traceback.print_exc()
             bt.logging.info("sleep for 5 mins and retry.")
-            time.sleep(300)
+            time.sleep(86400)
 
 
 def run_time_series_validation(vali_requests: list[BaseRequestDataClass]):
