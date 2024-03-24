@@ -12,6 +12,7 @@ from requests import JSONDecodeError
 import statistics
 import time
 from time_util import current_interval_ms, time_span_ms
+from urllib.parse import quote, urlencode
 
 
 class CoinbaseKlineField(IntEnum):
@@ -60,17 +61,23 @@ class CoinbaseKlineFeatureSource(FeatureSource):
     ):
         if source_interval_ms not in self._INTERVALS:
             raise ValueError(f"interval_ms {source_interval_ms} is not supported.")
-        query_interval = int(source_interval_ms / time_span_ms(seconds=1))
+        query_interval = str(int(source_interval_ms / time_span_ms(seconds=1)))
 
         feature_ids = list(feature_mappings.keys())
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
 
-        self._symbol = symbol
+        query_parameters = {
+            "granularity": query_interval,
+        }
+
+        symbol = quote(symbol, safe="")
+
         self._source_interval_ms = source_interval_ms
-        self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._fields = list(feature_mappings.values())
+        self._url = f"https://api.exchange.coinbase.com/products/{symbol}/candles"
+        self._query_parameters = query_parameters
         self._retries = retries
         self._logger = getLogger(self.__class__.__name__)
 
@@ -83,7 +90,7 @@ class CoinbaseKlineFeatureSource(FeatureSource):
 
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
-        for field in CoinbaseKlineField:
+        for field in self._fields:
             compaction = self._FIELD_COMPACTIONS.get(field, FeatureCompaction.LAST)
             if compaction == FeatureCompaction.LAST:
                 continue
@@ -116,31 +123,38 @@ class CoinbaseKlineFeatureSource(FeatureSource):
         _OPEN_TIME = CoinbaseKlineField.OPEN_TIME
 
         # Coinbase uses open time for queries
-        open_start_time_ms = start_time_ms - interval_ms
+        query_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        open_start_time_ms = current_interval_ms(
-            open_start_time_ms, self._source_interval_ms
+        query_start_time_ms = current_interval_ms(
+            query_start_time_ms, self._source_interval_ms
         )
 
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
+
+        query_parameters = self._query_parameters.copy()
         data_rows = []
         retries = self._retries
-        samples_left = sample_count
         # Loop for pagination
-        while True:
-            page_sample_count = min(samples_left, self._QUERY_LIMIT)
-            open_end_time_ms = open_start_time_ms + (
-                interval_ms * (page_sample_count - 1)
+        while query_start_time_ms < end_time_ms:
+            page_sample_count = (
+                end_time_ms - query_start_time_ms
+            ) / self._source_interval_ms
+            page_sample_count = int(min(page_sample_count, self._QUERY_LIMIT))
+
+            if page_sample_count < 1:
+                break
+
+            query_end_time_ms = query_start_time_ms + (
+                self._source_interval_ms * (page_sample_count - 1)
             )
 
-            query_start_time = int(open_start_time_ms / time_span_ms(seconds=1))
-            query_end_time = int(open_end_time_ms / time_span_ms(seconds=1))
+            query_start_time = int(query_start_time_ms / time_span_ms(seconds=1))
+            query_end_time = int(query_end_time_ms / time_span_ms(seconds=1))
 
-            url = (
-                f"https://api.exchange.coinbase.com/products/{self._symbol}/candles"
-                f"?granularity={self._query_interval}&start={query_start_time}"
-                f"&end={query_end_time}"
-            )
+            query_parameters["start"] = str(query_start_time)
+            query_parameters["end"] = str(query_end_time)
+            url = self._url + "?" + urlencode(query_parameters)
 
             success = False
             # Loop for retries
@@ -177,13 +191,7 @@ class CoinbaseKlineFeatureSource(FeatureSource):
                 retries -= 1
                 time.sleep(self.RETRY_DELAY)
 
-            samples_left -= page_sample_count
-            if samples_left <= 0:
-                break
-
-            open_start_time_ms = (
-                data_rows[-1][_OPEN_TIME] * time_span_ms(seconds=1)
-            ) + self._source_interval_ms
+            query_start_time_ms = query_end_time_ms + self._source_interval_ms
 
         row_count = len(data_rows)
         if row_count == 0:

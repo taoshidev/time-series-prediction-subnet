@@ -12,6 +12,7 @@ from requests import JSONDecodeError
 import statistics
 import time
 from time_util import current_interval_ms, time_span_ms
+from urllib.parse import urlencode
 
 
 class BinanceKlineField(IntEnum):
@@ -36,7 +37,8 @@ class BinanceKlineFeatureSource(FeatureSource):
 
     _QUERY_LIMIT = 1000
 
-    # Must be in ascending order
+    _URL = "https://api.binance.com/api/v3/klines"
+
     _INTERVALS = {
         time_span_ms(minutes=1): "1m",
         time_span_ms(minutes=3): "3m",
@@ -94,11 +96,16 @@ class BinanceKlineFeatureSource(FeatureSource):
         self.VALID_FEATURE_IDS = feature_ids
         super().__init__(feature_ids, feature_dtypes, default_dtype)
 
-        self._symbol = symbol
+        query_parameters = {
+            "symbol": symbol,
+            "interval": query_interval,
+            "limit": self._QUERY_LIMIT,
+        }
+
         self._source_interval_ms = source_interval_ms
-        self._query_interval = query_interval
         self._feature_mappings = feature_mappings
         self._fields = list(feature_mappings.values())
+        self._query_parameters = query_parameters
         self._retries = retries
         self._logger = getLogger(self.__class__.__name__)
 
@@ -112,10 +119,10 @@ class BinanceKlineFeatureSource(FeatureSource):
         for row in data_rows:
             self._convert_sample(row)
 
-    # TODO: Examine moving this functionality into the FeatureSource base class
+    # TODO: Examine moving this into FeatureSource base class
     def _compact_samples(self, samples: list[list]) -> list:
         result = samples[-1].copy()
-        for field in BinanceKlineField:
+        for field in self._fields:
             compaction = self._FIELD_COMPACTIONS.get(field, FeatureCompaction.LAST)
             if compaction == FeatureCompaction.LAST:
                 continue
@@ -148,28 +155,37 @@ class BinanceKlineFeatureSource(FeatureSource):
         _OPEN_TIME = BinanceKlineField.OPEN_TIME
 
         # Binance uses open time for queries
-        open_start_time_ms = start_time_ms - interval_ms
+        query_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
-        open_start_time_ms = current_interval_ms(
-            open_start_time_ms, self._source_interval_ms
+        query_start_time_ms = current_interval_ms(
+            query_start_time_ms, self._source_interval_ms
         )
 
-        open_end_time_ms = start_time_ms + (interval_ms * (sample_count - 2))
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
 
+        query_parameters = self._query_parameters.copy()
         data_rows = []
         retries = self._retries
         # Loop for pagination
-        while True:
-            url = (
-                "https://api.binance.com/api/v3/klines"
-                f"?symbol={self._symbol}&interval={self._query_interval}"
-                f"&startTime={open_start_time_ms}&endTime={open_end_time_ms}"
-                f"&limit={self._QUERY_LIMIT}"
+        while query_start_time_ms < end_time_ms:
+            page_sample_count = (
+                end_time_ms - query_start_time_ms
+            ) / self._source_interval_ms
+            page_sample_count = int(min(page_sample_count, self._QUERY_LIMIT))
+
+            if page_sample_count < 1:
+                break
+
+            query_end_time_ms = query_start_time_ms + (
+                self._source_interval_ms * (page_sample_count - 1)
             )
 
+            query_parameters["startTime"] = str(query_start_time_ms)
+            query_parameters["endTime"] = str(query_end_time_ms)
+            url = self._URL + "?" + urlencode(query_parameters)
+
             success = False
-            response_row_count = 0
             # Loop for retries
             while True:
                 try:
@@ -189,7 +205,6 @@ class BinanceKlineFeatureSource(FeatureSource):
                         )
                     else:
                         response_rows = response.json()
-                        response_row_count = len(response_rows)
                         data_rows.extend(response_rows)
                         success = True
 
@@ -208,11 +223,9 @@ class BinanceKlineFeatureSource(FeatureSource):
                 retries -= 1
                 time.sleep(self.RETRY_DELAY)
 
-            if response_row_count != self._QUERY_LIMIT:
-                break
+            query_start_time_ms = query_end_time_ms + self._source_interval_ms
 
-            open_start_time_ms = data_rows[-1][_OPEN_TIME] + self._source_interval_ms
-
+        # TODO: Examine moving the rest of this function into FeatureSource base class
         row_count = len(data_rows)
         if row_count == 0:
             raise RuntimeError("No samples received.")

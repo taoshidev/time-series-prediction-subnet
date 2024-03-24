@@ -153,14 +153,13 @@ class CoinMetricsFeatureSource(FeatureSource):
                     value = float(value)
         return value
 
-    def _convert_sample(self, sample: dict) -> dict:
-        results = {}
+    def _convert_sample(self, sample: dict) -> None:
         for metric in self._convert_metrics:
-            results[metric] = self._convert_metric(metric, sample[metric])
-        return results
+            sample[metric.value] = self._convert_metric(metric, sample[metric])
 
-    def _convert_samples(self, data_rows: list[dict]) -> list[dict]:
-        return [self._convert_sample(row) for row in data_rows]
+    def _convert_samples(self, data_rows: list[dict]) -> None:
+        for row in data_rows:
+            self._convert_sample(row)
 
     def _compact_samples(self, samples: list[dict]) -> dict:
         result = samples[-1].copy()
@@ -216,19 +215,22 @@ class CoinMetricsFeatureSource(FeatureSource):
         interval_ms: int,
         sample_count: int,
     ) -> dict[FeatureID, ndarray]:
-        query_start_time_ms = start_time_ms
+        _OPEN_TIME = CoinMetric.TIME
+
+        # Coin Metrics uses open time for queries
+        query_start_time_ms = start_time_ms - interval_ms
 
         # Align on interval so queries for 1 sample include at least 1 sample
         query_start_time_ms = current_interval_ms(
             query_start_time_ms, self._source_interval_ms
         )
 
+        end_time_ms = start_time_ms + (interval_ms * (sample_count - 1))
+
         # Times must be preformatted because Coin Metrics rejects times with
         # the ISO timezone suffix for UTC ("+00:00") and their Python
         # library doesn't format it for their preference
         start_time = datetime.fromtimestamp_ms(query_start_time_ms)
-        # TODO: Subtract 1 from sample_count?
-        end_time_ms = start_time_ms + (interval_ms * sample_count)
         end_time = datetime.fromtimestamp_ms(end_time_ms)
         start_time_string = start_time.to_iso8601_string()
         end_time_string = end_time.to_iso8601_string()
@@ -240,9 +242,7 @@ class CoinMetricsFeatureSource(FeatureSource):
         if row_count == 0:
             raise RuntimeError("No samples received.")
 
-        # TODO: Change to inplace conversion?
-        converted_samples = self._convert_samples(data_rows)
-
+        self._convert_samples(data_rows)
         feature_samples = self._create_feature_samples(sample_count)
 
         sample_time_ms = start_time_ms
@@ -252,8 +252,8 @@ class CoinMetricsFeatureSource(FeatureSource):
         compact_samples = self._compact_samples
         for sample_index in range(sample_count):
             while True:
-                row = converted_samples[row_index]
-                row_time_ms = row[CoinMetric.TIME]
+                row = data_rows[row_index]
+                row_time_ms = row[_OPEN_TIME] + self._source_interval_ms
                 if row_time_ms > sample_time_ms:
                     break
                 interval_rows.append(row)
